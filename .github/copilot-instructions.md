@@ -1,0 +1,10 @@
+# Temporary Setup Checklist (Will be cleaned up later)
+- [x] Clarify Project Requirements (bare bones repo requested)
+- [x] Scaffold the Project (basic files added)
+- [x] Customize the Project (not needed yet)
+- [x] Install Required Extensions (none needed)
+- [x] Compile the Project (nothing to compile)
+- [x] Create and Run Task (not required yet)
+- [x] Launch the Project (nothing to launch)
+- [x] Ensure Documentation is Complete (initial docs present)
+
