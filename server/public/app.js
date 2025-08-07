@@ -8,6 +8,9 @@
   }
   function showNotification(data){
     notificationEl.textContent = data.message;
+    notificationEl.dataset.level = data.level || 'info';
+    notificationEl.className = ''; // reset
+    notificationEl.classList.add(data.level || 'info');
     notificationEl.classList.remove('hidden');
     if (data.duration) {
       setTimeout(()=>{
@@ -20,6 +23,9 @@
   });
   socket.on('content:update', payload => {
     setContent(payload.content || '');
+    if (payload.template) {
+      document.title = `hdisplay - ${payload.template.id}`;
+    }
   });
   socket.on('notification', payload => {
     showNotification(payload);

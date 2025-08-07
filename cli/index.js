@@ -53,11 +53,13 @@ program.command('set <html...>')
 
 program.command('notify <message...>')
   .option('-d, --duration <ms>', 'Duration ms', '5000')
+  .option('-l, --level <level>', 'Level info|warn|error|success', 'info')
   .description('Send a notification overlay')
   .action( async (msgParts, opts)=>{
     const message = msgParts.join(' ');
     const duration = parseInt(opts.duration,10)||5000;
-    try { await api('/api/notification','post',{ message, duration }); console.log(chalk.green('Notification sent')); }
+    const level = opts.level;
+    try { await api('/api/notification','post',{ message, duration, level }); console.log(chalk.green('Notification sent')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); }
   });
 
@@ -65,6 +67,26 @@ program.command('clear')
   .description('Clear content & notification')
   .action(async ()=>{
     try { await api('/api/clear','post'); console.log(chalk.green('Display cleared')); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); }
+  });
+
+program.command('templates')
+  .description('List available templates')
+  .action(async ()=>{
+    try { const data = await api('/api/templates');
+      data.templates.forEach(t=> console.log(chalk.cyan(t.id), '-', t.placeholders.join(', ') || '(no vars)'));
+    } catch(e){ console.error(chalk.red('Error:'), e.message); }
+  });
+
+program.command('template <id>')
+  .description('Apply a template with optional JSON data: --data "{\"key\":\"value\"}"')
+  .option('--data <json>', 'JSON data for placeholders')
+  .action(async (id, opts)=>{
+    let dataPayload = {};
+    if (opts.data) {
+      try { dataPayload = JSON.parse(opts.data); } catch { return console.error(chalk.red('Error:'), 'Invalid JSON for --data'); }
+    }
+    try { await api(`/api/template/${id}`, 'post', { data: dataPayload }); console.log(chalk.green('Template applied'), id); }
     catch(e){ console.error(chalk.red('Error:'), e.message); }
   });
 
