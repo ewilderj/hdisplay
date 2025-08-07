@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 const { Command } = require('commander');
 const axios = require('axios');
-const chalk = require('chalk');
+// Normalize chalk import for ESM-only v5 (require returns { default: chalkFn })
+const chalkImport = require('chalk');
+const chalk = chalkImport.default || chalkImport;
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
