@@ -7,6 +7,7 @@ const chalk = chalkImport.default || chalkImport;
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const discover = require('./commands/discover');
 
 const ALLOWED_LEVELS = new Set(['info','warn','error','success']);
 
@@ -127,6 +128,23 @@ program.command('clear')
   .action(async ()=>{
     try { await api('/api/clear','post'); console.log(chalk.green('Display cleared')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('discover')
+  .description('Discover hdisplay servers via mDNS and optionally set config')
+  .option('--set', 'Set config to first discovered server')
+  .option('--timeout <ms>', 'Scan duration in ms', '2000')
+  .action(async (opts)=>{
+    try {
+      const list = await discover(parseInt(opts.timeout,10)||2000);
+      if (!list.length) { console.log(chalk.yellow('No hdisplay servers found on the network.')); return; }
+      if (opts.set) {
+        const cfg = loadConfig();
+        cfg.server = list[0].url;
+        saveConfig(cfg);
+        console.log(chalk.green('Configured server:'), cfg.server);
+      }
+    } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
 program.parse(process.argv);
