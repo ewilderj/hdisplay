@@ -253,12 +253,23 @@ program.command('show:carousel')
   });
 
 program.command('show:marquee')
-  .description('Display animated scrolling text. Usage: --text "Hello" --speed 12')
+  .description('Display animated scrolling text. Usage: --text "Hello" [--velocity 120] (px/s) or legacy --speed 12 (seconds)')
   .option('--text <text>', 'Text to scroll')
-  .option('--speed <seconds>', 'Animation duration in seconds', '12')
+  .option('--velocity <pxPerSec>', 'Scroll velocity in pixels/second (higher = faster)')
+  .option('--speed <seconds>', 'Legacy: duration in seconds per loop')
   .action(async (opts)=>{
     if (!opts.text) { console.error(chalk.red('Error: --text required')); process.exitCode = 1; return; }
-    try { await api('/api/template/animated-text','post',{ data: { text: opts.text, speed: Number(opts.speed)||12 } }); console.log(chalk.green('Marquee displayed')); }
+    const payload = { text: opts.text };
+    if (opts.velocity !== undefined) {
+      const v = Number(opts.velocity);
+      if (!Number.isFinite(v) || v <= 0) { console.error(chalk.red('Error: --velocity must be a positive number')); process.exitCode = 1; return; }
+      payload.velocity = v;
+    } else if (opts.speed !== undefined) {
+      const s = Number(opts.speed);
+      if (!Number.isFinite(s) || s <= 0) { console.error(chalk.red('Error: --speed must be a positive number')); process.exitCode = 1; return; }
+      payload.speed = s;
+    }
+    try { await api('/api/template/animated-text','post',{ data: payload }); console.log(chalk.green('Marquee displayed')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
