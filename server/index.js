@@ -36,21 +36,44 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
+// Memory storage for ephemeral pushes
+const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
-// Utility functions
-function listTemplateFiles() {
-  try { return fs.readdirSync(TEMPLATES_DIR).filter(f=>f.endsWith('.html')); } catch { return []; }
+// Ephemeral store served from memory (no disk persistence)
+const crypto = require('crypto');
+const EPHEMERAL_TTL_MS = Number(process.env.HDS_EPHEMERAL_TTL_MS || 10 * 60 * 1000);
+const ephemeralStore = new Map(); // id -> { buffer, contentType, createdAt }
+
+app.get('/ephemeral/:id', (req, res) => {
+  const item = ephemeralStore.get(req.params.id);
+  if (!item) return res.status(404).end();
+  res.setHeader('Content-Type', item.contentType || 'application/octet-stream');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(item.buffer);
+});
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, v] of ephemeralStore.entries()) {
+    if ((now - v.createdAt) > EPHEMERAL_TTL_MS) ephemeralStore.delete(id);
+  }
+}, Math.min(EPHEMERAL_TTL_MS, 60 * 1000)).unref();
+
+function sanitizeName(name) {
+  return String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
-function parseTemplatePlaceholders(content) {
-  const vars = new Set();
-  const re = /{{\s*([a-zA-Z0-9_\.]+)\s*}}/g; let m; while((m=re.exec(content))){ vars.add(m[1]); }
-  return Array.from(vars);
+
+function setImageContentURL(url) {
+  const html = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>`;
+  state.content = html;
+  state.updatedAt = new Date().toISOString();
+  io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
 }
-function renderTemplate(content, data={}) {
-  return content.replace(/{{\s*([a-zA-Z0-9_\.]+)\s*}}/g, (_, key) => {
-    const val = key.split('.').reduce((o,k)=> (o && typeof o === 'object') ? o[k] : undefined, data);
-    return (val === undefined || val === null) ? '' : String(val);
-  });
+function setVideoContentURL(url) {
+  const html = `<video src="${url}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;background:#000"></video>`;
+  state.content = html;
+  state.updatedAt = new Date().toISOString();
+  io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
 }
 
 // API routes
@@ -140,6 +163,48 @@ app.delete('/api/uploads/:name', (req, res) => {
   if (!fs.existsSync(full)) return res.status(404).json({ error: 'not found' });
   fs.unlinkSync(full);
   res.json({ ok: true });
+});
+
+// Push image without requiring persistence: accepts multipart 'file' or JSON body with 'url'
+app.post('/api/push/image', memUpload.single('file'), (req, res) => {
+  const persist = String(req.query.persist ?? req.body?.persist ?? 'false') === 'true';
+  let url = req.body && req.body.url;
+  if (!url && req.file) {
+    if (persist) {
+      const filename = `${Date.now()}_${sanitizeName(req.file.originalname)}`;
+      const full = path.join(UPLOADS_DIR, filename);
+      fs.writeFileSync(full, req.file.buffer);
+      url = `/uploads/${filename}`;
+    } else {
+      const id = crypto.randomUUID();
+      ephemeralStore.set(id, { buffer: req.file.buffer, contentType: req.file.mimetype, createdAt: Date.now() });
+      url = `/ephemeral/${id}`;
+    }
+  }
+  if (!url) return res.status(400).json({ error: 'file or url required' });
+  setImageContentURL(url);
+  res.json({ ok: true, url });
+});
+
+// Push video without requiring persistence: accepts multipart 'file' or JSON body with 'url'
+app.post('/api/push/video', memUpload.single('file'), (req, res) => {
+  const persist = String(req.query.persist ?? req.body?.persist ?? 'false') === 'true';
+  let url = req.body && req.body.url;
+  if (!url && req.file) {
+    if (persist) {
+      const filename = `${Date.now()}_${sanitizeName(req.file.originalname)}`;
+      const full = path.join(UPLOADS_DIR, filename);
+      fs.writeFileSync(full, req.file.buffer);
+      url = `/uploads/${filename}`;
+    } else {
+      const id = crypto.randomUUID();
+      ephemeralStore.set(id, { buffer: req.file.buffer, contentType: req.file.mimetype, createdAt: Date.now() });
+      url = `/ephemeral/${id}`;
+    }
+  }
+  if (!url) return res.status(400).json({ error: 'file or url required' });
+  setVideoContentURL(url);
+  res.json({ ok: true, url });
 });
 
 // Create server and io, but do not listen unless run directly

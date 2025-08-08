@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 const discover = require('./commands/discover');
 const FormData = require('form-data');
+const axiosLib = axios; // alias
 
 const ALLOWED_LEVELS = new Set(['info','warn','error','success']);
 
@@ -56,6 +57,24 @@ async function uploadFile(filePath) {
   const headers = form.getHeaders();
   const resp = await axios.post(url, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity });
   return resp.data;
+}
+
+async function pushMedia(endpoint, { file, url, persist }) {
+  const cfg = loadConfig();
+  const base = cfg.server.replace(/\/$/, '');
+  const target = `${base}${endpoint}?persist=${persist ? 'true' : 'false'}`;
+  if (file) {
+    const form = new FormData();
+    form.append('file', fs.createReadStream(file));
+    const headers = form.getHeaders();
+    const res = await axiosLib.post(target, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity });
+    return res.data;
+  }
+  if (url) {
+    const res = await axiosLib.post(target, { url, persist: !!persist });
+    return res.data;
+  }
+  throw new Error('file or url required');
 }
 
 program.command('config')
@@ -196,6 +215,28 @@ program.command('show:video <url>')
   .action(async (url)=>{
     const html = `<video src="${url}" autoplay muted loop style="width:100%;height:100%;object-fit:cover;background:#000"></video>`;
     try { await api('/api/content','post',{ content: html }); console.log(chalk.green('Displaying video'), url); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('push:image')
+  .description('Push an image (file or URL) and display immediately')
+  .option('-f, --file <path>', 'Local file path to upload and display')
+  .option('-u, --url <url>', 'Remote URL to display')
+  .option('-p, --persist', 'Persist file to /uploads (if using --file)')
+  .action(async (opts)=>{
+    if (!opts.file && !opts.url) { console.error(chalk.red('Error: --file or --url required')); process.exitCode = 1; return; }
+    try { const res = await pushMedia('/api/push/image', opts); console.log(chalk.green('Image displayed at'), res.url); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('push:video')
+  .description('Push a video (file or URL) and display immediately')
+  .option('-f, --file <path>', 'Local file path to upload and display')
+  .option('-u, --url <url>', 'Remote URL to display')
+  .option('-p, --persist', 'Persist file to /uploads (if using --file)')
+  .action(async (opts)=>{
+    if (!opts.file && !opts.url) { console.error(chalk.red('Error: --file or --url required')); process.exitCode = 1; return; }
+    try { const res = await pushMedia('/api/push/video', opts); console.log(chalk.green('Video displayed at'), res.url); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
