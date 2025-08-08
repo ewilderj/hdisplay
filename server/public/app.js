@@ -3,15 +3,26 @@
   const notificationEl = document.getElementById('notification');
   const socket = io({ path: '/socket.io' });
 
+  function executeScripts(container){
+    const scripts = container.querySelectorAll('script');
+    scripts.forEach(oldScript => {
+      const newScript = document.createElement('script');
+      // copy attributes
+      for (const { name, value } of Array.from(oldScript.attributes)) newScript.setAttribute(name, value);
+      newScript.text = oldScript.textContent;
+      oldScript.replaceWith(newScript);
+    });
+  }
+
   function setContent(html){
     root.innerHTML = html;
+    executeScripts(root);
   }
   function showNotification(data){
     notificationEl.textContent = data.message;
     notificationEl.dataset.level = data.level || 'info';
-    notificationEl.className = ''; // reset
+    notificationEl.className = '';
     notificationEl.classList.add(data.level || 'info');
-    notificationEl.classList.remove('hidden');
     if (data.duration) {
       setTimeout(()=>{
         notificationEl.classList.add('hidden');

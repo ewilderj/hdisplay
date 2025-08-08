@@ -1,0 +1,48 @@
+<style>
+  .carousel { position:relative; width:100%; height:100%; background:#000; overflow:hidden; }
+  .carousel img, .carousel video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0; transition: opacity 1s ease-in-out; }
+  .carousel img.active, .carousel video.active { opacity:1; }
+  .indicator { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.4); }
+  .dot.active { background:#fff; }
+</style>
+<div class="carousel" id="carousel-root"></div>
+<div class="indicator" id="carousel-indicator"></div>
+<script>
+(function(){
+  const items = JSON.parse(String.raw`{{ items }}` || '[]');
+  const duration = Number(String.raw`{{ duration }}` || 4000);
+  const root = document.getElementById('carousel-root');
+  const indicator = document.getElementById('carousel-indicator');
+  if (!Array.isArray(items) || items.length === 0) {
+    root.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">No items</div>';
+    return;
+  }
+  const nodes = items.map(url => {
+    let el;
+    if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
+      el = document.createElement('video');
+      el.src = url; el.autoplay = false; el.muted = true; el.loop = true; el.playsInline = true;
+    } else {
+      el = document.createElement('img');
+      el.src = url;
+    }
+    root.appendChild(el);
+    return el;
+  });
+  const dots = items.map(()=> {
+    const d = document.createElement('div'); d.className = 'dot'; indicator.appendChild(d); return d;
+  });
+  let i = -1;
+  function show(next){
+    nodes.forEach(n => n.classList.remove('active')); dots.forEach(d => d.classList.remove('active'));
+    const n = nodes[next]; const d = dots[next];
+    if (n.tagName === 'VIDEO') { try { n.currentTime = 0; n.play().catch(()=>{}); } catch {} }
+    n.classList.add('active'); d.classList.add('active');
+    i = next;
+  }
+  function tick(){ show((i+1) % nodes.length); }
+  tick();
+  setInterval(tick, duration);
+})();
+</script>

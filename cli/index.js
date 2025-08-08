@@ -240,4 +240,26 @@ program.command('push:video')
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
+program.command('show:carousel')
+  .description('Display a carousel of URLs (images/videos). Usage: --items "[\"url1\",\"url2\"]" --duration 4000')
+  .option('--items <json>', 'JSON array of URLs')
+  .option('--duration <ms>', 'Slide duration in ms', '4000')
+  .action(async (opts)=>{
+    if (!opts.items) { console.error(chalk.red('Error: --items JSON array required')); process.exitCode = 1; return; }
+    let items;
+    try { items = JSON.parse(opts.items); } catch { console.error(chalk.red('Error: invalid JSON for --items')); process.exitCode = 1; return; }
+    try { await api('/api/template/carousel','post',{ data: { items, duration: Number(opts.duration)||4000 } }); console.log(chalk.green('Carousel displayed')); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('show:marquee')
+  .description('Display animated scrolling text. Usage: --text "Hello" --speed 12')
+  .option('--text <text>', 'Text to scroll')
+  .option('--speed <seconds>', 'Animation duration in seconds', '12')
+  .action(async (opts)=>{
+    if (!opts.text) { console.error(chalk.red('Error: --text required')); process.exitCode = 1; return; }
+    try { await api('/api/template/animated-text','post',{ data: { text: opts.text, speed: Number(opts.speed)||12 } }); console.log(chalk.green('Marquee displayed')); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
 program.parse(process.argv);

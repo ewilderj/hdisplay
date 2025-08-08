@@ -76,6 +76,18 @@ function setVideoContentURL(url) {
   io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
 }
 
+// Render template
+function renderTemplate(content, data={}) {
+  return content.replace(/{{\s*([a-zA-Z0-9_\.]+)\s*}}/g, (_, key) => {
+    const val = key.split('.').reduce((o,k)=> (o && typeof o === 'object') ? o[k] : undefined, data);
+    if (val === undefined || val === null) return '';
+    if (typeof val === 'object') {
+      try { return JSON.stringify(val); } catch { return ''; }
+    }
+    return String(val);
+  });
+}
+
 // API routes
 app.get('/api/status', (req, res) => {
   res.json({
