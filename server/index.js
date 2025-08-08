@@ -4,6 +4,7 @@ const fs = require('fs');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const Bonjour = require('bonjour-service');
 
 const PORT = process.env.PORT || 3000;
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
@@ -119,6 +120,29 @@ io.on('connection', (socket) => {
   if (state.notification) socket.emit('notification', state.notification);
 });
 
+const bonjour = new Bonjour();
+let bonjourService;
+
 server.listen(PORT, () => {
   console.log(`[hdisplay] server listening on :${PORT}`);
+  // Advertise _hdisplay._tcp for discovery
+  try {
+    bonjourService = bonjour.publish({ name: `hdisplay@${require('os').hostname()}`, type: 'hdisplay', port: Number(PORT), txt: { version: '0.1.0' } });
+    bonjourService.start();
+    console.log('[hdisplay] mDNS service published: _hdisplay._tcp');
+  } catch (e) {
+    console.warn('[hdisplay] mDNS publish failed:', e.message);
+  }
 });
+
+function shutdown() {
+  console.log('\n[hdisplay] shutting down...');
+  if (bonjourService) {
+    try { bonjourService.stop(); } catch {}
+  }
+  try { bonjour.destroy(); } catch {}
+  server.close(()=> process.exit(0));
+  setTimeout(()=> process.exit(0), 1000).unref();
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
