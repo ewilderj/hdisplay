@@ -5,9 +5,12 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const Bonjour = require('bonjour-service');
+const multer = require('multer');
 
 const PORT = process.env.PORT || 3000;
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // In-memory state
 const state = {
@@ -18,20 +21,36 @@ const state = {
 };
 
 const app = express();
-app.use(express.json({ limit: '256kb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 // Serve static assets
 app.use('/', express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(UPLOADS_DIR, { fallthrough: true }));
 
+// Multer storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) { cb(null, UPLOADS_DIR); },
+  filename: function (req, file, cb) {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}_${safe}`);
+  }
+});
+const upload = multer({ storage });
+
+// List template files
 function listTemplateFiles() {
   try { return fs.readdirSync(TEMPLATES_DIR).filter(f=>f.endsWith('.html')); } catch { return []; }
 }
+
+// Parse template placeholders
 function parseTemplatePlaceholders(content) {
   const vars = new Set();
   const re = /{{\s*([a-zA-Z0-9_\.]+)\s*}}/g; let m; while((m=re.exec(content))){ vars.add(m[1]); }
   return Array.from(vars);
 }
+
+// Render template
 function renderTemplate(content, data={}) {
   return content.replace(/{{\s*([a-zA-Z0-9_\.]+)\s*}}/g, (_, key) => {
     const val = key.split('.').reduce((o,k)=> (o && typeof o === 'object') ? o[k] : undefined, data);
@@ -107,9 +126,25 @@ app.post('/api/clear', (req, res) => {
   res.json({ ok: true });
 });
 
-// Placeholder widgets route
-app.get('/api/widgets', (req, res) => {
-  res.json({ widgets: [] });
+// Upload endpoints
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'file field required' });
+  const url = `/uploads/${req.file.filename}`;
+  res.json({ ok: true, file: { name: req.file.originalname, url, size: req.file.size, type: req.file.mimetype } });
+});
+
+app.get('/api/uploads', (req, res) => {
+  const files = fs.readdirSync(UPLOADS_DIR).map(name => ({ name, url: `/uploads/${name}` }));
+  res.json({ files });
+});
+
+app.delete('/api/uploads/:name', (req, res) => {
+  const name = req.params.name;
+  const full = path.join(UPLOADS_DIR, name);
+  if (!full.startsWith(UPLOADS_DIR)) return res.status(400).json({ error: 'invalid path' });
+  if (!fs.existsSync(full)) return res.status(404).json({ error: 'not found' });
+  fs.unlinkSync(full);
+  res.json({ ok: true });
 });
 
 const server = http.createServer(app);

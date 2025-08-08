@@ -8,6 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const discover = require('./commands/discover');
+const FormData = require('form-data');
 
 const ALLOWED_LEVELS = new Set(['info','warn','error','success']);
 
@@ -45,6 +46,16 @@ async function api(pathname, method='get', data) {
     }
     throw e;
   }
+}
+
+async function uploadFile(filePath) {
+  const cfg = loadConfig();
+  const url = cfg.server.replace(/\/$/, '') + '/api/upload';
+  const form = new FormData();
+  form.append('file', fs.createReadStream(filePath));
+  const headers = form.getHeaders();
+  const resp = await axios.post(url, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity });
+  return resp.data;
 }
 
 program.command('config')
@@ -145,6 +156,47 @@ program.command('discover')
         console.log(chalk.green('Configured server:'), cfg.server);
       }
     } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('assets:upload <file>')
+  .description('Upload an asset and return its URL')
+  .action(async (file)=>{
+    if (!fs.existsSync(file)) { console.error(chalk.red('Error: file not found'), file); process.exitCode = 1; return; }
+    try {
+      const res = await uploadFile(file);
+      console.log(chalk.green('Uploaded:'), res.file.url);
+    } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('assets:list')
+  .description('List uploaded assets')
+  .action(async ()=>{
+    try { const data = await api('/api/uploads');
+      data.files.forEach(f => console.log(f.url));
+    } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('assets:delete <name>')
+  .description('Delete an uploaded asset by filename')
+  .action(async (name)=>{
+    try { await api(`/api/uploads/${encodeURIComponent(name)}`, 'delete'); console.log(chalk.green('Deleted'), name); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('show:image <url>')
+  .description('Set content to display an image URL')
+  .action(async (url)=>{
+    const html = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>`;
+    try { await api('/api/content','post',{ content: html }); console.log(chalk.green('Displaying image'), url); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('show:video <url>')
+  .description('Set content to display a video URL (autoplay, muted, loop)')
+  .action(async (url)=>{
+    const html = `<video src="${url}" autoplay muted loop style="width:100%;height:100%;object-fit:cover;background:#000"></video>`;
+    try { await api('/api/content','post',{ content: html }); console.log(chalk.green('Displaying video'), url); }
+    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
 program.parse(process.argv);
