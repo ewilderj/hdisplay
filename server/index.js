@@ -4,12 +4,10 @@ const fs = require('fs');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const Bonjour = require('bonjour-service');
-const multer = require('multer');
 
 const PORT = process.env.PORT || 3000;
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+const UPLOADS_DIR = process.env.HDS_UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // In-memory state
@@ -29,6 +27,7 @@ app.use('/', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(UPLOADS_DIR, { fallthrough: true }));
 
 // Multer storage
+const multer = require('multer');
 const storage = multer.diskStorage({
   destination: function (req, file, cb) { cb(null, UPLOADS_DIR); },
   filename: function (req, file, cb) {
@@ -38,19 +37,15 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// List template files
+// Utility functions
 function listTemplateFiles() {
   try { return fs.readdirSync(TEMPLATES_DIR).filter(f=>f.endsWith('.html')); } catch { return []; }
 }
-
-// Parse template placeholders
 function parseTemplatePlaceholders(content) {
   const vars = new Set();
   const re = /{{\s*([a-zA-Z0-9_\.]+)\s*}}/g; let m; while((m=re.exec(content))){ vars.add(m[1]); }
   return Array.from(vars);
 }
-
-// Render template
 function renderTemplate(content, data={}) {
   return content.replace(/{{\s*([a-zA-Z0-9_\.]+)\s*}}/g, (_, key) => {
     const val = key.split('.').reduce((o,k)=> (o && typeof o === 'object') ? o[k] : undefined, data);
@@ -147,6 +142,7 @@ app.delete('/api/uploads/:name', (req, res) => {
   res.json({ ok: true });
 });
 
+// Create server and io, but do not listen unless run directly
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
@@ -155,29 +151,33 @@ io.on('connection', (socket) => {
   if (state.notification) socket.emit('notification', state.notification);
 });
 
-const bonjour = new Bonjour();
-let bonjourService;
+if (require.main === module) {
+  // Lazy-require bonjour to avoid import issues in tests
+  const BonjourModule = require('bonjour-service');
+  const Bonjour = (BonjourModule && (BonjourModule.default || BonjourModule.Bonjour)) || BonjourModule;
+  const bonjour = new Bonjour();
+  let bonjourService;
 
-server.listen(PORT, () => {
-  console.log(`[hdisplay] server listening on :${PORT}`);
-  // Advertise _hdisplay._tcp for discovery
-  try {
-    bonjourService = bonjour.publish({ name: `hdisplay@${require('os').hostname()}`, type: 'hdisplay', port: Number(PORT), txt: { version: '0.1.0' } });
-    bonjourService.start();
-    console.log('[hdisplay] mDNS service published: _hdisplay._tcp');
-  } catch (e) {
-    console.warn('[hdisplay] mDNS publish failed:', e.message);
-  }
-});
+  server.listen(PORT, () => {
+    console.log(`[hdisplay] server listening on :${PORT}`);
+    try {
+      bonjourService = bonjour.publish({ name: `hdisplay@${require('os').hostname()}`, type: 'hdisplay', port: Number(PORT), txt: { version: '0.1.0' } });
+      bonjourService.start();
+      console.log('[hdisplay] mDNS service published: _hdisplay._tcp');
+    } catch (e) {
+      console.warn('[hdisplay] mDNS publish failed:', e.message);
+    }
+  });
 
-function shutdown() {
-  console.log('\n[hdisplay] shutting down...');
-  if (bonjourService) {
-    try { bonjourService.stop(); } catch {}
+  function shutdown() {
+    console.log('\n[hdisplay] shutting down...');
+    if (bonjourService) { try { bonjourService.stop(); } catch {} }
+    try { bonjour.destroy(); } catch {}
+    server.close(()=> process.exit(0));
+    setTimeout(()=> process.exit(0), 1000).unref();
   }
-  try { bonjour.destroy(); } catch {}
-  server.close(()=> process.exit(0));
-  setTimeout(()=> process.exit(0), 1000).unref();
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+
+module.exports = { app, UPLOADS_DIR };
