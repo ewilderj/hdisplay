@@ -54,6 +54,62 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
   WS   /socket             # WebSocket connection
   ```
 
+### Playlist (Templates Rotation)
+
+Goal: Allow a configurable playlist (runlist) of templates that the server rotates through automatically with a smooth transition. Default dwell per item is 20 seconds. Adding/removing items is possible via CLI/API. Legacy template activations remain supported and temporarily override the playlist.
+
+Behavior
+- Playlist is an ordered list of items: `{ id, data? }` referencing files in `templates/` with optional data payloads.
+- Rotation:
+   - If playlist has ≥ 2 items: rotate sequentially, each displayed for `delayMs` (default 20000 ms).
+   - If playlist has exactly 1 item: render it and do not rotate/restart the same item.
+   - If playlist is empty: do nothing; whatever content/template was last set via legacy methods remains until changed.
+- Legacy override: Any template applied via existing methods (`POST /api/template/:id`, CLI `hdisplay template ...`, `set`, `show:*`, `push:*`) will
+   - Immediately interrupt the current playlist item (playlist is retained in memory/persistence).
+   - Remain on-screen for exactly `delayMs` (use current playlist delay), then the playlist resumes from the next item (wrap to start if at end).
+   - If the playlist is empty, the override remains indefinitely (preserves legacy behavior).
+- Transition: Crossfade between items (default 500 ms) implemented client-side. Outgoing content fades out while incoming fades in; swap occurs at fade start to avoid flicker. Transition duration should not reduce the effective dwell by more than 10% of `delayMs`.
+
+State model (server)
+- Persisted in `data/state.json` with existing fields:
+   ```
+   {
+      ...,
+      "playlist": {
+         "delayMs": number,          // default 20000, min 2000, max 300000
+         "items": [ { "id": string, "data"?: object } ],
+         "active": boolean           // derived: true when items.length > 0
+      }
+   }
+   ```
+- Internal timers control dwell and are reset on playlist changes or overrides; timers should be `unref()` where appropriate.
+
+Events (WebSocket)
+- `playlist:update` – emitted on add/remove/clear/delay change.
+- `content:update` – continues to fire on every playlist advance or override, as today.
+
+API (sketch)
+- `GET  /api/playlist` → `{ delayMs, items: [{id,data?}], active }`
+- `PUT  /api/playlist` → replace entire playlist; body `{ delayMs?, items? }` (validates item ids + data via per-template validators)
+- `POST /api/playlist/items` → append `{ id, data? }` (404 on unknown id; 400 on invalid data)
+- `DELETE /api/playlist/items/:index` → remove by position
+- `DELETE /api/playlist/items/by-id/:id` → remove first matching id
+- `POST /api/playlist/delay` → body `{ delayMs }` clamped to [2000, 300000]
+
+Edge cases
+- Unknown template id → reject add/update with 404.
+- Invalid data per validator → 400 with validator error.
+- Template removed from disk → skip at runtime with warning; continue to next item.
+- Empty playlist + override → override remains (legacy preserved).
+- Single-item playlist → no self-rotation.
+- Concurrent updates → last-writer-wins; dwell timer restarts.
+
+Testing (high level)
+- API correctness for list/add/remove/clear/delay with validation.
+- Rotation: 1 item stays; 2+ items rotate at ~`delayMs` and emit updates.
+- Override pauses rotation for `delayMs`, then resumes at next item.
+- Client crossfade smoke test (opacity over ~500 ms) with correct content swap.
+
 ### CLI Tool
 - **Commands**:
   ```bash
@@ -81,6 +137,13 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
 
    # Discovery
    hdisplay discover [--set] [--timeout <ms>] [--json] [--non-interactive]
+
+   # Playlist controls
+   hdisplay playlist:list                              # Show playlist items and delay
+   hdisplay playlist:add <id> [--data <json>|--data-file <path>]   # Append entry
+   hdisplay playlist:remove <index|id>                 # Remove by position or first matching id
+   hdisplay playlist:clear                             # Remove all items
+   hdisplay playlist:delay <ms>                        # Set dwell per item (2000–300000)
   ```
 
 #### Global Options and UX

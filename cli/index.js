@@ -341,4 +341,78 @@ program.command('show:marquee')
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
+// Playlist commands
+program.command('playlist:list')
+  .description('Show current playlist and delay')
+  .action(async ()=>{
+    try {
+      const data = await api('/api/playlist');
+      console.log(chalk.cyan('delayMs:'), data.delayMs);
+      if (!data.items || data.items.length === 0) { console.log('(empty)'); return; }
+      data.items.forEach((it, i) => console.log(`[${i}]`, it.id, it.data ? JSON.stringify(it.data) : ''));
+    } catch(e) { console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('playlist:add <id>')
+  .description('Append an item to the playlist')
+  .option('--data <json>', 'Inline JSON data (or --data - to read from stdin)')
+  .option('--data-file <path>', 'Path to JSON file')
+  .action(async (id, opts)=>{
+    let dataPayload = {};
+    try {
+      if (opts.dataFile) {
+        const raw = fs.readFileSync(String(opts.dataFile), 'utf8');
+        dataPayload = JSON.parse(raw);
+      } else if (opts.data === '-') {
+        const raw = await readStdin();
+        dataPayload = raw ? JSON.parse(raw) : {};
+      } else if (opts.data) {
+        dataPayload = JSON.parse(opts.data);
+      }
+    } catch {
+      console.error(chalk.red('Error: Invalid JSON for --data/--data-file/stdin'));
+      process.exitCode = 1; return;
+    }
+    try {
+      const res = await api('/api/playlist/items','post',{ id, data: dataPayload });
+      successLog(chalk.green('Added to playlist at index'), res.index);
+    } catch(e) { console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('playlist:remove <indexOrId>')
+  .description('Remove a playlist item by index or by id (first match)')
+  .action(async (indexOrId)=>{
+    try {
+      const n = Number(indexOrId);
+      if (Number.isInteger(n)) {
+        await api(`/api/playlist/items/${n}`, 'delete');
+        successLog(chalk.green('Removed index'), n);
+      } else {
+        await api(`/api/playlist/items/by-id/${encodeURIComponent(indexOrId)}`, 'delete');
+        successLog(chalk.green('Removed id'), indexOrId);
+      }
+    } catch(e) { console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('playlist:clear')
+  .description('Clear all playlist items')
+  .action(async ()=>{
+    try {
+      // Replace playlist with empty list
+      await api('/api/playlist','put',{ items: [] });
+      successLog(chalk.green('Playlist cleared'));
+    } catch(e) { console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
+program.command('playlist:delay <ms>')
+  .description('Set dwell per item (2000–300000 ms)')
+  .action(async (ms)=>{
+    const n = Number(ms);
+    if (!Number.isFinite(n) || n <= 0) { console.error(chalk.red('Error: ms must be a positive integer')); process.exitCode = 1; return; }
+    try {
+      const res = await api('/api/playlist/delay','post',{ delayMs: n });
+      successLog(chalk.green('delayMs set to'), res.delayMs);
+    } catch(e) { console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
+  });
+
 program.parse(process.argv);
