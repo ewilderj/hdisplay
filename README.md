@@ -10,6 +10,8 @@ A lightweight display system for a 1280×400 USB monitor (or any browser) with a
   - Animated scrolling text (velocity-based)
   - Image/video carousel with fade transitions (uploads and URLs)
   - Message banner (title/subtitle)
+  - Snake (auto-play, ambient)
+  - TimeLeft (meeting minutes remaining)
 - Assets & media:
   - Upload/download/delete files under `/uploads`
   - Push image/video from file or URL and display immediately (ephemeral, no disk write unless requested)
@@ -79,6 +81,20 @@ Notes:
 - CLI
   - node cli/index.js template message-banner --data '{"title":"hdisplay","subtitle":"example banner"}'
 
+### Snake (auto-play)
+- CLI
+  - node cli/index.js template snake --data '{"cellSize":20,"tickMs":100}'
+- Notes
+  - Auto-plays with safe pathing; optional wrap mode via data `{ "wrap": true }`.
+
+### TimeLeft (meeting countdown)
+- CLI
+  - node cli/index.js template timeleft --data '{"minutes":15,"label":"Time left"}'
+  - node cli/index.js template timeleft --data '{"minutes":135,"label":"Time left","theme":{"labelColor":"#fff"}}'
+- Rules
+  - >90 minutes shows `Hh Mm`; otherwise `Xm`
+  - Color thresholds: >8 green, >4 amber, ≤4 red (value only); label uses `theme.labelColor` (default white)
+
 ## Assets & Media
 ### Upload and show
 - Upload a file (returns a URL under `/uploads/...`)
@@ -129,6 +145,18 @@ On the Pi:
 - curl -sSL https://raw.githubusercontent.com/ewilderj/hdisplay/main/scripts/setup-pi.sh | bash
 
 This installs Node.js and Chromium, sets up the server as a systemd service, and configures Chromium to auto-launch in kiosk mode pointing at http://localhost:3000.
+
+## Run with Docker
+
+Build and run:
+- docker build -t hdisplay .
+- docker run --rm -p 3000:3000 \
+  -v $(pwd)/uploads:/app/uploads \
+  -v $(pwd)/data:/app/data \
+  --name hdisplay hdisplay
+
+Or with docker-compose (see docker-compose.yml):
+- docker compose up --build
 
 ## Configuration
 Environment variables:
