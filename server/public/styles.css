@@ -8,6 +8,14 @@ html, body {
   font-family: system-ui, sans-serif;
   overflow: hidden;
 }
+/* Optional bundled dot-matrix font */
+@font-face {
+  font-family: 'Dot Matrix';
+  src: url('/fonts/Doto_Rounded-SemiBold.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 #root {
   display: flex;
   align-items: center;

@@ -264,3 +264,58 @@ Success Criteria
 - Never freezes or self-collides while in fallback traversal.
 - Continuous motion with stable CPU on Pi (<30% during updates).
 - Template loads with no external dependencies and recovers after resize.
+
+### TimeLeft (meeting countdown)
+
+Goal: Provide a friendly, high-visibility reminder showing how much time remains in the current meeting. The client sends the time left in minutes; minutes-only display with simple color coding.
+
+ID: timeleft
+
+Type: Template (HTML + CSS + JS, lightweight; no external deps required)
+
+Apply: `POST /api/template/timeleft` with JSON `data` payload
+
+Input/Data Schema (placeholders)
+```
+{
+   "minutes": number,        // required; whole minutes left
+   "theme": {
+      "bg": string,           // CSS color; default "#000"
+      "green": string,        // default "#2ecc71"
+      "amber": string,        // default "#ffbf00"
+      "red": string,          // default "#ff3b30"
+      "text": string,         // optional; default auto = use same as state color
+      "fontFamily": string    // optional; default "'Dot Matrix', system-ui, sans-serif" (fallbacks ok)
+   },
+   "label": string           // optional; small friendly caption, e.g., "Time left"
+}
+```
+
+Display Rules
+- Formatting:
+   - If minutes > 90, display as hours and minutes: e.g., `2h 15m`.
+   - Otherwise, display minutes only: `12m`.
+- Colors (priority by thresholds of current remaining time):
+   - > 8 minutes: green
+   - > 4 minutes: amber
+   - ≤ 4 minutes: red
+- Layout: Large, centered digits sized to the 1280×400 viewport. Minimal chrome. Optional friendly label above or below in smaller type.
+- Font: Use a dot-matrix style if available (via fontFamily). If the specific face isn’t available, fall back to system fonts while keeping letter-spacing to suggest an LED display.
+
+Behavior
+- Stateless render: no internal countdown, no seconds, and no animations/transitions. To update the display, the client re-applies the template with a new `minutes` value.
+- When minutes ≤ 0, clamp display to `0m` and keep the red color.
+
+Accessibility & Performance
+- High contrast text; avoid thin strokes.
+- No per-frame allocations; update DOM only when values change.
+- Resize-aware: keep the main value scaled and centered on window resize.
+
+Examples
+- CLI: `hdisplay template timeleft --data '{"minutes":15}'`
+- HTTP: `POST /api/template/timeleft` body `{ "data": { "minutes": 3, "theme": { "bg": "#000" } } }`
+
+Success Criteria
+- Correct formatting (hours+minutes when >90m; minutes otherwise).
+- Color selection matches thresholds (>8 green, >4 amber, ≤4 red).
+- Visible at a glance on 1280×400; reads comfortably from a distance.
