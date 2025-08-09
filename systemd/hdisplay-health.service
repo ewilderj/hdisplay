@@ -1,0 +1,11 @@
+[Unit]
+Description=hdisplay Health Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PORT=3000
+User=%i
+WorkingDirectory=/home/%i/hdisplay
+ExecStart=/bin/bash -lc './scripts/healthcheck.sh'

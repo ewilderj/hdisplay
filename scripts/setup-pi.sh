@@ -26,22 +26,15 @@ npm install
 SERVICE_USER=${SUDO_USER:-$USER}
 SERVICE_HOME=$(eval echo ~${SERVICE_USER})
 
-sudo tee /etc/systemd/system/hdisplay.service > /dev/null <<EOF
-[Unit]
-Description=hdisplay Server
-After=network.target
+# Install systemd units (templated by user)
+sudo install -D -m 0644 systemd/hdisplay.service /etc/systemd/system/hdisplay@.service
+sudo install -D -m 0644 systemd/hdisplay-health.service /etc/systemd/system/hdisplay-health@.service
+sudo install -D -m 0644 systemd/hdisplay-health.timer /etc/systemd/system/hdisplay-health@.timer
 
-[Service]
-Type=simple
-User=${SERVICE_USER}
-WorkingDirectory=${SERVICE_HOME}/hdisplay
-ExecStart=$(command -v node) ${SERVICE_HOME}/hdisplay/server/index.js
-Restart=on-failure
-Environment=PORT=3000
-
-[Install]
-WantedBy=multi-user.target
-EOF
+sudo systemctl daemon-reload
+sudo systemctl enable hdisplay@${SERVICE_USER}.service
+sudo systemctl restart hdisplay@${SERVICE_USER}.service
+sudo systemctl enable --now hdisplay-health@${SERVICE_USER}.timer
 
 mkdir -p "${SERVICE_HOME}/.config/autostart"
 BROWSER_CMD=$(command -v chromium-browser || command -v chromium)
