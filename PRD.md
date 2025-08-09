@@ -114,9 +114,8 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
 1. **Static HTML** - Direct HTML/CSS content
 2. **Templates** - Predefined layouts with variable data
 3. **Notifications** - Temporary overlays with auto-dismiss
-4. **Widgets** - Modular components (clock, weather, stats)
-5. **Media** - Images, videos, animated GIFs
-6. **Charts** - Real-time data visualization
+4. **Media** - Images, videos, animated GIFs
+5. **Charts** - Real-time data visualization
 
 ## Development Setup
 
@@ -177,7 +176,6 @@ npm run dev  # Starts server + opens browser at 1280x400
 ### Phase 2: Content Management (Week 2)
 - [x] Template system
 - [x] Notification overlay
-- [ ] Widget framework
 - [x] Enhanced CLI commands
 
 ### Phase 3: Polish & Features (Week 3)
@@ -221,7 +219,7 @@ npm run dev  # Starts server + opens browser at 1280x400
 
 - Multiple display support
 - Mobile control app
-- Plugin system for custom widgets
+- Plugin system for custom templates
 - MQTT integration
 - Home Assistant integration
 - Authentication and multi-user support
