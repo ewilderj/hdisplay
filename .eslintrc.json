@@ -7,5 +7,5 @@
     "no-undef": "error",
     "no-console": "off"
   },
-  "ignorePatterns": ["server/public/**", "uploads/**", "data/**"]
+  "ignorePatterns": ["server/public/**", "uploads/**", "data/**", "tests-e2e/**"]
 }

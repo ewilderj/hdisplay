@@ -357,4 +357,4 @@ if (require.main === module) {
   process.on('SIGTERM', shutdown);
 }
 
-module.exports = { app, UPLOADS_DIR };
+module.exports = { app, UPLOADS_DIR, server };

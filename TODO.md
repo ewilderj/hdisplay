@@ -32,7 +32,7 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Template UX and docs
 
-- [ ] README Templates section
+- [x] README Templates section
   - [x] Quick usage for `animated-text`, `snake`, `timeleft` with CLI examples
   - [x] Document the template data schemas and common gotchas (zsh quoting)
   - Acceptance: copy-paste commands render visibly on first try
@@ -43,8 +43,7 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Small server/CLI improvements
 
-- [ ] CLI discover UX
-  - [x] If multiple services are found, present an interactive pick list
+- [x] If multiple services are found, present an interactive pick list
   - [x] `--set` uses the selected service and writes config
   - Acceptance: selecting among ≥2 services works and persists to config
 
