@@ -357,6 +357,12 @@ app.post('/api/clear', (req, res) => {
   state.notification = null;
   applyContentUpdate({ html: '' });
   io.emit('notification:clear');
+  // Also clear playlist and stop rotation/overrides
+  state.playlist.items = [];
+  playlistIndex = 0;
+  stopPlaylist();
+  saveState();
+  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: [], active: false });
   res.json({ ok: true });
 });
 
