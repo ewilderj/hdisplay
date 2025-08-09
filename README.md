@@ -15,6 +15,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Message banner](#message-banner)
   - [Snake](#snake-auto-play)
   - [TimeLeft](#timeleft-meeting-countdown)
+- [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
   - [Push and display immediately](#push-and-display-immediately-no-persistence-by-default)
@@ -172,6 +173,42 @@ Rules
 - >90 minutes shows `Hh Mm`; otherwise `Xm`
 - Color thresholds: >8 green, >4 amber, ≤4 red (value only); label uses `theme.labelColor` (default white)
 
+## Playlists
+Create a rotating sequence of templates. The server plays items in order, loops, and persists across restarts. Applying a one-off template or push temporarily overrides playback; rotation resumes automatically.
+
+- Show current playlist and dwell time
+```bash
+hdisplay playlist:list
+```
+
+- Add items (mix different templates)
+```bash
+hdisplay playlist:add carousel --data '{"items":["https://picsum.photos/id/1015/1280/400","https://picsum.photos/id/1022/1280/400"],"duration":4000}'
+hdisplay playlist:add animated-text --data '{"text":"Welcome to the lab","velocity":120}'
+hdisplay playlist:add message-banner --data '{"title":"Meeting","subtitle":"Room A"}'
+```
+
+- Remove by index or by id (first match)
+```bash
+hdisplay playlist:remove 0
+hdisplay playlist:remove animated-text
+```
+
+- Clear all items
+```bash
+hdisplay playlist:clear
+```
+
+- Set dwell per item (ms)
+```bash
+hdisplay playlist:delay 5000
+```
+
+Notes
+- Rotation auto-starts when the playlist has items.
+- `hdisplay clear` also clears the playlist and stops rotation.
+- Data for each item is validated by the template’s validator.
+
 ## Assets & Media
 Use uploads when you want media persisted on disk and accessible under `/uploads`. Use push for one-off, immediate display without writing to disk.
 ### Upload and show
@@ -227,12 +264,21 @@ Most users only need the CLI. If you prefer HTTP, an unauthenticated local API m
 - POST `/api/clear`
 - GET `/api/templates` – List templates and placeholders
 - POST `/api/template/:id` – Body: `{ data?: object }`
+- GET `/api/playlist` – Current playlist `{ items: Array<{ id, data }>, delayMs }`
+- PUT `/api/playlist` – Replace playlist body `{ items: Array<{ id, data }>, delayMs? }`
+- POST `/api/playlist/items` – Append `{ id, data? }`, returns `{ index }`
+- DELETE `/api/playlist/items/:index` – Remove by index
+- DELETE `/api/playlist/items/by-id/:id` – Remove first match by id
+- POST `/api/playlist/delay` – Set dwell `{ delayMs }`
 - POST `/api/upload` – multipart form field `file`
 - GET `/api/uploads` – List files `{ files: [{ name, url }] }`
 - DELETE `/api/uploads/:name`
 - POST `/api/push/image` – multipart `file` OR JSON `{ url }`, query/body `persist=true|false`
 - POST `/api/push/video` – same as above
 - GET `/ephemeral/:id` – Serve in-memory pushed content (short-lived)
+
+Notes
+- POST `/api/clear` also clears the playlist and stops rotation.
 
 ## Raspberry Pi Setup (Debian/RPi OS)
 On the Pi:
