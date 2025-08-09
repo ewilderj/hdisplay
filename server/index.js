@@ -162,7 +162,7 @@ app.get('/api/status', (req, res) => {
 // Health/readiness endpoint
 app.get('/healthz', (req, res) => {
   let version = 'unknown';
-  try { version = require('..//package.json').version || 'unknown'; } catch {}
+  try { version = require('../package.json').version || 'unknown'; } catch {}
   res.json({ ok: true, version, uptime: process.uptime() });
 });
 

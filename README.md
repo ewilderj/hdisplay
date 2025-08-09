@@ -146,6 +146,19 @@ On the Pi:
 
 This installs Node.js and Chromium, sets up the server as a systemd service, and configures Chromium to auto-launch in kiosk mode pointing at http://localhost:3000.
 
+### Systemd units and health checks
+The setup script installs templated systemd units:
+- hdisplay@<user>.service – runs the server as the specified user
+- hdisplay-health@<user>.service & hdisplay-health@<user>.timer – runs a periodic health probe against /healthz
+
+Health probe script: scripts/healthcheck.sh
+
+Manual management examples:
+- sudo systemctl status hdisplay@pi.service
+- sudo systemctl restart hdisplay@pi.service
+- sudo systemctl status hdisplay-health@pi.timer
+- sudo systemctl list-timers | grep hdisplay-health
+
 ## Run with Docker
 
 Build and run:
