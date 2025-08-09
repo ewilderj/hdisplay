@@ -10,6 +10,11 @@ const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 const UPLOADS_DIR = process.env.HDS_UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
+// Persistent state path
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const STATE_FILE = path.join(DATA_DIR, 'state.json');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+
 // In-memory state
 const state = {
   content: '<div class="center">hdisplay ready</div>',
@@ -17,6 +22,40 @@ const state = {
   updatedAt: new Date().toISOString(),
   lastTemplate: null
 };
+
+function saveState() {
+  // Persist only selected fields
+  const snapshot = {
+    content: state.content,
+    updatedAt: state.updatedAt,
+    lastTemplate: state.lastTemplate
+  };
+  try {
+    const tmp = STATE_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(snapshot, null, 2));
+    fs.renameSync(tmp, STATE_FILE);
+  } catch (e) {
+    // Non-fatal
+    console.warn('[hdisplay] failed to save state:', e.message);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = fs.readFileSync(STATE_FILE, 'utf8');
+    const s = JSON.parse(raw);
+    if (s && typeof s === 'object') {
+      if (typeof s.content === 'string') state.content = s.content;
+      if (typeof s.updatedAt === 'string') state.updatedAt = s.updatedAt;
+      if (s.lastTemplate && typeof s.lastTemplate === 'object') state.lastTemplate = s.lastTemplate;
+    }
+  } catch {
+    // ignore if missing or invalid
+  }
+}
+
+// Load persisted state at startup (best effort)
+loadState();
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -120,6 +159,13 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Health/readiness endpoint
+app.get('/healthz', (req, res) => {
+  let version = 'unknown';
+  try { version = require('..//package.json').version || 'unknown'; } catch {}
+  res.json({ ok: true, version, uptime: process.uptime() });
+});
+
 app.post('/api/content', (req, res) => {
   const { content } = req.body;
   if (typeof content !== 'string' || content.length === 0) {
@@ -128,6 +174,7 @@ app.post('/api/content', (req, res) => {
   state.content = content;
   state.updatedAt = new Date().toISOString();
   io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
+  saveState();
   res.json({ ok: true });
 });
 
@@ -154,6 +201,7 @@ app.post('/api/template/:id', (req, res) => {
     state.lastTemplate = { id, appliedAt: new Date().toISOString(), data: req.body.data || {} };
     state.updatedAt = new Date().toISOString();
     io.emit('content:update', { content: state.content, updatedAt: state.updatedAt, template: state.lastTemplate });
+  saveState();
     return res.json({ ok: true, template: state.lastTemplate });
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -176,6 +224,7 @@ app.post('/api/clear', (req, res) => {
   state.updatedAt = new Date().toISOString();
   io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
   io.emit('notification:clear');
+  saveState();
   res.json({ ok: true });
 });
 
