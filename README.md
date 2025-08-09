@@ -1,11 +1,37 @@
 # hdisplay
 
-A lightweight display system for a 1280×400 USB monitor (or any browser) with a simple local server and CLI. Shows HTML content, notifications, templates (animated marquee, image/video carousel), and supports asset uploads and instant push of media.
+Control a browser-based display with a friendly CLI. Built for 1280×400 USB monitors, works in any modern browser.
 
-## Features
-- Local Express server with real-time updates via WebSocket
-- Fullscreen browser client (Chromium kiosk on Raspberry Pi)
-- CLI for control (status, set HTML, notify, templates)
+## Table of contents
+- What is hdisplay? (below)
+- [Highlights](#highlights)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Using the CLI](#using-the-cli)
+- [Templates](#templates)
+  - [Animated marquee](#animated-marquee-scrolling-text)
+  - [Image/Video carousel](#imagevideo-carousel)
+  - [WebP loop](#webp-loop-animated-webp)
+  - [Message banner](#message-banner)
+  - [Snake](#snake-auto-play)
+  - [TimeLeft](#timeleft-meeting-countdown)
+- [Assets & media](#assets--media)
+  - [Upload and show](#upload-and-show)
+  - [Push and display immediately](#push-and-display-immediately-no-persistence-by-default)
+- [Discovery](#discovery)
+- [Run with Docker](#run-with-docker)
+- [Raspberry Pi setup](#raspberry-pi-setup-debianrpi-os)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [Appendix: API (optional)](#appendix-api-optional)
+- [Development](#development)
+- [Testing](#testing)
+- [License](#license)
+
+## Highlights
+- Real-time updates to a fullscreen browser display (Chromium kiosk on Raspberry Pi supported)
+- Simple CLI for control (status, set HTML, notifications, templates)
 - Templates:
   - Animated scrolling text (velocity-based)
   - Image/video carousel with fade transitions (uploads and URLs)
@@ -22,7 +48,7 @@ A lightweight display system for a 1280×400 USB monitor (or any browser) with a
 - Node.js >= 18
 - macOS or Linux (Raspberry Pi OS/Debian supported)
 
-## Quick Start
+## Quick start
 1. Install dependencies
 ```bash
 npm install
@@ -49,7 +75,8 @@ hdisplay discover --set
 hdisplay status
 ```
 
-## Displaying Content
+## Using the CLI
+The CLI is the primary way to control the display. Most actions are single commands.
 - Set raw HTML
 ```bash
 hdisplay set '<b>Hello</b>'
@@ -64,7 +91,9 @@ hdisplay clear
 ```
 
 ## Templates
-Templates live in `templates/` and are applied via the API or CLI with data.
+Built-in templates render common layouts. Apply them with the CLI and pass data.
+
+Templates live in `templates/` if you want to author your own.
 
 Authoring guide: see `TEMPLATES.md` for how to build templates and write validators.
 
@@ -79,11 +108,7 @@ hdisplay template message-banner --data '{"title":"Hello","subtitle":"World"}'
 
 ### Animated marquee (scrolling text)
 ```bash
-# Preferred velocity in pixels/second
-hdisplay show:marquee --text 'Hello world' --velocity 120
-
-# Legacy (seconds per loop)
-hdisplay show:marquee --text 'Legacy speed' --speed 12
+hdisplay template animated-text --data '{"text":"Hello world","velocity":120}'
 ```
 
 Notes:
@@ -93,11 +118,9 @@ Notes:
 ### Image/Video carousel
 You can pass either `/uploads/...` paths or absolute `http(s)://` URLs; both work, and you can mix them in one list.
 ```bash
-# Using uploaded files served by this server
-hdisplay show:carousel --items '["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"]' --duration 3000
+hdisplay template carousel --data '{"items":["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"],"duration":3000}'
 
-# Using absolute/remote URLs (you can mix with uploads)
-hdisplay show:carousel --items '["http://localhost:3000/uploads/a.jpg","https://picsum.photos/seed/alpha/1280/400","https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]' --duration 4000
+hdisplay template carousel --data '{"items":["http://localhost:3000/uploads/a.jpg","https://picsum.photos/seed/alpha/1280/400","https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"],"duration":4000}'
 ```
 
 Notes:
@@ -150,6 +173,7 @@ Rules
 - Color thresholds: >8 green, >4 amber, ≤4 red (value only); label uses `theme.labelColor` (default white)
 
 ## Assets & Media
+Use uploads when you want media persisted on disk and accessible under `/uploads`. Use push for one-off, immediate display without writing to disk.
 ### Upload and show
 - Upload a file (returns a URL under `/uploads/...`)
 ```bash
@@ -159,13 +183,10 @@ hdisplay assets:upload ./examples/banner.svg
 ```bash
 hdisplay assets:list
 ```
-- Display an uploaded image
+- Display an uploaded image or video by pushing a URL
 ```bash
-hdisplay show:image http://localhost:3000/uploads/<filename>
-```
-- Display a video
-```bash
-hdisplay show:video http://localhost:3000/uploads/<filename>
+hdisplay push:image --url http://localhost:3000/uploads/<filename>
+hdisplay push:video --url http://localhost:3000/uploads/<filename>
 ```
 - Delete an upload
 ```bash
@@ -190,13 +211,15 @@ hdisplay push:video --url http://example.local/clip.mp4
 Ephemeral files are kept in-memory for ~10 minutes by default.
 
 ## Discovery
-- Advertised on LAN as mDNS service `_hdisplay._tcp`
-- CLI to discover and set default target
+Find the server on your LAN and set it as the default CLI target.
+It advertises an mDNS service `_hdisplay._tcp`.
 ```bash
 hdisplay discover --set
 ```
 
-## API Reference (Local)
+## Appendix: API (optional)
+Most users only need the CLI. If you prefer HTTP, an unauthenticated local API mirrors the CLI. Use on trusted networks only.
+
 - GET `/` – Display client
 - GET `/api/status` – Current state
 - POST `/api/content` – Body: `{ content: string }`
@@ -272,6 +295,14 @@ Environment variables:
 - `HDS_EPHEMERAL_TTL_MS` – Ephemeral in-memory file TTL in ms (default ~600k)
 
 CLI config is stored at `~/.hdisplay.json` (set via `hdisplay config --server <url>` or discover `--set`).
+
+## Security
+There is no built-in authentication, authorization, or TLS.
+
+- Do not expose this service directly to the internet.
+- Run on a trusted LAN or behind a firewall/reverse proxy.
+- Anyone who can reach the server can change the display, upload files, and trigger playback.
+- For remote access, put it behind a reverse proxy that adds HTTPS and authentication.
 
 ## Development
 ```bash

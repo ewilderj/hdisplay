@@ -270,21 +270,6 @@ program.command('assets:delete <name>')
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
-program.command('show:image <url>')
-  .description('Set content to display an image URL')
-  .action(async (url)=>{
-    const html = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>`;
-  try { await api('/api/content','post',{ content: html }); successLog(chalk.green('Displaying image'), url); }
-    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
-  });
-
-program.command('show:video <url>')
-  .description('Set content to display a video URL (autoplay, muted, loop)')
-  .action(async (url)=>{
-    const html = `<video src="${url}" autoplay muted loop style="width:100%;height:100%;object-fit:cover;background:#000"></video>`;
-  try { await api('/api/content','post',{ content: html }); successLog(chalk.green('Displaying video'), url); }
-    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
-  });
 
 program.command('push:image')
   .description('Push an image (file or URL) and display immediately')
@@ -308,38 +293,6 @@ program.command('push:video')
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
-program.command('show:carousel')
-  .description('Display a carousel of URLs (images/videos). Usage: --items "[\"url1\",\"url2\"]" --duration 4000')
-  .option('--items <json>', 'JSON array of URLs')
-  .option('--duration <ms>', 'Slide duration in ms', '4000')
-  .action(async (opts)=>{
-    if (!opts.items) { console.error(chalk.red('Error: --items JSON array required')); process.exitCode = 1; return; }
-    let items;
-    try { items = JSON.parse(opts.items); } catch { console.error(chalk.red('Error: invalid JSON for --items')); process.exitCode = 1; return; }
-  try { await api('/api/template/carousel','post',{ data: { items, duration: Number(opts.duration)||4000 } }); successLog(chalk.green('Carousel displayed')); }
-    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
-  });
-
-program.command('show:marquee')
-  .description('Display animated scrolling text. Usage: --text "Hello" [--velocity 120] (px/s) or legacy --speed 12 (seconds)')
-  .option('--text <text>', 'Text to scroll')
-  .option('--velocity <pxPerSec>', 'Scroll velocity in pixels/second (higher = faster)')
-  .option('--speed <seconds>', 'Legacy: duration in seconds per loop')
-  .action(async (opts)=>{
-    if (!opts.text) { console.error(chalk.red('Error: --text required')); process.exitCode = 1; return; }
-    const payload = { text: opts.text };
-    if (opts.velocity !== undefined) {
-      const v = Number(opts.velocity);
-      if (!Number.isFinite(v) || v <= 0) { console.error(chalk.red('Error: --velocity must be a positive number')); process.exitCode = 1; return; }
-      payload.velocity = v;
-    } else if (opts.speed !== undefined) {
-      const s = Number(opts.speed);
-      if (!Number.isFinite(s) || s <= 0) { console.error(chalk.red('Error: --speed must be a positive number')); process.exitCode = 1; return; }
-      payload.speed = s;
-    }
-  try { await api('/api/template/animated-text','post',{ data: payload }); successLog(chalk.green('Marquee displayed')); }
-    catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
-  });
 
 // Playlist commands
 program.command('playlist:list')
