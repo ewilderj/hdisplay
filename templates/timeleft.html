@@ -1,0 +1,66 @@
+<style>
+  .timeleft-root { position:relative; width:100%; height:100%; background:#000; display:flex; align-items:center; justify-content:center; }
+  .timeleft-wrap { text-align:center; color:#fff; width:100%; padding:24px; box-sizing:border-box; }
+  .timeleft-label { font-size:56px; line-height:1.2; opacity:0.9; margin-bottom:10px; letter-spacing: 0.06em; }
+  .timeleft-value { font-weight:800; line-height:0.95; letter-spacing: 0.04em; margin: 0 auto; }
+  /* Responsive sizing tuned for 1280x400 */
+  .timeleft-value { font-size: clamp(96px, 18vw, 260px); }
+  /* Optional dot-matrix vibe via font family if available */
+  /* Uses global @font-face 'Dot Matrix' if available (see /server/public/fonts) */
+  .dotlike { font-family: 'Dot Matrix', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+</style>
+<div class="timeleft-root">
+  <div class="timeleft-wrap">
+    <div id="tl-label" class="timeleft-label dotlike"></div>
+    <div id="tl-value" class="timeleft-value dotlike">--</div>
+  </div>
+</div>
+<script>
+(function(){
+  // Inputs
+  const minutesRaw = Number(String.raw`{{ minutes }}`);
+  const minutes = Number.isFinite(minutesRaw) ? Math.max(0, Math.floor(minutesRaw)) : 0;
+  const theme = {
+    bg: String(String.raw`{{ theme.bg }}` || '#000') || '#000',
+    green: String(String.raw`{{ theme.green }}` || '#2ecc71') || '#2ecc71',
+    amber: String(String.raw`{{ theme.amber }}` || '#ffbf00') || '#ffbf00',
+    red: String(String.raw`{{ theme.red }}` || '#ff3b30') || '#ff3b30',
+    text: String(String.raw`{{ theme.text }}` || '') || '',
+    labelColor: String(String.raw`{{ theme.labelColor }}` || '#ffffff') || '#ffffff',
+    fontFamily: String(String.raw`{{ theme.fontFamily }}` || '') || ''
+  };
+  const label = String(String.raw`{{ label }}` || '').trim();
+
+  const root = document.querySelector('.timeleft-root');
+  const valEl = document.getElementById('tl-value');
+  const labelEl = document.getElementById('tl-label');
+
+  // Background
+  root.style.background = theme.bg || '#000';
+
+  // Font override if specified
+  if (theme.fontFamily) {
+    valEl.style.fontFamily = theme.fontFamily + ', ' + getComputedStyle(valEl).fontFamily;
+    labelEl.style.fontFamily = theme.fontFamily + ', ' + getComputedStyle(labelEl).fontFamily;
+  }
+
+  // Format
+  let text;
+  if (minutes > 90) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    text = `${h}h ${m}m`;
+  } else {
+    text = `${minutes}m`;
+  }
+
+  // Color thresholds
+  let color;
+  if (minutes > 8) color = theme.green; else if (minutes > 4) color = theme.amber; else color = theme.red;
+
+  // Apply
+  valEl.textContent = text;
+  valEl.style.color = theme.text || color;
+  if (label) { labelEl.textContent = label; labelEl.style.color = theme.labelColor || '#ffffff'; } else { labelEl.remove(); }
+})();
+</script>
