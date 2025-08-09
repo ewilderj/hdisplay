@@ -25,26 +25,26 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - Acceptance: all tests green locally and in CI
 
 - [ ] Lint/format baseline
-  - [ ] Add ESLint + Prettier with minimal config
-  - [ ] npm scripts: `lint`, `format`
+  - [x] Add ESLint + Prettier with minimal config
+  - [x] npm scripts: `lint`, `format`
   - Acceptance: repo lints clean or has explicit TODOs for intentional gaps
 
 ## Template UX and docs
 
 - [ ] README Templates section
-  - [ ] Quick usage for `animated-text`, `snake`, `timeleft` with CLI examples
-  - [ ] Document the template data schemas and common gotchas (zsh quoting)
+  - [x] Quick usage for `animated-text`, `snake`, `timeleft` with CLI examples
+  - [x] Document the template data schemas and common gotchas (zsh quoting)
   - Acceptance: copy-paste commands render visibly on first try
 
 - [ ] TimeLeft polish
-  - [ ] Ensure long labels wrap without clipping (line-height/white-space)
+  - [x] Ensure long labels wrap without clipping (line-height/white-space)
   - Acceptance: very long labels remain readable at 1280×400
 
 ## Small server/CLI improvements
 
 - [ ] CLI discover UX
-  - [ ] If multiple services are found, present an interactive pick list
-  - [ ] `--set` uses the selected service and writes config
+  - [x] If multiple services are found, present an interactive pick list
+  - [x] `--set` uses the selected service and writes config
   - Acceptance: selecting among ≥2 services works and persists to config
 
 - [ ] Headers hardening
