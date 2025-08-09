@@ -5,7 +5,8 @@ ENV NODE_ENV=production
 
 # Install app dependencies
 COPY package.json package-lock.json* .npmrc* ./
-RUN npm ci --omit=dev || npm install --omit=dev
+# Use strict ci for reproducible installs (omit dev deps in image)
+RUN npm ci --omit=dev
 
 # Copy source
 COPY . .
