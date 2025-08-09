@@ -14,13 +14,10 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 - [ ] Client robustness (from PRD)
   - [ ] WebSocket auto-reconnect UX: show banner on disconnect, retry/backoff, auto-hide on reconnect
-  - [ ] Offline fallback: cache last good content in `localStorage` and render on boot before socket connects
   - [ ] Fullscreen API: ensure kiosk enters fullscreen and recovers if exited
   - Acceptance: display recovers seamlessly after server restarts or network loss
 
-- [ ] Notifications sound (from PRD)
-  - [ ] Play an optional Web Audio chime per notification (toggleable)
-  - Acceptance: chime plays once per notification when enabled
+ 
 
 - [ ] Widget framework (from PRD)
   - [ ] Define a lightweight widget container + lifecycle

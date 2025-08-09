@@ -36,9 +36,7 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
   - WebSocket auto-reconnect
   - CSS animations and transitions
   - Canvas API for advanced graphics
-  - Web Audio API for notifications
   - Fullscreen API
-  - Local storage for offline fallback
 
 ### Server
 - **Runtime**: Node.js 18+ 
