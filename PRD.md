@@ -57,13 +57,57 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
 ### CLI Tool
 - **Commands**:
   ```bash
-  hdisplay status                        # Show current display state
-  hdisplay set <content>                 # Set static content
-  hdisplay notify <message> [--duration] # Send notification
-  hdisplay template <name> [--data]      # Apply template
-  hdisplay clear                         # Clear display
-  hdisplay config [--server]             # Configure server URL
+   hdisplay status                             # Show current display state
+   hdisplay set <content>                      # Set static HTML content
+   hdisplay notify <message> [--duration]      # Send notification
+      hdisplay templates                          # List available templates
+   hdisplay template <name> \
+      [--data <json> | --data-file <path> | --data -]   # Apply template with data from JSON/file/stdin
+   hdisplay clear                                      # Clear display & notification
+   hdisplay config [--server]                          # Configure server URL
+
+   # Media and content helpers (aliases for clarity)
+   hdisplay show:image <url>                           # Display an image URL
+   hdisplay show:video <url>                           # Display a video URL
+   hdisplay push:image [--file <path> | --url <url>] [--persist]
+   hdisplay push:video [--file <path> | --url <url>] [--persist]
+   hdisplay assets:upload <file>                       # Upload a file and get its URL
+   hdisplay assets:list                                # List uploaded files
+   hdisplay assets:delete <filename>                   # Delete an uploaded file
+
+   # Convenience templates
+   hdisplay show:marquee --text "Hello" [--velocity <px/s>]   # animated-text
+   hdisplay show:carousel --items <json> [--duration <ms>]    # carousel
+
+   # Discovery
+   hdisplay discover [--set] [--timeout <ms>] [--json] [--non-interactive]
   ```
+
+#### Global Options and UX
+- Global flags available to all commands:
+   - `--server <url>`: one-off override of server URL (precedence: flag > env > config > default).
+   - `--timeout <ms>`: request timeout (defaults reasonable for LAN).
+   - `--quiet`: reduce non-essential output; errors still printed to stderr.
+- Environment variables:
+   - `HDISPLAY_SERVER` as an alternative to config file for server URL.
+- Config precedence: flag > env > config file (~/.hdisplay.json) > default (`http://localhost:3000`).
+
+#### Data/Input Modes
+- Template data can be provided via:
+   - `--data '{"k":"v"}'` (inline JSON)
+   - `--data-file ./data.json` (reads from file)
+   - `--data -` (reads JSON from stdin)
+   - On parse error, CLI prints a concise message and exits with non-zero code.
+
+ 
+
+#### Discovery UX
+- `discover` prints all found servers. If multiple:
+   - Interactive chooser by default; `--non-interactive` selects the first.
+   - `--set` persists the chosen server to `~/.hdisplay.json`.
+
+#### Exit Codes
+- `0` on success; `1` on errors (network, validation, HTTP 4xx/5xx). Reserved codes may be added later for specific classes.
 
 ## Content Types
 
