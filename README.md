@@ -45,6 +45,8 @@ A lightweight display system for a 1280×400 USB monitor (or any browser) with a
 ## Templates
 Templates live in `templates/` and are applied via the API or CLI with data.
 
+Authoring guide: see `TEMPLATES.md` for how to build templates and write validators.
+
 - List templates
   - node cli/index.js templates
 - Apply a template with data (JSON)
@@ -198,6 +200,7 @@ CLI config is stored at `~/.hdisplay.json` (set via `hdisplay config --server <u
 - Start server: npm start
 - Dev open browser (macOS): ./scripts/mac-preview.sh
 - Run tests: npm test
+- Author templates & validators: see `TEMPLATES.md`
 
 ## Testing
 Jest + Supertest covers the uploads API:

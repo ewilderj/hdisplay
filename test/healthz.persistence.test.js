@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const request = require('supertest');
 
-const STATE_DIR = path.join(__dirname, '..', 'data');
+const os = require('os');
+const STATE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'hdisplay-data-'));
 const STATE_FILE = path.join(STATE_DIR, 'state.json');
 
 function clearModule(p) {
@@ -15,6 +16,7 @@ describe('/healthz and state persistence', () => {
 
   beforeAll(() => {
     try { fs.mkdirSync(STATE_DIR, { recursive: true }); } catch {}
+  process.env.HDS_DATA_DIR = STATE_DIR;
     if (fs.existsSync(STATE_FILE)) {
       backup = fs.readFileSync(STATE_FILE, 'utf8');
     }
@@ -26,6 +28,8 @@ describe('/healthz and state persistence', () => {
     } else {
       try { fs.unlinkSync(STATE_FILE); } catch {}
     }
+  try { fs.rmSync(STATE_DIR, { recursive: true, force: true }); } catch {}
+  delete process.env.HDS_DATA_DIR;
   });
 
   test('GET /healthz returns ok, version, uptime', async () => {

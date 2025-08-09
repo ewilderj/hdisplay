@@ -169,28 +169,28 @@ npm run dev  # Starts server + opens browser at 1280x400
 
 ### Phase 1: Core Infrastructure (Week 1)
 - [x] Repository setup
-- [ ] Basic Express server
-- [ ] WebSocket connection
-- [ ] Simple HTML display client
-- [ ] Basic CLI with set/clear commands
+- [x] Basic Express server
+- [x] WebSocket connection
+- [x] Simple HTML display client
+- [x] Basic CLI with set/clear commands
 
 ### Phase 2: Content Management (Week 2)
-- [ ] Template system
-- [ ] Notification overlay
+- [x] Template system
+- [x] Notification overlay
 - [ ] Widget framework
-- [ ] Enhanced CLI commands
+- [x] Enhanced CLI commands
 
 ### Phase 3: Polish & Features (Week 3)
-- [ ] Animations and transitions
-- [ ] Error recovery
-- [ ] Configuration management
-- [ ] Example templates and content
+- [x] Animations and transitions (initial via templates)
+- [x] Error recovery (basic: socket.io auto-reconnect, state persistence)
+- [x] Configuration management (CLI config + env)
+- [x] Example templates and content
 
 ### Phase 4: Raspberry Pi Integration (Week 4)
-- [ ] Setup script
-- [ ] Systemd service
+- [x] Setup script
+- [x] Systemd service
 - [ ] Performance optimization
-- [ ] Documentation
+- [x] Documentation (initial)
 
 ## Testing Strategy
 
@@ -236,6 +236,8 @@ npm run dev  # Starts server + opens browser at 1280x400
 - Community can easily create custom templates
 
 ## Template Specifications
+
+For instructions on creating templates and writing validators, see `TEMPLATES.md`.
 
 ### Snake (auto-play)
 

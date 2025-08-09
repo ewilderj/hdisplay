@@ -17,8 +17,6 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - [ ] Fullscreen API: ensure kiosk enters fullscreen and recovers if exited
   - Acceptance: display recovers seamlessly after server restarts or network loss
 
- 
-
 - [ ] Widget framework (from PRD)
   - [ ] Define a lightweight widget container + lifecycle
   - [ ] First widgets: clock, simple stats
@@ -33,11 +31,6 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - [ ] 12h stability soak test script
   - [ ] CI workflow to run Jest + Playwright smoke + Docker build
   - Acceptance: pipeline green; soak test stable without crashes
-
-- [ ] Performance & metrics (from PRD targets)
-  - [ ] Measure startup time, update latency, memory/CPU
-  - [ ] Document and keep within targets: Startup <10s, Latency <100ms, Mem <200MB, CPU <10% idle / <30% updates
-  - Acceptance: documented measurements within bounds
 
 ## Tests and quality gates
 
