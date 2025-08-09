@@ -64,7 +64,7 @@ Behavior
    - If playlist has ≥ 2 items: rotate sequentially, each displayed for `delayMs` (default 20000 ms).
    - If playlist has exactly 1 item: render it and do not rotate/restart the same item.
    - If playlist is empty: do nothing; whatever content/template was last set via legacy methods remains until changed.
-- Legacy override: Any template applied via existing methods (`POST /api/template/:id`, CLI `hdisplay template ...`, `set`, `show:*`, `push:*`) will
+- Legacy override: Any template applied via existing methods (`POST /api/template/:id`, CLI `hdisplay template ...`, `set`, `push:*`) will
    - Immediately interrupt the current playlist item (playlist is retained in memory/persistence).
    - Remain on-screen for exactly `delayMs` (use current playlist delay), then the playlist resumes from the next item (wrap to start if at end).
    - If the playlist is empty, the override remains indefinitely (preserves legacy behavior).
@@ -123,8 +123,8 @@ Testing (high level)
    hdisplay config [--server]                          # Configure server URL
 
    # Media and content helpers (aliases for clarity)
-   hdisplay show:image <url>                           # Display an image URL
-   hdisplay show:video <url>                           # Display a video URL
+   hdisplay push:image --url <url>
+   hdisplay push:video --url <url>
    hdisplay push:image [--file <path> | --url <url>] [--persist]
    hdisplay push:video [--file <path> | --url <url>] [--persist]
    hdisplay assets:upload <file>                       # Upload a file and get its URL
@@ -132,8 +132,8 @@ Testing (high level)
    hdisplay assets:delete <filename>                   # Delete an uploaded file
 
    # Convenience templates
-   hdisplay show:marquee --text "Hello" [--velocity <px/s>]   # animated-text
-   hdisplay show:carousel --items <json> [--duration <ms>]    # carousel
+   hdisplay template animated-text --data '{"text":"Hello","velocity":120}'
+   hdisplay template carousel --data '{"items":["url1","url2"],"duration":4000}'
 
    # Discovery
    hdisplay discover [--set] [--timeout <ms>] [--json] [--non-interactive]
