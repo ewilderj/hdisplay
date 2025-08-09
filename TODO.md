@@ -17,10 +17,7 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - [ ] Fullscreen API: ensure kiosk enters fullscreen and recovers if exited
   - Acceptance: display recovers seamlessly after server restarts or network loss
 
-- [ ] Widget framework (from PRD)
-  - [ ] Define a lightweight widget container + lifecycle
-  - [ ] First widgets: clock, simple stats
-  - Acceptance: widgets can be composed and updated alongside templates
+  
 
 - [ ] Charts (from PRD)
   - [ ] Add a simple sparkline/line chart template fed via API
@@ -54,6 +51,7 @@ _(add more here as they come up)_
 - [ ] Auth (token or local network-only) for APIs
 - [ ] MQTT/Home Assistant integration
 - [ ] Plugin system for third-party templates/widgets
+ - [ ] Plugin system for third-party templates
 - [ ] Multiple display support (from PRD)
 - [ ] Mobile control app (from PRD)
 - [ ] Cloud sync for configurations (from PRD)
