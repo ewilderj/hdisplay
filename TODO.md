@@ -4,15 +4,15 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Must-do next
 
-- [ ] Persist last content across restarts
-  - [ ] Write state to `data/state.json` on every update (atomic write to `state.json.tmp` then rename)
-  - [ ] Load state on boot; tolerate missing/corrupt file
-  - [ ] Include `content`, `updatedAt`, `lastTemplate` (id, data, appliedAt)
+- [x] Persist last content across restarts
+  - [x] Write state to `data/state.json` on every update (atomic write to `state.json.tmp` then rename)
+  - [x] Load state on boot; tolerate missing/corrupt file
+  - [x] Include `content`, `updatedAt`, `lastTemplate` (id, data, appliedAt)
   - Acceptance: restart restores the exact last screen without errors
 
-- [ ] Health/readiness endpoint
-  - [ ] `GET /healthz` -> `{ ok: true, version, uptime }`
-  - [ ] Fast path (no disk or heavy allocations)
+- [x] Health/readiness endpoint
+  - [x] `GET /healthz` -> `{ ok: true, version, uptime }`
+  - [x] Fast path (no disk or heavy allocations)
   - Acceptance: returns 200 in <10ms and is usable by systemd/docker health checks
 
 ## Tests and quality gates
@@ -53,8 +53,9 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Optional quick wins
 
-- [ ] Dockerfile + compose
-  - [ ] Node 18+ slim image, expose 3000, volume for `uploads/` and `data/state.json`
+- [x] Dockerfile + compose
+  - [x] Node 18+/20 slim image, expose 3000, volumes for `uploads/` and `data/`
+  - [x] .dockerignore added
 
 - [ ] Systemd unit example
   - [ ] Unit referencing `/healthz` for `Restart=on-failure` health checks

@@ -8,8 +8,10 @@
     "dev": "nodemon server/index.js & open http://localhost:3000?dev=true",
     "cli": "node cli/index.js",
     "setup": "npm install && npm link",
-    "mac:preview": "osascript -e 'tell application \"Safari\" to make new document with properties {URL:\"http://localhost:3000\"}' -e 'tell application \"System Events\" to tell process \"Safari\" to set size of front window to {1280,400}'",
-    "test": "jest"
+  "mac:preview": "osascript -e 'tell application \"Safari\" to make new document with properties {URL:\"http://localhost:3000\"}' -e 'tell application \"System Events\" to tell process \"Safari\" to set size of front window to {1280,400}'",
+  "test": "jest",
+  "lint": "eslint .",
+  "format": "prettier --write ."
   },
   "bin": {
     "hdisplay": "./cli/index.js"
@@ -27,7 +29,9 @@
   "devDependencies": {
     "nodemon": "^3.0.1",
     "jest": "^29.7.0",
-    "supertest": "^6.3.3"
+  "supertest": "^6.3.3",
+  "eslint": "^8.57.0",
+  "prettier": "^3.3.2"
   },
   "engines": {
     "node": ">=18.0.0"

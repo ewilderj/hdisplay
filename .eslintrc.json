@@ -1,0 +1,11 @@
+{
+  "env": { "node": true, "es2022": true, "jest": true },
+  "extends": ["eslint:recommended"],
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
+  "rules": {
+    "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
+    "no-undef": "error",
+    "no-console": "off"
+  },
+  "ignorePatterns": ["server/public/**", "uploads/**", "data/**"]
+}
