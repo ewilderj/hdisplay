@@ -115,6 +115,26 @@ Automated tests:
 - Avoid large per-frame allocations; reuse DOM nodes or use CSS where possible for animations.
 - Keep validator error messages concise and user-facing; they are returned as HTTP 400 responses.
 
+### Smooth transitions with animations
+
+The display client crossfades between the previous and next template using a ~500ms opacity transition on two layers. Your template’s scripts are re-executed on the incoming (hidden at first) layer. To avoid flashes of static layout and to ensure animations restart cleanly:
+
+- Initialize immediately. Templates are injected after page load; don’t rely on `window.onload` to start logic.
+- Hide until ready. Use the global helper available on the client:
+  - `window.hdisplay.hiddenUntilReady(el, initFn)` hides `el`, runs `initFn` on the next animation frame for stable layout, then reveals the element.
+  - Example usage: call it on the element that animates (e.g., a track div or the template root) and pass your setup function.
+- Restart CSS animations deterministically:
+  - Add a `paused` class to halt the animation, force a reflow (`void el.offsetWidth;`), then remove `paused` to start from the beginning.
+  - Optionally listen for `animationstart` and reveal at that moment to prevent any pre-animation flash.
+- Measure after layout/fonts if sizing depends on text:
+  - Compute widths in `requestAnimationFrame`.
+  - If needed, wait on `document.fonts.ready` before measuring; don’t block reveal indefinitely—prefer a best-effort approach.
+- For carousels/videos:
+  - Hide the root until the first slide is activated, then reveal.
+  - For videos, reset `currentTime = 0` and call `play()` when the slide becomes active.
+
+These patterns are demonstrated in the built-in `animated-text.html` and `carousel.html` templates.
+
 ## Advanced (optional)
 
 - You can implement validators using JSON Schema with a library like Ajv if your template data is complex. Wrap the schema validation inside your validator module and map failures to a concise `error` string.
