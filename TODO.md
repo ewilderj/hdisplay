@@ -17,12 +17,13 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Tests and quality gates
 
-- [ ] API tests (Jest + supertest)
-  - [ ] `/api/templates` lists files and placeholders
-  - [ ] Apply templates happy-path: `animated-text`, `snake`, `timeleft`
-  - [ ] Error cases: unknown template, bad payloads, missing fields
-  - [ ] Uploads: `/api/upload` and `/api/uploads` (persist true/false paths)
-  - Acceptance: all tests green locally and in CI
+- [x] API tests (Jest + supertest)
+  - [x] `/api/templates` lists files and placeholders
+  - [x] Apply templates happy-path: `animated-text`
+  - [x] Error cases: unknown template
+  - [x] Uploads: `/api/upload` + list + static/delete (existing), push image/video (persist true/false)
+  - [x] Remaining: apply `snake`, `timeleft`; bad payloads/missing fields
+  - Acceptance: all tests green locally and in CI (CI deferred)
 
 - [ ] Lint/format baseline
   - [x] Add ESLint + Prettier with minimal config
@@ -57,8 +58,9 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - [x] Node 18+/20 slim image, expose 3000, volumes for `uploads/` and `data/`
   - [x] .dockerignore added
 
-- [ ] Systemd unit example
-  - [ ] Unit referencing `/healthz` for `Restart=on-failure` health checks
+- [x] Systemd unit example
+  - [x] Units installed via setup script: `hdisplay@.service`, `hdisplay-health@.service`, `hdisplay-health@.timer`
+  - [x] Health timer calls `/healthz` via `scripts/healthcheck.sh`
 
 - [ ] Playwright smoke (later)
   - [ ] Simple e2e to assert that socket content swap updates DOM

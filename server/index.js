@@ -195,10 +195,38 @@ app.post('/api/template/:id', (req, res) => {
   const full = path.join(TEMPLATES_DIR, fileName);
   if (!fs.existsSync(full)) return res.status(404).json({ error: 'template not found' });
   try {
-    const raw = fs.readFileSync(full,'utf8');
-    const html = renderTemplate(raw, req.body.data || {});
+    // Basic payload validation for certain templates
+    const data = req.body.data || {};
+    if (id === 'animated-text') {
+      const text = data.text;
+      if (typeof text !== 'string' || text.trim().length === 0) {
+        return res.status(400).json({ error: 'animated-text requires data.text (non-empty string)' });
+      }
+      if (data.velocity !== undefined) {
+        const v = Number(data.velocity);
+        if (!Number.isFinite(v) || v <= 0) {
+          return res.status(400).json({ error: 'animated-text: velocity must be a positive number' });
+        }
+      }
+      if (data.speed !== undefined) {
+        const s = Number(data.speed);
+        if (!Number.isFinite(s) || s <= 0) {
+          return res.status(400).json({ error: 'animated-text: speed must be a positive number' });
+        }
+      }
+    } else if (id === 'timeleft') {
+      const m = Number(data.minutes);
+      if (!Number.isFinite(m) || m < 0) {
+        return res.status(400).json({ error: 'timeleft requires data.minutes (non-negative number)' });
+      }
+      if (data.label !== undefined && typeof data.label !== 'string') {
+        return res.status(400).json({ error: 'timeleft: label must be a string' });
+      }
+    }
+  const raw = fs.readFileSync(full,'utf8');
+  const html = renderTemplate(raw, data);
     state.content = html;
-    state.lastTemplate = { id, appliedAt: new Date().toISOString(), data: req.body.data || {} };
+  state.lastTemplate = { id, appliedAt: new Date().toISOString(), data };
     state.updatedAt = new Date().toISOString();
     io.emit('content:update', { content: state.content, updatedAt: state.updatedAt, template: state.lastTemplate });
   saveState();
