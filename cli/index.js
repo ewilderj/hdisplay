@@ -10,6 +10,7 @@ const path = require('path');
 const discover = require('./commands/discover');
 const FormData = require('form-data');
 const axiosLib = axios; // alias
+const readline = require('readline');
 
 const ALLOWED_LEVELS = new Set(['info','warn','error','success']);
 
@@ -30,6 +31,28 @@ function loadConfig(){
   try { return JSON.parse(fs.readFileSync(CONFIG_PATH,'utf8')); } catch { return { server: 'http://localhost:3000' }; }
 }
 function saveConfig(cfg){ fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2)); }
+
+async function promptSelectService(services) {
+  // Non-interactive fallback
+  if (!process.stdin.isTTY) return services[0];
+  console.log(chalk.cyan('\nMultiple hdisplay servers found:'));
+  services.forEach((s, i) => {
+    const label = s.name ? `${s.name} (${s.url})` : s.url;
+    console.log(`  [${i + 1}] ${label}`);
+  });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q) => new Promise(res => rl.question(q, res));
+  let choice;
+  while (true) {
+    const answer = (await ask(chalk.cyan('Select a server [1-' + services.length + '] (default 1): '))).trim();
+    if (answer === '') { choice = 1; break; }
+    const n = Number(answer);
+    if (Number.isInteger(n) && n >= 1 && n <= services.length) { choice = n; break; }
+    console.log(chalk.yellow('Please enter a number between 1 and ' + services.length + '.'));
+  }
+  rl.close();
+  return services[choice - 1];
+}
 
 async function api(pathname, method='get', data) {
   const cfg = loadConfig();
@@ -169,10 +192,14 @@ program.command('discover')
       const list = await discover(parseInt(opts.timeout,10)||2000);
       if (!list.length) { console.log(chalk.yellow('No hdisplay servers found on the network.')); return; }
       if (opts.set) {
+        const selected = list.length > 1 ? await promptSelectService(list) : list[0];
         const cfg = loadConfig();
-        cfg.server = list[0].url;
+        cfg.server = selected.url;
         saveConfig(cfg);
         console.log(chalk.green('Configured server:'), cfg.server);
+      } else {
+        console.log(chalk.cyan('\nDiscovered hdisplay servers:'));
+        list.forEach((s, i) => console.log(`  [${i + 1}] ${s.name || 'hdisplay'} - ${s.url}`));
       }
     } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
