@@ -155,6 +155,21 @@ Build and run:
   -v $(pwd)/data:/app/data \
   --name hdisplay hdisplay
 
+Docker quickstart (alternate port 3001):
+- docker run --rm -d -p 3001:3000 \
+  -v "$(pwd)/uploads:/app/uploads" \
+  -v "$(pwd)/data:/app/data" \
+  --name hdisplay-3001 hdisplay
+- curl -fsS http://localhost:3001/healthz
+- node cli/index.js config --server http://localhost:3001
+- node cli/index.js show:marquee --text "Hello from Docker" --velocity 120
+- node cli/index.js status
+- macOS preview (optional): PORT=3001 ./scripts/mac-preview.sh
+
+Notes:
+- uploads/ and data/ are mounted as volumes so content and state persist across container restarts.
+- If port 3000 is in use on your host, map another port (e.g., 3001:3000) and point the CLI to it.
+
 Or with docker-compose (see docker-compose.yml):
 - docker compose up --build
 
