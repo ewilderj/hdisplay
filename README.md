@@ -114,6 +114,25 @@ Notes:
 hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example banner"}'
 ```
 
+### WebP loop (animated WebP)
+```bash
+hdisplay template webp-loop --data '{"url":"/uploads/your_anim.webp","fit":"cover","position":"50% 50%"}'
+```
+Options
+- url (required): path under /uploads or absolute URL to a .webp
+- fit (optional): "cover" (default) or "contain"
+- position (optional): CSS object-position (e.g., "50% 50%", "top left")
+- rendering/pixelated (optional): set `rendering:"pixelated"` or `pixelated:true` to use blocky scaling for low-res sources
+
+Examples
+```bash
+# Contain and keep center, pixelated upscale
+hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain","position":"50% 50%","rendering":"pixelated"}'
+
+# Default smooth scaling
+hdisplay template webp-loop --data '{"url":"/uploads/anim.webp"}'
+```
+
 ### Snake (auto-play)
 ```bash
 hdisplay template snake --data '{"cellSize":20,"tickMs":100}'
