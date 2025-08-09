@@ -24,23 +24,44 @@ A lightweight display system for a 1280×400 USB monitor (or any browser) with a
 
 ## Quick Start
 1. Install dependencies
-   - npm install
+```bash
+npm install
+```
 2. Start the server (default: http://localhost:3000)
-   - npm start
+```bash
+npm start
+```
 3. Preview (macOS optional)
-   - ./scripts/mac-preview.sh
+```bash
+./scripts/mac-preview.sh
+```
 4. Discover and set CLI target (on the same LAN)
-   - node cli/index.js discover --set
+Install the CLI command (one-time, from the repo root):
+```bash
+npm link
+```
+Then:
+```bash
+hdisplay discover --set
+```
 5. Check server status
-   - node cli/index.js status
+```bash
+hdisplay status
+```
 
 ## Displaying Content
 - Set raw HTML
-  - node cli/index.js set '<b>Hello</b>'
+```bash
+hdisplay set '<b>Hello</b>'
+```
 - Send a notification (auto-dismiss)
-  - node cli/index.js notify 'Heads up' -l warn -d 2000
+```bash
+hdisplay notify 'Heads up' -l warn -d 2000
+```
 - Clear display
-  - node cli/index.js clear
+```bash
+hdisplay clear
+```
 
 ## Templates
 Templates live in `templates/` and are applied via the API or CLI with data.
@@ -48,15 +69,22 @@ Templates live in `templates/` and are applied via the API or CLI with data.
 Authoring guide: see `TEMPLATES.md` for how to build templates and write validators.
 
 - List templates
-  - node cli/index.js templates
+```bash
+hdisplay templates
+```
 - Apply a template with data (JSON)
-  - node cli/index.js template message-banner --data '{"title":"Hello","subtitle":"World"}'
+```bash
+hdisplay template message-banner --data '{"title":"Hello","subtitle":"World"}'
+```
 
 ### Animated marquee (scrolling text)
-- CLI (preferred velocity in pixels/second)
-  - node cli/index.js show:marquee --text 'Hello world' --velocity 120
-- Legacy (seconds per loop)
-  - node cli/index.js show:marquee --text 'Legacy speed' --speed 12
+```bash
+# Preferred velocity in pixels/second
+hdisplay show:marquee --text 'Hello world' --velocity 120
+
+# Legacy (seconds per loop)
+hdisplay show:marquee --text 'Legacy speed' --speed 12
+```
 
 Notes:
 - Velocity is objective: higher = faster, independent of text length.
@@ -64,11 +92,13 @@ Notes:
 
 ### Image/Video carousel
 You can pass either `/uploads/...` paths or absolute `http(s)://` URLs; both work, and you can mix them in one list.
-- CLI
-  - Using uploaded files served by this server
-    - node cli/index.js show:carousel --items '["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"]' --duration 3000
-  - Using absolute/remote URLs (you can mix with uploads)
-    - node cli/index.js show:carousel --items '["http://localhost:3000/uploads/a.jpg","https://picsum.photos/seed/alpha/1280/400","https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]' --duration 4000
+```bash
+# Using uploaded files served by this server
+hdisplay show:carousel --items '["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"]' --duration 3000
+
+# Using absolute/remote URLs (you can mix with uploads)
+hdisplay show:carousel --items '["http://localhost:3000/uploads/a.jpg","https://picsum.photos/seed/alpha/1280/400","https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"]' --duration 4000
+```
 
 Notes:
 - Sources can be either:
@@ -80,52 +110,72 @@ Notes:
 - `--duration` is per-slide time in ms.
 
 ### Message banner
-- CLI
-  - node cli/index.js template message-banner --data '{"title":"hdisplay","subtitle":"example banner"}'
+```bash
+hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example banner"}'
+```
 
 ### Snake (auto-play)
-- CLI
-  - node cli/index.js template snake --data '{"cellSize":20,"tickMs":100}'
-- Notes
-  - Auto-plays with safe pathing; optional wrap mode via data `{ "wrap": true }`.
+```bash
+hdisplay template snake --data '{"cellSize":20,"tickMs":100}'
+```
+Notes
+- Auto-plays with safe pathing; optional wrap mode via data `{ "wrap": true }`.
 
 ### TimeLeft (meeting countdown)
-- CLI
-  - node cli/index.js template timeleft --data '{"minutes":15,"label":"Time left"}'
-  - node cli/index.js template timeleft --data '{"minutes":135,"label":"Time left","theme":{"labelColor":"#fff"}}'
-- Rules
-  - >90 minutes shows `Hh Mm`; otherwise `Xm`
-  - Color thresholds: >8 green, >4 amber, ≤4 red (value only); label uses `theme.labelColor` (default white)
+```bash
+hdisplay template timeleft --data '{"minutes":15,"label":"Time left"}'
+hdisplay template timeleft --data '{"minutes":135,"label":"Time left","theme":{"labelColor":"#fff"}}'
+```
+Rules
+- >90 minutes shows `Hh Mm`; otherwise `Xm`
+- Color thresholds: >8 green, >4 amber, ≤4 red (value only); label uses `theme.labelColor` (default white)
 
 ## Assets & Media
 ### Upload and show
 - Upload a file (returns a URL under `/uploads/...`)
-  - node cli/index.js assets:upload ./examples/banner.svg
+```bash
+hdisplay assets:upload ./examples/banner.svg
+```
 - List uploaded assets
-  - node cli/index.js assets:list
+```bash
+hdisplay assets:list
+```
 - Display an uploaded image
-  - node cli/index.js show:image http://localhost:3000/uploads/<filename>
+```bash
+hdisplay show:image http://localhost:3000/uploads/<filename>
+```
 - Display a video
-  - node cli/index.js show:video http://localhost:3000/uploads/<filename>
+```bash
+hdisplay show:video http://localhost:3000/uploads/<filename>
+```
 - Delete an upload
-  - node cli/index.js assets:delete <filename>
+```bash
+hdisplay assets:delete <filename>
+```
 
 ### Push and display immediately (no persistence by default)
-- Image from local file (served from memory)
-  - node cli/index.js push:image --file ./examples/banner.svg
-- Image from URL
-  - node cli/index.js push:image --url http://example.local/pic.jpg
-- Persist to disk instead of in-memory (when using --file)
-  - node cli/index.js push:image --file ./examples/banner.svg --persist
-- Video (file or URL)
-  - node cli/index.js push:video --url http://example.local/clip.mp4
+```bash
+# Image from local file (served from memory)
+hdisplay push:image --file ./examples/banner.svg
+
+# Image from URL
+hdisplay push:image --url http://example.local/pic.jpg
+
+# Persist to disk instead of in-memory (when using --file)
+hdisplay push:image --file ./examples/banner.svg --persist
+
+# Video (file or URL)
+hdisplay push:video --url http://example.local/clip.mp4
+```
 
 Ephemeral files are kept in-memory for ~10 minutes by default.
 
 ## Discovery
 - Advertised on LAN as mDNS service `_hdisplay._tcp`
 - CLI to discover and set default target
-  - node cli/index.js discover --set
+```bash
+hdisplay discover --set
+```
 
 ## API Reference (Local)
 - GET `/` – Display client
@@ -164,29 +214,37 @@ Manual management examples:
 ## Run with Docker
 
 Build and run:
-- docker build -t hdisplay .
-- docker run --rm -p 3000:3000 \
-  -v $(pwd)/uploads:/app/uploads \
-  -v $(pwd)/data:/app/data \
+```bash
+docker build -t hdisplay .
+docker run --rm -p 3000:3000 \
+  -v "$(pwd)/uploads:/app/uploads" \
+  -v "$(pwd)/data:/app/data" \
   --name hdisplay hdisplay
+```
 
 Docker quickstart (alternate port 3001):
-- docker run --rm -d -p 3001:3000 \
+```bash
+docker run --rm -d -p 3001:3000 \
   -v "$(pwd)/uploads:/app/uploads" \
   -v "$(pwd)/data:/app/data" \
   --name hdisplay-3001 hdisplay
-- curl -fsS http://localhost:3001/healthz
-- node cli/index.js config --server http://localhost:3001
-- node cli/index.js show:marquee --text "Hello from Docker" --velocity 120
-- node cli/index.js status
-- macOS preview (optional): PORT=3001 ./scripts/mac-preview.sh
+
+curl -fsS http://localhost:3001/healthz
+hdisplay config --server http://localhost:3001
+hdisplay show:marquee --text "Hello from Docker" --velocity 120
+hdisplay status
+# macOS preview (optional)
+PORT=3001 ./scripts/mac-preview.sh
+```
 
 Notes:
 - uploads/ and data/ are mounted as volumes so content and state persist across container restarts.
 - If port 3000 is in use on your host, map another port (e.g., 3001:3000) and point the CLI to it.
 
 Or with docker-compose (see docker-compose.yml):
-- docker compose up --build
+```bash
+docker compose up --build
+```
 
 ## Configuration
 Environment variables:
@@ -197,10 +255,16 @@ Environment variables:
 CLI config is stored at `~/.hdisplay.json` (set via `hdisplay config --server <url>` or discover `--set`).
 
 ## Development
-- Start server: npm start
-- Dev open browser (macOS): ./scripts/mac-preview.sh
-- Run tests: npm test
-- Author templates & validators: see `TEMPLATES.md`
+```bash
+# Start server
+npm start
+
+# Dev open browser (macOS)
+./scripts/mac-preview.sh
+
+# Run tests
+npm test
+```
 
 ## Testing
 Jest + Supertest covers the uploads API:
