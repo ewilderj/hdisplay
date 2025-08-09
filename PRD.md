@@ -192,3 +192,75 @@ npm run dev  # Starts server + opens browser at 1280x400
 - Setup takes < 5 minutes
 - Works identically on Mac and Raspberry Pi
 - Community can easily create custom templates
+
+## Template Specifications
+
+### Snake (auto-play)
+
+Goal: Provide a high-contrast, kinetic visual using the classic Snake game that plays itself autonomously. No user input; the snake continuously seeks fruit and avoids self-collision. Suitable as an ambient animation for the 1280x400 display.
+
+ID: snake
+
+Type: Template (HTML + CSS + JS, Canvas2D rendering)
+
+Apply: `POST /api/template/snake` with optional JSON `data` payload
+
+Rendering and Layout
+- Canvas 2D on black background. No external assets.
+- Default cell size: 20px. Grid derived from viewport: widthCells=⌊1280/20⌋=64, heightCells=⌊400/20⌋=20.
+- Responsive: recompute on resize; keep cells square; letterbox the canvas if needed to avoid fractional cells.
+- Frame pacing: game tick every 100ms by default (10 FPS logical), render at requestAnimationFrame.
+
+Gameplay Rules (Autonomous)
+- Start: snake length 5, initial heading right, spawn at grid center.
+- Fruit: one fruit at a time, placed uniformly at random on any free cell (not on snake).
+- Movement: on each tick the head advances by one cell; when eating fruit, grow by 1 and increment score; otherwise remove tail.
+- Walls: solid by default (collision = game over). Optional wrap mode via config.
+- Auto-play AI: deterministic, safe-first policy.
+   - Primary: shortest-path to fruit using BFS on the current grid (obstacle = snake body). Recompute each tick.
+   - Fallback safety: if no safe path exists (or would create a trap), follow a precomputed Hamiltonian-like traversal pattern that visits all cells cyclically until a safe BFS appears again. This guarantees no self-collision while circling.
+- Game over: if collision occurs, auto-restart after 1s and reset score.
+
+Data Schema (placeholders)
+```
+{
+   "cellSize": number,         // px, default 20, min 8, max 40
+   "tickMs": number,           // game tick in ms, default 100 (higher = slower)
+   "wrap": boolean,            // default false; true enables toroidal wrapping
+   "seed": number,             // optional RNG seed for reproducibility
+   "colors": {
+      "bg": string,             // CSS color, default "#000"
+      "snake": string,          // default "#00ff6a"
+      "snakeHead": string,      // default "#9cffce"
+      "fruit": string,          // default "#ff3366"
+      "grid": string            // optional subtle grid line, default "transparent"
+   },
+   "hud": {
+      "showScore": boolean,     // default true
+      "position": "left|center|right" // default right
+   }
+}
+```
+
+Visual/HUD
+- Minimal HUD showing score and speed on the top-right by default. Use device pixel ratio for crisp text.
+- Optional subtle grid lines at low alpha to fit brand aesthetic.
+
+Performance Constraints
+- Maintain smooth animation on Raspberry Pi: avoid per-frame allocations; reuse arrays.
+- BFS limited to grid (≤ 64×20 by default) is fast; throttle to once per tick.
+- Precompute a Hamiltonian-ish path once per grid; store as indexable sequence.
+
+Edge Cases and Safety
+- If grid is too small to place a fruit (snake occupies all cells), auto-restart.
+- If cellSize doesn’t divide viewport cleanly, center canvas and clamp to whole cells.
+- If tickMs < 30ms, cap to 30ms to avoid CPU spikes on Pi.
+
+API Examples
+- CLI: `hdisplay template snake --data '{"cellSize":20,"tickMs":100}'`
+- HTTP: `POST /api/template/snake` body `{ "data": { "wrap": true, "colors": { "snake": "#39e" } } }`
+
+Success Criteria
+- Never freezes or self-collides while in fallback traversal.
+- Continuous motion with stable CPU on Pi (<30% during updates).
+- Template loads with no external dependencies and recovers after resize.
