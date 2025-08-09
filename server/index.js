@@ -88,6 +88,29 @@ function renderTemplate(content, data={}) {
   });
 }
 
+// Helpers for templates
+function listTemplateFiles() {
+  try {
+    const names = fs.readdirSync(TEMPLATES_DIR);
+    return names.filter(n => n.toLowerCase().endsWith('.html')).sort();
+  } catch {
+    return [];
+  }
+}
+
+function parseTemplatePlaceholders(content) {
+  if (typeof content !== 'string' || !content) return [];
+  const re = /{{\s*([a-zA-Z0-9_\.]+)\s*}}/g;
+  const set = new Set();
+  let m;
+  while ((m = re.exec(content))) {
+    // Only keep the root key before any dot path
+    const k = String(m[1] || '').split('.')[0];
+    if (k) set.add(k);
+  }
+  return Array.from(set);
+}
+
 // API routes
 app.get('/api/status', (req, res) => {
   res.json({

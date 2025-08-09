@@ -1,0 +1,284 @@
+<style>
+  .snake-root { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#000; }
+  canvas.snake { image-rendering: pixelated; }
+</style>
+<div class="snake-root">
+  <canvas class="snake"></canvas>
+</div>
+<script>
+(function(){
+  // Placeholders (defaults applied if missing)
+  const cellSize = Math.max(8, Math.min(40, Number(String.raw`{{ cellSize }}`) || 20));
+  const tickMsRaw = Number(String.raw`{{ tickMs }}`);
+  const tickMs = Number.isFinite(tickMsRaw) ? Math.max(30, tickMsRaw) : 100; // cap for Pi
+  const wrap = String.raw`{{ wrap }}`.trim() === 'true';
+  const seedRaw = Number(String.raw`{{ seed }}`);
+  const colors = {
+    bg: String(String.raw`{{ colors.bg }}` || '#000') || '#000',
+    snake: String(String.raw`{{ colors.snake }}` || '#00ff6a') || '#00ff6a',
+    snakeHead: String(String.raw`{{ colors.snakeHead }}` || '#9cffce') || '#9cffce',
+    fruit: String(String.raw`{{ colors.fruit }}` || '#ff3366') || '#ff3366',
+    grid: String(String.raw`{{ colors.grid }}` || 'transparent') || 'transparent'
+  };
+
+  const root = document.querySelector('.snake-root');
+  const canvas = document.querySelector('canvas.snake');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  // Seeded RNG (LCG)
+  let _seed = Number.isFinite(seedRaw) ? (seedRaw >>> 0) : ((Math.random() * 0xffffffff) >>> 0);
+  function rand(){ _seed = (_seed * 1664525 + 1013904223) >>> 0; return _seed / 0x100000000; }
+  function randInt(n){ return Math.floor(rand() * n); }
+
+  // Sizing
+  let Wp = 1280, Hp = 400; // preferred
+  function computeGrid(){
+    const rw = root.clientWidth || Wp; const rh = root.clientHeight || Hp;
+    const cols = Math.max(4, Math.floor(rw / cellSize));
+    const rows = Math.max(4, Math.floor(rh / cellSize));
+    const cw = cols * cellSize; const ch = rows * cellSize;
+    canvas.width = cw; canvas.height = ch; canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+    canvas.style.background = colors.bg || '#000';
+    // Center canvas in root
+    canvas.style.margin = '0 auto';
+    return { cols, rows, cw, ch };
+  }
+
+  function idx(x,y,cols){ return y*cols + x; }
+
+  // Game state
+  let grid, cols, rows; // set in reset()
+  let snake, dir, score, fruit, lastTick = 0, timerId;
+
+  function reset(){
+    const g = computeGrid();
+    cols = g.cols; rows = g.rows;
+    // Start centered
+    const cx = Math.floor(cols/2); const cy = Math.floor(rows/2);
+    snake = [];
+    const len = 5;
+    for (let i=0;i<len;i++) snake.push({ x: cx - i, y: cy }); // heading right
+    dir = { x: 1, y: 0 };
+    score = 0;
+    placeFruit();
+    draw(true);
+    if (timerId) { clearInterval(timerId); }
+    timerId = setInterval(tick, tickMs);
+  }
+
+  function placeFruit(){
+    const occ = new Set(snake.map(p => idx(p.x, p.y, cols)));
+    let tries = 0;
+    while (tries++ < 10000) {
+      const x = randInt(cols), y = randInt(rows);
+      const k = idx(x,y,cols);
+      if (!occ.has(k)) { fruit = { x, y }; return; }
+    }
+    // Grid full: restart
+    fruit = null;
+  }
+
+  function neighbors(x,y){
+    const ns = [ {x:x+1, y}, {x:x-1, y}, {x, y:y-1}, {x, y:y+1} ];
+    if (wrap) {
+      for (const n of ns) { n.x = (n.x + cols) % cols; n.y = (n.y + rows) % rows; }
+      // Deduplicate after wrap
+      const seen = new Map();
+      return ns.filter(n=> {
+        const k = idx(n.x,n.y,cols);
+        if (seen.has(k)) return false; seen.set(k,1); return true;
+      });
+    }
+    return ns.filter(n=> n.x>=0 && n.x<cols && n.y>=0 && n.y<rows);
+  }
+
+  function buildOccSet(excludeTail){
+    const occ = new Set();
+    for (let i=0;i<snake.length - (excludeTail?1:0); i++) occ.add(idx(snake[i].x, snake[i].y, cols));
+    return occ;
+  }
+
+  function bfs(start, target, allowTailFree){
+    const q = [];
+    const prev = new Int32Array(cols*rows); prev.fill(-1);
+    const visited = new Uint8Array(cols*rows);
+    const occ = buildOccSet(allowTailFree);
+    const sIdx = idx(start.x,start.y,cols);
+    const tIdx = idx(target.x,target.y,cols);
+    q.push(sIdx); visited[sIdx]=1; prev[sIdx] = -2;
+    while (q.length){
+      const cur = q.shift();
+      if (cur === tIdx) break;
+      const cx = cur % cols; const cy = Math.floor(cur / cols);
+      const ns = neighbors(cx,cy);
+      for (const n of ns){
+        const ni = idx(n.x,n.y,cols);
+        if (visited[ni]) continue;
+        // If allowing tail free, we can step onto current tail cell
+        const isTail = (snake.length > 0 && ni === idx(snake[snake.length-1].x, snake[snake.length-1].y, cols));
+        if (occ.has(ni) && !(allowTailFree && isTail)) continue;
+        visited[ni]=1; prev[ni]=cur; q.push(ni);
+      }
+    }
+    if (!visited[tIdx]) return null;
+    // Reconstruct path indices from target back to start
+    const path = [];
+    let cur = tIdx;
+    while (cur !== -2){ path.push(cur); cur = prev[cur]; }
+    path.reverse();
+    return path; // includes start and target indices
+  }
+
+  function stepToward(from, to){
+    let dx = to.x - from.x; let dy = to.y - from.y;
+    if (wrap){
+      if (dx > cols/2) dx -= cols; if (dx < -cols/2) dx += cols;
+      if (dy > rows/2) dy -= rows; if (dy < -rows/2) dy += rows;
+    }
+    if (dx > 0) return { x: 1, y: 0 };
+    if (dx < 0) return { x: -1, y: 0 };
+    if (dy > 0) return { x: 0, y: 1 };
+    if (dy < 0) return { x: 0, y: -1 };
+    return { x: 0, y: 0 };
+  }
+
+  function chooseNext(){
+    const head = snake[0];
+    // 1) Try shortest safe path to fruit
+    if (fruit){
+      const path = bfs(head, fruit, true /*tail frees up unless we eat*/);
+      if (path && path.length >= 2){
+        const nextIdx = path[1]; const nx = nextIdx % cols; const ny = Math.floor(nextIdx / cols);
+        const willEat = (nx === fruit.x && ny === fruit.y);
+        // Safety: if not eating, ensure new head can still reach tail
+        if (willEat || canReachTailAfterMove(nx, ny)){
+          return { x: nx - head.x, y: ny - head.y, abs: {x:nx,y:ny} };
+        }
+      }
+    }
+    // 2) Follow path to tail to keep safe space
+    const tail = snake[snake.length-1];
+    const p2t = bfs(head, tail, true);
+    if (p2t && p2t.length >= 2){
+      const ni = p2t[1]; const nx = ni % cols; const ny = Math.floor(ni / cols);
+      return { x: nx - head.x, y: ny - head.y, abs: {x:nx,y:ny} };
+    }
+    // 3) Fallback: any non-colliding neighbor (prefer left, forward, right, backward)
+    const pref = preferredOrder(dir);
+    for (const d of pref){
+      const nx = wrap? (head.x + d.x + cols) % cols : head.x + d.x;
+      const ny = wrap? (head.y + d.y + rows) % rows : head.y + d.y;
+      if (nx<0||nx>=cols||ny<0||ny>=rows) continue;
+      const occ = buildOccSet(true);
+      const ni = idx(nx,ny,cols);
+      const tailIdx = idx(snake[snake.length-1].x, snake[snake.length-1].y, cols);
+      if (occ.has(ni) && ni !== tailIdx) continue;
+      return { x:d.x, y:d.y, abs:{x:nx,y:ny} };
+    }
+    // 4) Nowhere to go -> game over
+    return null;
+  }
+
+  function preferredOrder(cur){
+    // Left-hand rule ordering relative to current direction
+    const left = { x: -cur.y, y: cur.x };
+    const forward = { x: cur.x, y: cur.y };
+    const right = { x: cur.y, y: -cur.x };
+    const back = { x: -cur.x, y: -cur.y };
+    return [left, forward, right, back];
+  }
+
+  function canReachTailAfterMove(nx, ny){
+    // Simulate occupancy after moving one step (without eating): remove tail
+    const occ = new Set();
+    for (let i=0;i<snake.length-1;i++) occ.add(idx(snake[i].x, snake[i].y, cols));
+    const s = { x: nx, y: ny };
+    const t = snake[snake.length-1];
+    // BFS with custom occupancy
+    const q = [];
+    const visited = new Uint8Array(cols*rows);
+    const startIdx = idx(s.x,s.y,cols); const tailIdx = idx(t.x,t.y,cols);
+    q.push(startIdx); visited[startIdx]=1;
+    while (q.length){
+      const cur = q.shift(); if (cur === tailIdx) return true;
+      const cx = cur % cols; const cy = Math.floor(cur / cols);
+      for (const n of neighbors(cx,cy)){
+        const ni = idx(n.x,n.y,cols);
+        if (visited[ni]) continue;
+        if (occ.has(ni) && ni !== tailIdx) continue; // allow stepping onto current tail
+        visited[ni]=1; q.push(ni);
+      }
+    }
+    return false;
+  }
+
+  function tick(){
+    const head = snake[0];
+    const choice = chooseNext();
+    if (!choice){ return gameOver(); }
+    let nx = choice.abs ? choice.abs.x : head.x + choice.x;
+    let ny = choice.abs ? choice.abs.y : head.y + choice.y;
+    if (wrap){ nx = (nx + cols) % cols; ny = (ny + rows) % rows; }
+    // Collision check (allow tail overlap if it moves this tick)
+    const tail = snake[snake.length-1];
+    const ni = idx(nx,ny,cols); const tailIdx = idx(tail.x, tail.y, cols);
+    const occ = buildOccSet(false);
+    const willEat = fruit && nx === fruit.x && ny === fruit.y;
+    if (occ.has(ni) && (!willEat || ni !== tailIdx)) { return gameOver(); }
+
+    // Move
+    snake.unshift({ x: nx, y: ny });
+    if (willEat){ score++; placeFruit(); }
+    else { snake.pop(); }
+
+    draw();
+  }
+
+  function gameOver(){
+    // Flash and restart
+    draw(true, true);
+    setTimeout(reset, 1000);
+  }
+
+  function draw(clearOnly=false, flash=false){
+    // Clear
+    ctx.fillStyle = flash ? '#400' : (colors.bg || '#000');
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+
+    // Grid lines
+    if (colors.grid && colors.grid !== 'transparent'){
+      ctx.strokeStyle = colors.grid; ctx.lineWidth = 1; ctx.globalAlpha = 0.2;
+      ctx.beginPath();
+      for (let x=cellSize; x<canvas.width; x+=cellSize){ ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5, canvas.height); }
+      for (let y=cellSize; y<canvas.height; y+=cellSize){ ctx.moveTo(0, y+0.5); ctx.lineTo(canvas.width, y+0.5); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+
+  if (clearOnly) { return; }
+
+    // Fruit
+    if (fruit){
+      ctx.fillStyle = colors.fruit || '#ff3366';
+      ctx.fillRect(fruit.x*cellSize, fruit.y*cellSize, cellSize, cellSize);
+    }
+
+    // Snake
+    ctx.fillStyle = colors.snake || '#00ff6a';
+    for (let i=snake.length-1; i>=1; i--){ const p = snake[i]; ctx.fillRect(p.x*cellSize, p.y*cellSize, cellSize, cellSize); }
+    // Head
+    const h = snake[0];
+    ctx.fillStyle = colors.snakeHead || colors.snake || '#9cffce';
+    ctx.fillRect(h.x*cellSize, h.y*cellSize, cellSize, cellSize);
+
+  // HUD removed
+  }
+
+
+  // Resize handling
+  let resizeTimer;
+  function onResize(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(()=> reset(), 150); }
+  window.addEventListener('resize', onResize);
+  window.addEventListener('load', reset);
+  setTimeout(reset, 20);
+})();
+</script>
