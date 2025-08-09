@@ -1,6 +1,28 @@
 (()=>{
   const root = document.getElementById('root');
   const notificationEl = document.getElementById('notification');
+  // Expose helpers asap (before connecting socket)
+  function afterFontsReady(cb){
+    const run = () => requestAnimationFrame(cb);
+    try {
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(run, run);
+      } else {
+        run();
+      }
+    } catch { run(); }
+  }
+  window.hdisplay = window.hdisplay || {};
+  window.hdisplay.afterFontsReady = afterFontsReady;
+  window.hdisplay.hiddenUntilReady = function(el, initFn){
+    if (!el) return;
+    try { el.style.visibility = 'hidden'; } catch {}
+    requestAnimationFrame(() => {
+      try { if (typeof initFn === 'function') initFn(); } catch {}
+      requestAnimationFrame(() => { try { el.style.visibility = 'visible'; } catch {} });
+    });
+  };
+
   const socket = io({ path: '/socket.io' });
 
   function executeScripts(container){
@@ -14,9 +36,45 @@
     });
   }
 
+  // Crossfade: use two layers and swap
+  let a = document.createElement('div');
+  let b = document.createElement('div');
+  a.className = 'layer visible';
+  b.className = 'layer';
+  root.appendChild(a);
+  root.appendChild(b);
+  let contentVersion = 0;
+
+  // (helper defined above)
+
   function setContent(html){
-    root.innerHTML = html;
-    executeScripts(root);
+    const incoming = a.classList.contains('visible') ? b : a;
+    const outgoing = a.classList.contains('visible') ? a : b;
+    const myVersion = ++contentVersion;
+    // Prepare incoming at opacity 0
+    incoming.classList.remove('visible');
+    incoming.innerHTML = html;
+    // Force style flush to ensure transition from 0 -> 1
+    void incoming.offsetWidth; // reflow
+    // Defer class changes to next frame for reliable transition
+    requestAnimationFrame(() => {
+      if (myVersion !== contentVersion) return; // stale
+      // Ensure incoming appears before outgoing in DOM so generic selectors hit it first
+      if (incoming.parentElement === root && root.firstChild !== incoming) {
+        root.insertBefore(incoming, root.firstChild);
+      }
+      incoming.classList.add('visible');
+      outgoing.classList.remove('visible');
+      // Execute scripts for incoming now that it's visible; templates can defer visibility via helper
+      if (myVersion === contentVersion) executeScripts(incoming);
+      // Clear outgoing after transition to free memory
+      setTimeout(() => {
+        if (myVersion !== contentVersion) return;
+        if (!outgoing.classList.contains('visible')) {
+          outgoing.innerHTML = '';
+        }
+      }, 520);
+    });
   }
   function showNotification(data){
     notificationEl.textContent = data.message;

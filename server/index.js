@@ -20,15 +20,29 @@ const state = {
   content: '<div class="center">hdisplay ready</div>',
   notification: null,
   updatedAt: new Date().toISOString(),
-  lastTemplate: null
+  lastTemplate: null,
+  playlist: {
+    delayMs: 20000,
+    items: []
+  }
 };
+
+// Playlist runtime (not persisted)
+let playlistIndex = 0;
+let rotationTimer = null;
+let overrideTimer = null;
+let overrideActive = false;
 
 function saveState() {
   // Persist only selected fields
   const snapshot = {
     content: state.content,
     updatedAt: state.updatedAt,
-    lastTemplate: state.lastTemplate
+    lastTemplate: state.lastTemplate,
+    playlist: {
+      delayMs: clampDelay(state.playlist?.delayMs),
+      items: Array.isArray(state.playlist?.items) ? state.playlist.items : []
+    }
   };
   try {
     const tmp = STATE_FILE + '.tmp';
@@ -48,6 +62,10 @@ function loadState() {
       if (typeof s.content === 'string') state.content = s.content;
       if (typeof s.updatedAt === 'string') state.updatedAt = s.updatedAt;
       if (s.lastTemplate && typeof s.lastTemplate === 'object') state.lastTemplate = s.lastTemplate;
+      if (s.playlist && typeof s.playlist === 'object') {
+        state.playlist.delayMs = clampDelay(Number(s.playlist.delayMs) || 20000);
+        state.playlist.items = Array.isArray(s.playlist.items) ? s.playlist.items.filter(Boolean) : [];
+      }
     }
   } catch {
     // ignore if missing or invalid
@@ -104,15 +122,11 @@ function sanitizeName(name) {
 
 function setImageContentURL(url) {
   const html = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>`;
-  state.content = html;
-  state.updatedAt = new Date().toISOString();
-  io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
+  applyContentUpdate({ html });
 }
 function setVideoContentURL(url) {
   const html = `<video src="${url}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover;background:#000"></video>`;
-  state.content = html;
-  state.updatedAt = new Date().toISOString();
-  io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
+  applyContentUpdate({ html });
 }
 
 // Render template
@@ -150,12 +164,128 @@ function parseTemplatePlaceholders(content) {
   return Array.from(set);
 }
 
+// Delay bounds
+function clampDelay(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 20000;
+  return Math.max(2000, Math.min(300000, Math.floor(v)));
+}
+
+function emitContentUpdate(payload) {
+  io.emit('content:update', payload);
+}
+
+function setContentInternal(html, templateMeta) {
+  state.content = html;
+  if (templateMeta) state.lastTemplate = templateMeta; else state.lastTemplate = null;
+  state.updatedAt = new Date().toISOString();
+  emitContentUpdate({ content: state.content, updatedAt: state.updatedAt, template: state.lastTemplate || undefined });
+  saveState();
+}
+
+// Apply a content update coming from legacy methods (not playlist): trigger override if playlist active
+function applyContentUpdate({ html, template }) {
+  setContentInternal(html, template || null);
+  // If a playlist is active (has items), override temporarily then resume
+  if (state.playlist.items.length > 0) {
+    triggerOverrideAndResume();
+  }
+}
+
+function triggerOverrideAndResume() {
+  // Cancel any rotation and existing override timer
+  if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
+  if (overrideTimer) { clearTimeout(overrideTimer); overrideTimer = null; }
+  overrideActive = true;
+  const delay = clampDelay(state.playlist.delayMs);
+  overrideTimer = setTimeout(() => {
+    overrideActive = false;
+    // Resume from next item
+    if (state.playlist.items.length > 0) {
+      playlistIndex = (playlistIndex + 1) % state.playlist.items.length;
+      playCurrentPlaylistItem();
+    }
+  }, delay);
+  if (typeof overrideTimer.unref === 'function') overrideTimer.unref();
+}
+
+function validatePlaylistItem(item) {
+  if (!item || typeof item !== 'object') return { ok: false, error: 'invalid item' };
+  const id = String(item.id || '');
+  if (!id) return { ok: false, error: 'id required' };
+  const file = path.join(TEMPLATES_DIR, `${id}.html`);
+  if (!fs.existsSync(file)) return { ok: false, error: 'template not found' };
+  // Validator
+  try {
+    const { validateTemplateData } = require('./templates/registry');
+    const v = validateTemplateData(id, item.data || {});
+    if (v && v.ok === false) return { ok: false, error: v.error || 'invalid data' };
+  } catch {}
+  return { ok: true };
+}
+
+function playCurrentPlaylistItem() {
+  if (overrideActive) return; // do not change during override
+  const items = state.playlist.items;
+  if (!Array.isArray(items) || items.length === 0) return;
+  if (playlistIndex < 0 || playlistIndex >= items.length) playlistIndex = 0;
+  const current = items[playlistIndex];
+  const id = current.id;
+  const fileName = id + '.html';
+  const full = path.join(TEMPLATES_DIR, fileName);
+  if (!fs.existsSync(full)) {
+    console.warn('[hdisplay] playlist item missing on disk, skipping:', id);
+    // advance to next
+    playlistIndex = (playlistIndex + 1) % items.length;
+    scheduleNextRotation();
+    return;
+  }
+  try {
+    // Render
+    const raw = fs.readFileSync(full, 'utf8');
+    const html = renderTemplate(raw, current.data || {});
+    setContentInternal(html, { id, appliedAt: new Date().toISOString(), data: current.data || {} });
+  } catch (e) {
+    console.warn('[hdisplay] failed to render playlist item', id, e.message);
+  }
+  scheduleNextRotation();
+}
+
+function scheduleNextRotation() {
+  if (overrideActive) return;
+  if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
+  const items = state.playlist.items || [];
+  if (items.length <= 1) return; // single or empty: no rotation
+  const delay = clampDelay(state.playlist.delayMs);
+  rotationTimer = setTimeout(() => {
+    if (!overrideActive && items.length > 0) {
+      playlistIndex = (playlistIndex + 1) % items.length;
+      playCurrentPlaylistItem();
+    }
+  }, delay);
+  if (typeof rotationTimer.unref === 'function') rotationTimer.unref();
+}
+
+function startPlaylistIfActive() {
+  const items = state.playlist.items || [];
+  if (items.length === 0) { stopPlaylist(); return; }
+  // Show current (or first) immediately, then schedule
+  if (playlistIndex >= items.length) playlistIndex = 0;
+  playCurrentPlaylistItem();
+}
+
+function stopPlaylist() {
+  if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
+  if (overrideTimer) { clearTimeout(overrideTimer); overrideTimer = null; }
+  overrideActive = false;
+}
+
 // API routes
 app.get('/api/status', (req, res) => {
   res.json({
     content: state.content,
     notification: state.notification,
-    updatedAt: state.updatedAt
+  updatedAt: state.updatedAt
   });
 });
 
@@ -171,10 +301,7 @@ app.post('/api/content', (req, res) => {
   if (typeof content !== 'string' || content.length === 0) {
     return res.status(400).json({ error: 'content (string) required' });
   }
-  state.content = content;
-  state.updatedAt = new Date().toISOString();
-  io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
-  saveState();
+  applyContentUpdate({ html: content });
   res.json({ ok: true });
 });
 
@@ -209,11 +336,7 @@ app.post('/api/template/:id', (req, res) => {
 
     const raw = fs.readFileSync(full,'utf8');
     const html = renderTemplate(raw, data);
-    state.content = html;
-  state.lastTemplate = { id, appliedAt: new Date().toISOString(), data };
-    state.updatedAt = new Date().toISOString();
-    io.emit('content:update', { content: state.content, updatedAt: state.updatedAt, template: state.lastTemplate });
-  saveState();
+  applyContentUpdate({ html, template: { id, appliedAt: new Date().toISOString(), data } });
     return res.json({ ok: true, template: state.lastTemplate });
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -231,12 +354,9 @@ app.post('/api/notification', (req, res) => {
 });
 
 app.post('/api/clear', (req, res) => {
-  state.content = '';
   state.notification = null;
-  state.updatedAt = new Date().toISOString();
-  io.emit('content:update', { content: state.content, updatedAt: state.updatedAt });
+  applyContentUpdate({ html: '' });
   io.emit('notification:clear');
-  saveState();
   res.json({ ok: true });
 });
 
@@ -303,6 +423,92 @@ app.post('/api/push/video', memUpload.single('file'), (req, res) => {
   res.json({ ok: true, url });
 });
 
+// Playlist API
+app.get('/api/playlist', (req, res) => {
+  const items = Array.isArray(state.playlist.items) ? state.playlist.items : [];
+  res.json({ delayMs: clampDelay(state.playlist.delayMs), items, active: items.length > 0 });
+});
+
+app.put('/api/playlist', (req, res) => {
+  const body = req.body || {};
+  const items = Array.isArray(body.items) ? body.items : state.playlist.items;
+  const delayMs = body.delayMs !== undefined ? clampDelay(body.delayMs) : clampDelay(state.playlist.delayMs);
+  // Validate all items
+  for (const it of items) {
+    const v = validatePlaylistItem(it);
+    if (!v.ok) {
+      const code = v.error === 'template not found' ? 404 : 400;
+      return res.status(code).json({ error: v.error });
+    }
+  }
+  state.playlist.items = items;
+  state.playlist.delayMs = delayMs;
+  playlistIndex = 0;
+  saveState();
+  io.emit('playlist:update', { delayMs, items, active: items.length > 0 });
+  if (items.length > 0) {
+    startPlaylistIfActive();
+  } else {
+    stopPlaylist();
+  }
+  res.json({ ok: true, playlist: { delayMs, items, active: items.length > 0 } });
+});
+
+app.post('/api/playlist/items', (req, res) => {
+  const item = req.body || {};
+  const v = validatePlaylistItem(item);
+  if (!v.ok) {
+    const code = v.error === 'template not found' ? 404 : 400;
+    return res.status(code).json({ error: v.error });
+  }
+  state.playlist.items.push({ id: String(item.id), data: item.data || {} });
+  saveState();
+  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: state.playlist.items, active: state.playlist.items.length > 0 });
+  if (state.playlist.items.length === 1 && !overrideActive) {
+    playlistIndex = 0;
+    startPlaylistIfActive();
+  }
+  res.json({ ok: true, index: state.playlist.items.length - 1 });
+});
+
+app.delete('/api/playlist/items/:index', (req, res) => {
+  const idx = Number(req.params.index);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= state.playlist.items.length) {
+    return res.status(400).json({ error: 'invalid index' });
+  }
+  state.playlist.items.splice(idx, 1);
+  if (playlistIndex >= state.playlist.items.length) playlistIndex = 0;
+  saveState();
+  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: state.playlist.items, active: state.playlist.items.length > 0 });
+  if (state.playlist.items.length === 0) stopPlaylist();
+  res.json({ ok: true });
+});
+
+app.delete('/api/playlist/items/by-id/:id', (req, res) => {
+  const id = String(req.params.id || '');
+  const idx = state.playlist.items.findIndex(it => String(it.id) === id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  state.playlist.items.splice(idx, 1);
+  if (playlistIndex >= state.playlist.items.length) playlistIndex = 0;
+  saveState();
+  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: state.playlist.items, active: state.playlist.items.length > 0 });
+  if (state.playlist.items.length === 0) stopPlaylist();
+  res.json({ ok: true, removedIndex: idx });
+});
+
+app.post('/api/playlist/delay', (req, res) => {
+  const { delayMs } = req.body || {};
+  const v = clampDelay(delayMs);
+  state.playlist.delayMs = v;
+  saveState();
+  io.emit('playlist:update', { delayMs: v, items: state.playlist.items, active: state.playlist.items.length > 0 });
+  // Restart timers if rotating
+  if (!overrideActive && state.playlist.items.length > 1) {
+    scheduleNextRotation();
+  }
+  res.json({ ok: true, delayMs: v });
+});
+
 // Create server and io, but do not listen unless run directly
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -328,6 +534,8 @@ if (require.main === module) {
     } catch (e) {
       console.warn('[hdisplay] mDNS publish failed:', e.message);
     }
+  // Start playlist if present
+  try { startPlaylistIfActive(); } catch {}
   });
 
   function shutdown() {

@@ -42,7 +42,14 @@
     i = next;
   }
   function tick(){ show((i+1) % nodes.length); }
-  tick();
+  // Hide root until first show to avoid flash (init immediately)
+  if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
+    window.hdisplay.hiddenUntilReady(root, () => { tick(); });
+  } else {
+    root.style.visibility = 'hidden';
+    tick();
+    requestAnimationFrame(()=>{ root.style.visibility = 'visible'; });
+  }
   setInterval(tick, duration);
 })();
 </script>
