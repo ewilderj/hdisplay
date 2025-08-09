@@ -17,11 +17,29 @@
     const s = String(raw || '').trim().toLowerCase();
     return s === 'true' || s === '1' || s === 'yes';
   }
-  const zoomScaleRaw = Number(String.raw`{{ zoomScale }}`);
-  const zoomScale = Number.isFinite(zoomScaleRaw) ? zoomScaleRaw : 1.05;
-  const zoomMsRaw = Number(String.raw`{{ zoomMs }}`);
-  const zoomMs = Number.isFinite(zoomMsRaw) ? zoomMsRaw : duration;
+  function parseNum(raw, fallback){
+    const s = String(raw ?? '').trim();
+    if (s === '') return fallback;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  const zoomScale = parseNum(String.raw`{{ zoomScale }}`, 1.05);
+  const zoomMs = parseNum(String.raw`{{ zoomMs }}`, duration);
   const zoomOnVideo = parseBool(String.raw`{{ zoomOnVideo }}`);
+  // Debug: log effective zoom parameters once at init
+  try {
+    const rawZoomScale = String.raw`{{ zoomScale }}`;
+    const rawZoomMs = String.raw`{{ zoomMs }}`;
+    console.info('[carousel]', {
+      zoomScale,
+      zoomMs,
+      rawZoomScale,
+      rawZoomMs,
+      duration,
+      zoomOnVideo,
+      itemsCount: Array.isArray(items) ? items.length : 0
+    });
+  } catch {}
   const root = document.getElementById('carousel-root');
   if (!Array.isArray(items) || items.length === 0) {
     root.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">No items</div>';
