@@ -10,8 +10,8 @@ const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 const UPLOADS_DIR = process.env.HDS_UPLOADS_DIR || path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// Persistent state path
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// Persistent state path (override with HDS_DATA_DIR for tests/alt deployments)
+const DATA_DIR = process.env.HDS_DATA_DIR || path.join(__dirname, '..', 'data');
 const STATE_FILE = path.join(DATA_DIR, 'state.json');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -195,36 +195,20 @@ app.post('/api/template/:id', (req, res) => {
   const full = path.join(TEMPLATES_DIR, fileName);
   if (!fs.existsSync(full)) return res.status(404).json({ error: 'template not found' });
   try {
-    // Basic payload validation for certain templates
     const data = req.body.data || {};
-    if (id === 'animated-text') {
-      const text = data.text;
-      if (typeof text !== 'string' || text.trim().length === 0) {
-        return res.status(400).json({ error: 'animated-text requires data.text (non-empty string)' });
+    // Delegate validation to per-template validators, if present
+    try {
+      const { validateTemplateData } = require('./templates/registry');
+      const v = validateTemplateData(id, data);
+      if (v && v.ok === false) {
+        return res.status(400).json({ error: v.error || 'invalid data' });
       }
-      if (data.velocity !== undefined) {
-        const v = Number(data.velocity);
-        if (!Number.isFinite(v) || v <= 0) {
-          return res.status(400).json({ error: 'animated-text: velocity must be a positive number' });
-        }
-      }
-      if (data.speed !== undefined) {
-        const s = Number(data.speed);
-        if (!Number.isFinite(s) || s <= 0) {
-          return res.status(400).json({ error: 'animated-text: speed must be a positive number' });
-        }
-      }
-    } else if (id === 'timeleft') {
-      const m = Number(data.minutes);
-      if (!Number.isFinite(m) || m < 0) {
-        return res.status(400).json({ error: 'timeleft requires data.minutes (non-negative number)' });
-      }
-      if (data.label !== undefined && typeof data.label !== 'string') {
-        return res.status(400).json({ error: 'timeleft: label must be a string' });
-      }
+    } catch (e) {
+      // If registry load fails, continue without validation (backwards compatible)
     }
-  const raw = fs.readFileSync(full,'utf8');
-  const html = renderTemplate(raw, data);
+
+    const raw = fs.readFileSync(full,'utf8');
+    const html = renderTemplate(raw, data);
     state.content = html;
   state.lastTemplate = { id, appliedAt: new Date().toISOString(), data };
     state.updatedAt = new Date().toISOString();
