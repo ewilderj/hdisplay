@@ -172,6 +172,70 @@ Testing (high level)
 #### Exit Codes
 - `0` on success; `1` on errors (network, validation, HTTP 4xx/5xx). Reserved codes may be added later for specific classes.
 
+#### Schema-aware template flags (no JSON) — Proposal
+Goal: make `hdisplay template <id>` ergonomic without hand-typing JSON. Map CLI flags directly onto the template’s data object, using light type inference.
+
+Scope (MVP)
+- Keys map 1:1 to flags: `data.foo` ⇔ `--foo <value>`.
+- Arrays of primitives via repeated flags: `--items A --items B` ⇔ `data.items = ["A","B"]`.
+- Nested objects via dot notation: `--theme.bg '#000'` ⇔ `data.theme.bg = "#000"`.
+- Booleans via presence/negation: `--wrap` ⇔ `true`, `--no-wrap` ⇔ `false`.
+- Numbers auto-parsed: `--velocity 120` ⇔ `data.velocity = 120`.
+- Strings kept as-is (quotes optional; shell quoting rules still apply).
+
+Syntax rules
+- Flag name normalization: kebab- or camel-case map to camelCase in data (`--font-family` or `--fontFamily` ⇒ `data.fontFamily`).
+- Dot-path builds nested objects: `--a.b.c 1` ⇒ `{ a: { b: { c: 1 } } }`.
+- Repeated flags accumulate into arrays (array created on second occurrence).
+- Mixed single + repeated: the first scalar becomes the first array element when a repeat occurs.
+- Explicit array indices not supported (no `--items[0]`). Arrays of objects out of scope for MVP.
+
+Type inference
+- Value `true|false` (case-insensitive) parsed as boolean only when supplied as a value (not presence).
+- Integers/floats parsed as numbers; otherwise leave as string.
+- If a value begins with `{` or `[` and parses as JSON, accept it (escape hatch for complex shapes).
+
+Error handling
+- Unknown flags are forwarded as data and validated server-side by per-template validators.
+- If both `--foo` and `--no-foo` are provided, last one wins.
+- If numeric parsing fails, value remains a string; server validator returns a clear error.
+
+Help and discoverability
+- `hdisplay templates` continues to list placeholders. Add short per-template usage examples to README and optionally `--help`.
+- Future: extend `GET /api/templates` to include type hints so CLI can render richer help (flag suggestions).
+
+Examples
+- Animated text
+   - Today (JSON): `hdisplay template animated-text --data '{"text":"Hello","velocity":120}'`
+   - No-JSON: `hdisplay template animated-text --text 'Hello' --velocity 120`
+
+- Carousel (array of URLs)
+   - Today (JSON): `--data '{"items":["url1","url2"],"duration":4000}'`
+   - No-JSON: `hdisplay template carousel --items url1 --items url2 --duration 4000`
+
+- TimeLeft (nested theme)
+   - Today (JSON): `--data '{"minutes":90,"theme":{"bg":"#000"}}'`
+   - No-JSON: `hdisplay template timeleft --minutes 90 --theme.bg '#000'`
+
+- WebP loop (booleans)
+   - `hdisplay template webp-loop --url /uploads/anim.webp --fit contain --rendering pixelated`
+   - or `hdisplay template webp-loop --url /uploads/anim.webp --pixelated` (boolean true)
+
+Compatibility and precedence
+- All existing data modes remain supported.
+- Precedence when mixed for `template <id>`: flags (`--foo`, `--items`) override inline/file/stdin JSON (`--data*`), which override server defaults.
+
+Implementation plan (CLI)
+- For `template <id>` only, collect unknown options into a map without failing.
+- Normalize names (kebab/camel → camelCase), build dot-path objects, coerce booleans (presence toggles), parse numbers, optionally parse JSON when value begins with `{` or `[`.
+- Aggregate repeated flags into arrays.
+- Merge with any provided JSON (`--data*`), with flag-data winning.
+- POST to `/api/template/:id` as today; rely on existing validators.
+
+Out of scope (MVP)
+- Arrays of objects (e.g., `[{ url, duration }]`). If needed later, consider `--items-json` or repeated grouped prefixes like `--item.url`/`--item.duration` with an index.
+- Rich enum validation on the CLI (keep on server).
+
 ## Content Types
 
 1. **Static HTML** - Direct HTML/CSS content

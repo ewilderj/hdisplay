@@ -148,4 +148,71 @@ describe('CLI data input modes', () => {
     expect(res.status).not.toBe(0);
     expect(res.stderr).toMatch(/Invalid JSON/);
   });
+
+  test('flag-based data: scalar + number (no JSON)', () => {
+    const res = CLI(['--server', serverUrl, '--timeout', '10000', 'template', 'animated-text', '--text', 'HiFlags', '--velocity', '150']);
+    expectOk(res);
+  });
+
+  test('flag-based data: repeated flags become array', () => {
+    const res = CLI([
+      '--server', serverUrl, '--timeout', '10000',
+      'template', 'carousel',
+      '--items', 'https://example.com/a.jpg',
+      '--items', 'https://example.com/b.jpg',
+      '--duration', '3000'
+    ]);
+    expectOk(res);
+  });
+
+  test('flag-based data: nested dot-path', () => {
+    const res = CLI([
+      '--server', serverUrl, '--timeout', '10000',
+      'template', 'timeleft',
+      '--minutes', '45',
+      '--theme.bg', '#000'
+    ]);
+    expectOk(res);
+  });
+
+  test('flag-based data: boolean presence/negation', () => {
+    const res1 = CLI([
+      '--server', serverUrl, '--timeout', '10000',
+      'template', 'webp-loop',
+      '--url', 'https://example.com/anim.webp',
+      '--pixelated'
+    ]);
+    expectOk(res1);
+
+    const res2 = CLI([
+      '--server', serverUrl, '--timeout', '10000',
+      'template', 'webp-loop',
+      '--url', 'https://example.com/anim.webp',
+      '--no-pixelated'
+    ]);
+    expectOk(res2);
+  });
+
+  describe('playlist:add flag-based data', () => {
+    test('animated-text via flags', () => {
+      const res = CLI([
+        '--server', serverUrl, '--timeout', '10000',
+        'playlist:add', 'animated-text',
+        '--text', 'FromPlaylist',
+        '--velocity', '110'
+      ]);
+      expectOk(res);
+    });
+
+    test('carousel via repeated --items', () => {
+      const res = CLI([
+        '--server', serverUrl, '--timeout', '10000',
+        'playlist:add', 'carousel',
+        '--items', 'https://example.com/a.jpg',
+        '--items', 'https://example.com/b.jpg',
+        '--duration', '3500'
+      ]);
+      expectOk(res);
+    });
+  });
 });

@@ -9,6 +9,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
 - [Quick start](#quick-start)
 - [Using the CLI](#using-the-cli)
 - [Templates](#templates)
+  - [Template data input](#template-data-input)
   - [Animated marquee](#animated-marquee-scrolling-text)
   - [Image/Video carousel](#imagevideo-carousel)
   - [WebP loop](#webp-loop-animated-webp)
@@ -107,8 +108,23 @@ hdisplay templates
 hdisplay template message-banner --data '{"title":"Hello","subtitle":"World"}'
 ```
 
+### Template data input
+Preferred: pass data with flags — no JSON required.
+- Scalars: `--text "Hello"` → `{ text: "Hello" }`
+- Numbers: `--velocity 120` → `{ velocity: 120 }`
+- Arrays: repeat flags `--items A --items B` → `{ items: ["A","B"] }`
+- Nested: dot paths `--theme.bg '#000'` → `{ theme: { bg: "#000" } }`
+- Booleans: `--wrap` = true, `--no-wrap` = false
+
+Also supported (JSON):
+- Inline: `--data '{"text":"Hello"}'`
+- From file: `--data-file ./data.json`
+- From stdin: `--data -` (reads JSON from stdin)
+
 ### Animated marquee (scrolling text)
 ```bash
+hdisplay template animated-text --text "Hello world" --velocity 120
+# or JSON
 hdisplay template animated-text --data '{"text":"Hello world","velocity":120}'
 ```
 
@@ -119,9 +135,20 @@ Notes:
 ### Image/Video carousel
 You can pass either `/uploads/...` paths or absolute `http(s)://` URLs; both work, and you can mix them in one list.
 ```bash
-hdisplay template carousel --data '{"items":["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"],"duration":3000}'
+hdisplay template carousel \
+  --items /uploads/a.jpg \
+  --items /uploads/b.mp4 \
+  --items /uploads/c.jpg \
+  --duration 3000
 
-hdisplay template carousel --data '{"items":["http://localhost:3000/uploads/a.jpg","https://picsum.photos/seed/alpha/1280/400","https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"],"duration":4000}'
+hdisplay template carousel \
+  --items http://localhost:3000/uploads/a.jpg \
+  --items https://picsum.photos/seed/alpha/1280/400 \
+  --items https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4 \
+  --duration 4000
+
+# or JSON
+hdisplay template carousel --data '{"items":["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"],"duration":3000}'
 ```
 
 Notes:
@@ -135,12 +162,14 @@ Notes:
 
 ### Message banner
 ```bash
+hdisplay template message-banner --title "hdisplay" --subtitle "example banner"
+# or JSON
 hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example banner"}'
 ```
 
 ### WebP loop (animated WebP)
 ```bash
-hdisplay template webp-loop --data '{"url":"/uploads/your_anim.webp","fit":"cover","position":"50% 50%"}'
+hdisplay template webp-loop --url /uploads/your_anim.webp --fit cover --position "50% 50%"
 ```
 Options
 - url (required): path under /uploads or absolute URL to a .webp
@@ -151,14 +180,19 @@ Options
 Examples
 ```bash
 # Contain and keep center, pixelated upscale
-hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain","position":"50% 50%","rendering":"pixelated"}'
+hdisplay template webp-loop --url /uploads/anim.webp --fit contain --position "50% 50%" --rendering pixelated
 
 # Default smooth scaling
-hdisplay template webp-loop --data '{"url":"/uploads/anim.webp"}'
+hdisplay template webp-loop --url /uploads/anim.webp
+
+# or JSON
+hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain","position":"50% 50%","rendering":"pixelated"}'
 ```
 
 ### Snake (auto-play)
 ```bash
+hdisplay template snake --cellSize 20 --tickMs 100
+# or JSON
 hdisplay template snake --data '{"cellSize":20,"tickMs":100}'
 ```
 Notes
@@ -166,6 +200,9 @@ Notes
 
 ### TimeLeft (meeting countdown)
 ```bash
+hdisplay template timeleft --minutes 15 --label "Time left"
+hdisplay template timeleft --minutes 135 --label "Time left" --theme.labelColor "#fff"
+# or JSON
 hdisplay template timeleft --data '{"minutes":15,"label":"Time left"}'
 hdisplay template timeleft --data '{"minutes":135,"label":"Time left","theme":{"labelColor":"#fff"}}'
 ```
@@ -319,7 +356,7 @@ docker run --rm -d -p 3001:3000 \
 
 curl -fsS http://localhost:3001/healthz
 hdisplay config --server http://localhost:3001
-hdisplay show:marquee --text "Hello from Docker" --velocity 120
+hdisplay template animated-text --text "Hello from Docker" --velocity 120
 hdisplay status
 # macOS preview (optional)
 PORT=3001 ./scripts/mac-preview.sh
