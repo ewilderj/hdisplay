@@ -7,7 +7,7 @@ const chalk = chalkImport.default || chalkImport;
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const discover = require('./commands/discover');
+const discover = require(process.env.HDISPLAY_DISCOVER_IMPL || './commands/discover');
 const FormData = require('form-data');
 const axiosLib = axios; // alias
 const readline = require('readline');
@@ -15,7 +15,7 @@ const readline = require('readline');
 const ALLOWED_LEVELS = new Set(['info','warn','error','success']);
 
 const program = new Command();
-const CONFIG_PATH = path.join(os.homedir(), '.hdisplay.json');
+const CONFIG_PATH = process.env.HDISPLAY_CONFIG_PATH || path.join(os.homedir(), '.hdisplay.json');
 
 program
   .name('hdisplay')
@@ -23,6 +23,9 @@ program
   .version('0.1.0')
   .showHelpAfterError()
   .allowExcessArguments(false)
+  .option('--server <url>', 'Override server URL (flag > env > config > default)')
+  .option('--timeout <ms>', 'HTTP timeout in milliseconds', '7000')
+  .option('--quiet', 'Reduce non-essential output', false)
   .configureOutput({
     outputError: (str, write) => write(chalk.red(str))
   });
@@ -31,6 +34,39 @@ function loadConfig(){
   try { return JSON.parse(fs.readFileSync(CONFIG_PATH,'utf8')); } catch { return { server: 'http://localhost:3000' }; }
 }
 function saveConfig(cfg){ fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2)); }
+
+function getServerBase(){
+  const opts = program.opts?.() || {};
+  const fromFlag = opts.server && String(opts.server);
+  const fromEnv = process.env.HDISPLAY_SERVER && String(process.env.HDISPLAY_SERVER);
+  const fromConfig = (loadConfig().server) || 'http://localhost:3000';
+  return (fromFlag || fromEnv || fromConfig).replace(/\/$/, '');
+}
+
+function getTimeoutMs(){
+  const opts = program.opts?.() || {};
+  const t = Number(opts.timeout);
+  return Number.isFinite(t) && t > 0 ? t : 7000;
+}
+
+function isQuiet(){
+  const opts = program.opts?.() || {};
+  return !!opts.quiet;
+}
+
+function successLog(...args){ if (!isQuiet()) console.log(...args); }
+function infoLog(...args){ if (!isQuiet()) console.log(...args); }
+
+async function readStdin(){
+  return new Promise((resolve, reject) => {
+    let data = '';
+    if (process.stdin.isTTY) return resolve('');
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => { data += chunk; });
+    process.stdin.on('end', () => resolve(data));
+    process.stdin.on('error', reject);
+  });
+}
 
 async function promptSelectService(services) {
   // Non-interactive fallback
@@ -55,10 +91,10 @@ async function promptSelectService(services) {
 }
 
 async function api(pathname, method='get', data) {
-  const cfg = loadConfig();
-  const url = cfg.server.replace(/\/$/, '') + pathname;
+  const base = getServerBase();
+  const url = base + pathname;
   try {
-    const resp = await axios({ url, method, data, timeout: 7000 });
+    const resp = await axios({ url, method, data, timeout: getTimeoutMs() });
     return resp.data;
   } catch (e) {
     if (e.response) {
@@ -73,28 +109,26 @@ async function api(pathname, method='get', data) {
 }
 
 async function uploadFile(filePath) {
-  const cfg = loadConfig();
-  const url = cfg.server.replace(/\/$/, '') + '/api/upload';
+  const url = getServerBase() + '/api/upload';
   const form = new FormData();
   form.append('file', fs.createReadStream(filePath));
   const headers = form.getHeaders();
-  const resp = await axios.post(url, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity });
+  const resp = await axios.post(url, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity, timeout: getTimeoutMs() });
   return resp.data;
 }
 
 async function pushMedia(endpoint, { file, url, persist }) {
-  const cfg = loadConfig();
-  const base = cfg.server.replace(/\/$/, '');
+  const base = getServerBase();
   const target = `${base}${endpoint}?persist=${persist ? 'true' : 'false'}`;
   if (file) {
     const form = new FormData();
     form.append('file', fs.createReadStream(file));
     const headers = form.getHeaders();
-    const res = await axiosLib.post(target, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity });
+    const res = await axiosLib.post(target, form, { headers, maxContentLength: Infinity, maxBodyLength: Infinity, timeout: getTimeoutMs() });
     return res.data;
   }
   if (url) {
-    const res = await axiosLib.post(target, { url, persist: !!persist });
+    const res = await axiosLib.post(target, { url, persist: !!persist }, { timeout: getTimeoutMs() });
     return res.data;
   }
   throw new Error('file or url required');
@@ -112,7 +146,7 @@ program.command('config')
 program.command('status')
   .description('Show current display status')
   .action(async ()=>{
-    try { const data = await api('/api/status'); console.log(chalk.cyan('Content length:'), data.content.length, '\nNotification:', data.notification); }
+  try { const data = await api('/api/status'); console.log(chalk.cyan('Content length:'), data.content.length, '\nNotification:', data.notification); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -121,7 +155,7 @@ program.command('set <html...>')
   .action(async (htmlParts)=>{
     const html = (htmlParts || []).join(' ').trim();
     if (!html) { console.error(chalk.red('Error: HTML content required.')); process.exitCode = 1; return; }
-    try { await api('/api/content','post',{ content: html }); console.log(chalk.green('Content updated')); }
+  try { await api('/api/content','post',{ content: html }); successLog(chalk.green('Content updated')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -136,7 +170,7 @@ program.command('notify <message...>')
     if (!message) { console.error(chalk.red('Error: message required.')); process.exitCode = 1; return; }
     if (!Number.isFinite(duration) || duration < 0) { console.error(chalk.red('Error: duration must be a non-negative integer.')); process.exitCode = 1; return; }
     if (!ALLOWED_LEVELS.has(level)) { console.error(chalk.red('Error: level must be one of info|warn|error|success.')); process.exitCode = 1; return; }
-    try { await api('/api/notification','post',{ message, duration, level }); console.log(chalk.green('Notification sent')); }
+  try { await api('/api/notification','post',{ message, duration, level }); successLog(chalk.green('Notification sent')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -151,27 +185,28 @@ program.command('templates')
 
 program.command('template <id>')
   .description('Apply a template with optional JSON data: --data "{\"key\":\"value\"}"')
-  .option('--data <json>', 'JSON data for placeholders')
+  .option('--data <json>', 'JSON data for placeholders (or use --data - to read from stdin)')
+  .option('--data-file <path>', 'Path to JSON file for placeholders')
   .allowExcessArguments(false)
   .action(async (id, opts)=>{
     let dataPayload = {};
-    if (opts.data) {
-      try { dataPayload = JSON.parse(opts.data); }
-      catch { console.error(chalk.red('Error: Invalid JSON for --data')); process.exitCode = 1; return; }
+    try {
+      if (opts.dataFile) {
+        const raw = fs.readFileSync(String(opts.dataFile), 'utf8');
+        dataPayload = JSON.parse(raw);
+      } else if (opts.data === '-') {
+        const raw = await readStdin();
+        dataPayload = raw ? JSON.parse(raw) : {};
+      } else if (opts.data) {
+        dataPayload = JSON.parse(opts.data);
+      }
+    } catch {
+      console.error(chalk.red('Error: Invalid JSON for --data/--data-file/stdin'));
+      process.exitCode = 1; return;
     }
     try {
-      // Validate template exists for friendly error
-      const list = await api('/api/templates');
-      const exists = list.templates && list.templates.some(t=> t.id === id);
-      if (!exists) {
-        console.error(chalk.red(`Error: template '${id}' not found.`));
-        if (list.templates && list.templates.length) {
-          console.error('Available:', list.templates.map(t=>t.id).join(', '));
-        }
-        process.exitCode = 1; return;
-      }
-      await api(`/api/template/${id}`, 'post', { data: dataPayload });
-      console.log(chalk.green('Template applied'), id);
+  await api(`/api/template/${id}`, 'post', { data: dataPayload });
+  successLog(chalk.green('Template applied'), id);
     }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
@@ -179,7 +214,7 @@ program.command('template <id>')
 program.command('clear')
   .description('Clear content & notification')
   .action(async ()=>{
-    try { await api('/api/clear','post'); console.log(chalk.green('Display cleared')); }
+  try { await api('/api/clear','post'); successLog(chalk.green('Display cleared')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -187,16 +222,22 @@ program.command('discover')
   .description('Discover hdisplay servers via mDNS and optionally set config')
   .option('--set', 'Set config to first discovered server')
   .option('--timeout <ms>', 'Scan duration in ms', '2000')
+  .option('--non-interactive', 'Do not prompt; select first when multiple')
   .action(async (opts)=>{
     try {
       const list = await discover(parseInt(opts.timeout,10)||2000);
       if (!list.length) { console.log(chalk.yellow('No hdisplay servers found on the network.')); return; }
       if (opts.set) {
-        const selected = list.length > 1 ? await promptSelectService(list) : list[0];
+        let selected;
+        if (list.length > 1) {
+          selected = (opts.nonInteractive || !process.stdin.isTTY) ? list[0] : await promptSelectService(list);
+        } else {
+          selected = list[0];
+        }
         const cfg = loadConfig();
         cfg.server = selected.url;
         saveConfig(cfg);
-        console.log(chalk.green('Configured server:'), cfg.server);
+        successLog(chalk.green('Configured server:'), cfg.server);
       } else {
         console.log(chalk.cyan('\nDiscovered hdisplay servers:'));
         list.forEach((s, i) => console.log(`  [${i + 1}] ${s.name || 'hdisplay'} - ${s.url}`));
@@ -210,7 +251,7 @@ program.command('assets:upload <file>')
     if (!fs.existsSync(file)) { console.error(chalk.red('Error: file not found'), file); process.exitCode = 1; return; }
     try {
       const res = await uploadFile(file);
-      console.log(chalk.green('Uploaded:'), res.file.url);
+  successLog(chalk.green('Uploaded:'), res.file.url);
     } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -218,14 +259,14 @@ program.command('assets:list')
   .description('List uploaded assets')
   .action(async ()=>{
     try { const data = await api('/api/uploads');
-      data.files.forEach(f => console.log(f.url));
+  data.files.forEach(f => console.log(f.url));
     } catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
 program.command('assets:delete <name>')
   .description('Delete an uploaded asset by filename')
   .action(async (name)=>{
-    try { await api(`/api/uploads/${encodeURIComponent(name)}`, 'delete'); console.log(chalk.green('Deleted'), name); }
+  try { await api(`/api/uploads/${encodeURIComponent(name)}`, 'delete'); successLog(chalk.green('Deleted'), name); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -233,7 +274,7 @@ program.command('show:image <url>')
   .description('Set content to display an image URL')
   .action(async (url)=>{
     const html = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000;"><img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>`;
-    try { await api('/api/content','post',{ content: html }); console.log(chalk.green('Displaying image'), url); }
+  try { await api('/api/content','post',{ content: html }); successLog(chalk.green('Displaying image'), url); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -241,7 +282,7 @@ program.command('show:video <url>')
   .description('Set content to display a video URL (autoplay, muted, loop)')
   .action(async (url)=>{
     const html = `<video src="${url}" autoplay muted loop style="width:100%;height:100%;object-fit:cover;background:#000"></video>`;
-    try { await api('/api/content','post',{ content: html }); console.log(chalk.green('Displaying video'), url); }
+  try { await api('/api/content','post',{ content: html }); successLog(chalk.green('Displaying video'), url); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -252,7 +293,7 @@ program.command('push:image')
   .option('-p, --persist', 'Persist file to /uploads (if using --file)')
   .action(async (opts)=>{
     if (!opts.file && !opts.url) { console.error(chalk.red('Error: --file or --url required')); process.exitCode = 1; return; }
-    try { const res = await pushMedia('/api/push/image', opts); console.log(chalk.green('Image displayed at'), res.url); }
+  try { const res = await pushMedia('/api/push/image', opts); successLog(chalk.green('Image displayed at'), res.url); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -263,7 +304,7 @@ program.command('push:video')
   .option('-p, --persist', 'Persist file to /uploads (if using --file)')
   .action(async (opts)=>{
     if (!opts.file && !opts.url) { console.error(chalk.red('Error: --file or --url required')); process.exitCode = 1; return; }
-    try { const res = await pushMedia('/api/push/video', opts); console.log(chalk.green('Video displayed at'), res.url); }
+  try { const res = await pushMedia('/api/push/video', opts); successLog(chalk.green('Video displayed at'), res.url); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -275,7 +316,7 @@ program.command('show:carousel')
     if (!opts.items) { console.error(chalk.red('Error: --items JSON array required')); process.exitCode = 1; return; }
     let items;
     try { items = JSON.parse(opts.items); } catch { console.error(chalk.red('Error: invalid JSON for --items')); process.exitCode = 1; return; }
-    try { await api('/api/template/carousel','post',{ data: { items, duration: Number(opts.duration)||4000 } }); console.log(chalk.green('Carousel displayed')); }
+  try { await api('/api/template/carousel','post',{ data: { items, duration: Number(opts.duration)||4000 } }); successLog(chalk.green('Carousel displayed')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
@@ -296,7 +337,7 @@ program.command('show:marquee')
       if (!Number.isFinite(s) || s <= 0) { console.error(chalk.red('Error: --speed must be a positive number')); process.exitCode = 1; return; }
       payload.speed = s;
     }
-    try { await api('/api/template/animated-text','post',{ data: payload }); console.log(chalk.green('Marquee displayed')); }
+  try { await api('/api/template/animated-text','post',{ data: payload }); successLog(chalk.green('Marquee displayed')); }
     catch(e){ console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
