@@ -1,0 +1,18 @@
+template: animated-text
+description: "Scrolling text animation with customizable velocity"
+
+readiness_detection:
+  strategy: "animation"
+  animation_threshold: 0.05
+  stable_frames: 3
+  timeout: 5000
+
+screenshot:
+  after_detection: 3000  # Capture after animation starts
+
+video:
+  duration: 8000  # 8 seconds to show full animation cycle
+
+sample_data:
+  text: "Welcome to hdisplay!"
+  velocity: 100

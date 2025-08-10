@@ -1,0 +1,21 @@
+template: carousel
+description: "Image carousel with automatic transitions"
+
+readiness_detection:
+  strategy: "media_loading"
+  wait_for_images: true
+  timeout: 10000
+
+screenshot:
+  after_detection: 2000  # Wait for first transition
+
+video:
+  duration: 15000  # Show multiple carousel transitions
+
+sample_data:
+  items:
+    - 'https://picsum.photos/id/1015/1280/400'
+    - 'https://picsum.photos/id/1022/1280/400'
+    - 'https://picsum.photos/id/1035/1280/400'
+  duration: 3000
+  zoomScale: 1.05
