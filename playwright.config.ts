@@ -7,7 +7,5 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || 'http://localhost:3100',
     viewport: { width: 1280, height: 400 },
   },
-  projects: [
-    { name: 'chromium', use: { browserName: 'chromium' } },
-  ],
+  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });

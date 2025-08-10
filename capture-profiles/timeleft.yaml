@@ -1,8 +1,8 @@
 template: timeleft
-description: "Countdown timer with visual progress"
+description: 'Countdown timer with visual progress'
 
 readiness_detection:
-  strategy: "text_content"
+  strategy: 'text_content'
   wait_for_text: true
   min_content_length: 8
   timeout: 3000
@@ -11,7 +11,7 @@ screenshot:
   after_detection: 500
 
 video:
-  duration: 0  # Show countdown progress
+  duration: 0 # Show countdown progress
 
 sample_data:
   minutes: 15

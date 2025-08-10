@@ -21,7 +21,7 @@ class TemplateHeuristics {
       template: templateId,
       detection: [],
       screenshot: { after_detection: 500 },
-      video: { duration: 5000 }
+      video: { duration: 5000 },
     };
 
     // Always start with basic stabilization
@@ -31,20 +31,22 @@ class TemplateHeuristics {
     if (templateId.includes('clock') || templateId.includes('time')) {
       profile.detection = [
         { wait_ms: 200 },
-        { wait_for_text: { contains_digits: true, min_chars: 5 } }
+        { wait_for_text: { contains_digits: true, min_chars: 5 } },
       ];
       profile.screenshot.after_detection = 1100; // After clock tick
       profile.video.duration = 5000;
-    }
-    else if (templateId.includes('text') || templateId.includes('marquee') || templateId.includes('animated')) {
+    } else if (
+      templateId.includes('text') ||
+      templateId.includes('marquee') ||
+      templateId.includes('animated')
+    ) {
       // Text animation detection
-      profile.detection.push(
-        { wait_for_animation: { selector: '*', property: 'transform', stable_after: 200 } }
-      );
+      profile.detection.push({
+        wait_for_animation: { selector: '*', property: 'transform', stable_after: 200 },
+      });
       profile.screenshot.after_detection = 1500; // Let text scroll into view
       profile.video.duration = 8000;
-    }
-    else if (templateId.includes('carousel') || templateId.includes('slide')) {
+    } else if (templateId.includes('carousel') || templateId.includes('slide')) {
       // Image carousel detection
       profile.detection.push(
         { wait_for_media: { timeout: 8000 } },
@@ -52,36 +54,32 @@ class TemplateHeuristics {
       );
       profile.screenshot.after_detection = 1000;
       profile.video.duration = 12000; // Multiple transitions
-    }
-    else if (templateId.includes('webp') || templateId.includes('video') || templateId.includes('image')) {
+    } else if (
+      templateId.includes('webp') ||
+      templateId.includes('video') ||
+      templateId.includes('image')
+    ) {
       // Media content
-      profile.detection.push(
-        { wait_for_media: { timeout: 10000 } }
-      );
+      profile.detection.push({ wait_for_media: { timeout: 10000 } });
       profile.screenshot.after_detection = 200;
       profile.video.duration = 6000;
-    }
-    else if (templateId.includes('snake') || templateId.includes('game')) {
+    } else if (templateId.includes('snake') || templateId.includes('game')) {
       // Game content
       profile.detection.push(
         { wait_ms: 1000 }, // Let game initialize
         { wait_for_coverage: { min_pixels: 2000, region: [100, 50, 1180, 350] } }
       );
       profile.video.duration = 15000; // Show gameplay
-    }
-    else if (templateId.includes('banner') || templateId.includes('message')) {
+    } else if (templateId.includes('banner') || templateId.includes('message')) {
       // Static message content
-      profile.detection.push(
-        { wait_for_text: { min_chars: 1 } }
-      );
+      profile.detection.push({ wait_for_text: { min_chars: 1 } });
       profile.screenshot.after_detection = 200;
       profile.video.duration = 3000;
-    }
-    else {
+    } else {
       // Default: wait for visual stability
-      profile.detection.push(
-        { wait_for_stability: { stable_frames: 3, interval: 200, threshold: 0.95 } }
-      );
+      profile.detection.push({
+        wait_for_stability: { stable_frames: 3, interval: 200, threshold: 0.95 },
+      });
     }
 
     this.log(`Generated profile:`, JSON.stringify(profile, null, 2));
@@ -96,7 +94,7 @@ class TemplateHeuristics {
       const hasImages = document.querySelectorAll('img').length > 0;
       const hasVideo = document.querySelectorAll('video').length > 0;
       const hasCanvas = document.querySelectorAll('canvas').length > 0;
-      const hasAnimations = Array.from(document.querySelectorAll('*')).some(el => {
+      const hasAnimations = Array.from(document.querySelectorAll('*')).some((el) => {
         const style = window.getComputedStyle(el);
         return style.animation && style.animation !== 'none';
       });
@@ -109,7 +107,7 @@ class TemplateHeuristics {
         hasCanvas,
         hasAnimations,
         textLength,
-        hasNumbers
+        hasNumbers,
       };
     });
 
@@ -124,34 +122,34 @@ class TemplateHeuristics {
     const samples = {
       'animated-text': {
         text: 'Welcome to hdisplay demos',
-        velocity: 100
+        velocity: 100,
       },
-      'carousel': {
+      carousel: {
         items: [
           'https://picsum.photos/id/1015/1280/400',
           'https://picsum.photos/id/1022/1280/400',
-          'https://picsum.photos/id/1035/1280/400'
+          'https://picsum.photos/id/1035/1280/400',
         ],
         duration: 3000,
-        zoomScale: 1.05
+        zoomScale: 1.05,
       },
       'message-banner': {
         title: 'hdisplay',
-        subtitle: 'Template Demo'
+        subtitle: 'Template Demo',
       },
       'webp-loop': {
         url: 'https://raw.githubusercontent.com/ewilderj/tidbyt/refs/heads/main/github/invert-mark-github-64x32.webp',
-        fit: 'contain'
+        fit: 'contain',
       },
-      'timeleft': {
+      timeleft: {
         minutes: 15,
-        label: 'Demo Time'
+        label: 'Demo Time',
       },
-      'snake': {
+      snake: {
         cellSize: 20,
-        tickMs: 50
+        tickMs: 50,
       },
-      'simple-clock': {}
+      'simple-clock': {},
     };
 
     // Try exact match first

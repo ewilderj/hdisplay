@@ -15,16 +15,16 @@ describe('Push media API', () => {
   });
 
   afterAll(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
     delete process.env.HDS_UPLOADS_DIR;
   });
 
   test('push image from file (ephemeral, no persist)', async () => {
     const samplePath = path.join(tmpDir, 'img.txt');
     fs.writeFileSync(samplePath, 'img-bytes');
-    const res = await request(app)
-      .post('/api/push/image')
-      .attach('file', samplePath);
+    const res = await request(app).post('/api/push/image').attach('file', samplePath);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.url).toMatch(/^\/ephemeral\//);
@@ -33,9 +33,7 @@ describe('Push media API', () => {
   test('push image from file with persist true writes to uploads', async () => {
     const samplePath = path.join(tmpDir, 'img2.txt');
     fs.writeFileSync(samplePath, 'img-bytes-2');
-    const res = await request(app)
-      .post('/api/push/image?persist=true')
-      .attach('file', samplePath);
+    const res = await request(app).post('/api/push/image?persist=true').attach('file', samplePath);
     expect(res.status).toBe(200);
     expect(res.body.url).toMatch(/^\/uploads\//);
     const name = path.basename(res.body.url);

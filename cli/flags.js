@@ -9,7 +9,7 @@ const EXCLUDED_DATA_FLAGS = new Set([
   '--timeout',
   '--quiet',
   '--help',
-  '-h'
+  '-h',
 ]);
 
 // Reserved parameter names that templates must not use
@@ -22,7 +22,7 @@ const RESERVED_PARAM_NAMES = new Set([
   'timeout',
   'quiet',
   'help',
-  'h'
+  'h',
 ]);
 
 module.exports = { EXCLUDED_DATA_FLAGS, RESERVED_PARAM_NAMES };

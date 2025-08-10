@@ -19,15 +19,18 @@ Templates can include placeholders that will be replaced by values you send in t
 - Nested paths: `{{ user.name }}`
 
 Rules at render time:
+
 - Missing/undefined values render as an empty string.
 - Non-string objects are stringified as JSON.
 - Placeholder keys are case-sensitive.
 - The server substitutes values via a simple replacer; there’s no logic or loops.
 
 Discovering placeholders:
+
 - `GET /api/templates` returns all templates and their root-level placeholder keys it detected by scanning the HTML. Nested paths are supported at render time, but the placeholder list only includes the root keys before the first dot.
 
 ### Parameter name restrictions
+
 To keep the CLI consistent, avoid using placeholder names that collide with global CLI flags. The following names are reserved and must not be used as top-level placeholder keys (or as the top segment of a dotted path):
 
 - `server`, `timeout`, `quiet`, `help`, `h`, `data`, `data-file` (and `dataFile`)
@@ -40,6 +43,7 @@ The test suite enforces this rule and will fail if a collision is detected.
 - CLI: `hdisplay template <id> --data '{"k":"v"}'`
 
 Example:
+
 ```
 POST /api/template/animated-text
 { "data": { "text": "Hello", "velocity": 120 } }
@@ -51,10 +55,11 @@ If successful, the display updates immediately and the server remembers the last
 
 You can define a validator per template to verify and normalize its `data` payload. Validators are automatically discovered using this order:
 
-1) `templates/_validators/<id>.js`
-2) `templates/<id>.validator.js`
+1. `templates/_validators/<id>.js`
+2. `templates/<id>.validator.js`
 
 A validator can be:
+
 - A function `function (data) { ... }` that returns one of:
   - `true` or `{ ok: true }` → valid
   - `{ ok: false, error: "message" }` or a plain error `"message"` → invalid
@@ -65,6 +70,7 @@ If there is no validator, the data is accepted by default.
 ### Example: animated-text
 
 File: `templates/_validators/animated-text.js`
+
 ```
 module.exports = function validateAnimatedText(data = {}) {
   const text = data.text;
@@ -90,6 +96,7 @@ module.exports = function validateAnimatedText(data = {}) {
 ### Example: timeleft
 
 File: `templates/_validators/timeleft.js`
+
 ```
 module.exports = function validateTimeleft(data = {}) {
   const m = Number(data.minutes);
@@ -106,11 +113,13 @@ module.exports = function validateTimeleft(data = {}) {
 ## Testing your template
 
 Quick checks:
+
 - List templates: `hdisplay templates`
 - Apply: `hdisplay template <id> --data '{"k":"v"}'`
 - HTTP with curl: `curl -XPOST localhost:3000/api/template/<id> -H 'Content-Type: application/json' -d '{"data":{...}}'`
 
 Automated tests:
+
 - Add API tests in `test/` (see `templates.validation.api.test.js`).
 - Validate error cases (missing fields, wrong types) and success path.
 

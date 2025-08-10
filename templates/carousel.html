@@ -1,130 +1,194 @@
 <style>
-  .carousel { position:relative; width:100%; height:100%; background:#000; overflow:hidden; }
-  .carousel img, .carousel video {
-    position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover;
-    opacity:0; transition: opacity 1s ease-in-out; /* transform transitions set dynamically */
-    transform-origin: 50% 50%; will-change: opacity, transform;
+  .carousel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
   }
-  .carousel img.active, .carousel video.active { opacity:1; }
+  .carousel img,
+  .carousel video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1s ease-in-out; /* transform transitions set dynamically */
+    transform-origin: 50% 50%;
+    will-change: opacity, transform;
+  }
+  .carousel img.active,
+  .carousel video.active {
+    opacity: 1;
+  }
 </style>
 <div class="carousel" id="carousel-root"></div>
 <script>
-(function(){
-  const items = JSON.parse(String.raw`{{ items }}` || '[]');
-  const duration = Number(String.raw`{{ duration }}` || 4000);
-  // Optional zoom-in effect on activate
-  function parseBool(raw){
-    const s = String(raw || '').trim().toLowerCase();
-    return s === 'true' || s === '1' || s === 'yes';
-  }
-  function parseNum(raw, fallback){
-    const s = String(raw ?? '').trim();
-    if (s === '') return fallback;
-    const n = Number(s);
-    return Number.isFinite(n) ? n : fallback;
-  }
-  const zoomScale = parseNum(String.raw`{{ zoomScale }}`, 1.05);
-  const zoomMs = parseNum(String.raw`{{ zoomMs }}`, duration);
-  const zoomOnVideo = parseBool(String.raw`{{ zoomOnVideo }}`);
-  // Debug: log effective zoom parameters once at init
-  try {
-    const rawZoomScale = String.raw`{{ zoomScale }}`;
-    const rawZoomMs = String.raw`{{ zoomMs }}`;
-    console.info('[carousel]', {
-      zoomScale,
-      zoomMs,
-      rawZoomScale,
-      rawZoomMs,
-      duration,
-      zoomOnVideo,
-      itemsCount: Array.isArray(items) ? items.length : 0
+  (function () {
+    const items = JSON.parse(String.raw`{{ items }}` || '[]');
+    const duration = Number(String.raw`{{ duration }}` || 4000);
+    // Optional zoom-in effect on activate
+    function parseBool(raw) {
+      const s = String(raw || '')
+        .trim()
+        .toLowerCase();
+      return s === 'true' || s === '1' || s === 'yes';
+    }
+    function parseNum(raw, fallback) {
+      const s = String(raw ?? '').trim();
+      if (s === '') return fallback;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : fallback;
+    }
+    const zoomScale = parseNum(String.raw`{{ zoomScale }}`, 1.05);
+    const zoomMs = parseNum(String.raw`{{ zoomMs }}`, duration);
+    const zoomOnVideo = parseBool(String.raw`{{ zoomOnVideo }}`);
+    // Debug: log effective zoom parameters once at init
+    try {
+      const rawZoomScale = String.raw`{{ zoomScale }}`;
+      const rawZoomMs = String.raw`{{ zoomMs }}`;
+      console.info('[carousel]', {
+        zoomScale,
+        zoomMs,
+        rawZoomScale,
+        rawZoomMs,
+        duration,
+        zoomOnVideo,
+        itemsCount: Array.isArray(items) ? items.length : 0,
+      });
+    } catch {}
+    const root = document.getElementById('carousel-root');
+    if (!Array.isArray(items) || items.length === 0) {
+      root.innerHTML =
+        '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">No items</div>';
+      return;
+    }
+    const nodes = items.map((url) => {
+      let el;
+      if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
+        el = document.createElement('video');
+        el.src = url;
+        el.autoplay = false;
+        el.muted = true;
+        el.loop = true;
+        el.playsInline = true;
+      } else {
+        el = document.createElement('img');
+        el.src = url;
+      }
+      root.appendChild(el);
+      return el;
     });
-  } catch {}
-  const root = document.getElementById('carousel-root');
-  if (!Array.isArray(items) || items.length === 0) {
-    root.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">No items</div>';
-    return;
-  }
-  const nodes = items.map(url => {
-    let el;
-    if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
-      el = document.createElement('video');
-      el.src = url; el.autoplay = false; el.muted = true; el.loop = true; el.playsInline = true;
+    let i = -1;
+    const FADE_MS = 1000; // matches CSS opacity transition
+    function show(next) {
+      const prev = i;
+      // Reset classes and cleanup zoom for non-visible slides
+      for (let idx = 0; idx < nodes.length; idx++) {
+        const n = nodes[idx];
+        n.classList.remove('active');
+        // Do not reset transform for outgoing (prev) or incoming (next) here
+        if (idx === prev || idx === next) continue;
+        try {
+          if (n.__zoomAnim) {
+            n.__zoomAnim.cancel();
+            n.__zoomAnim = null;
+          }
+        } catch {}
+        n.style.transition = '';
+        n.style.transform = '';
+      }
+      const n = nodes[next];
+      if (n.tagName === 'VIDEO') {
+        try {
+          n.currentTime = 0;
+          n.play().catch(() => {});
+        } catch {}
+      }
+      n.classList.add('active');
+      // Apply zoom-in effect on activate
+      const canZoom =
+        zoomScale > 1.0 && (n.tagName === 'IMG' || (zoomOnVideo && n.tagName === 'VIDEO'));
+      if (canZoom) {
+        try {
+          const target = Math.max(1.0, Math.min(1.5, zoomScale));
+          // Ensure starting transform state for incoming
+          try {
+            if (n.__zoomAnim) {
+              n.__zoomAnim.cancel();
+              n.__zoomAnim = null;
+            }
+          } catch {}
+          n.style.transform = 'scale(1)';
+          // Prefer Web Animations API for piecewise easing (linear then ease-out)
+          if (typeof n.animate === 'function') {
+            const mid = 1 + (target - 1) * 0.88; // reach ~88% linearly, then decelerate
+            const anim = n.animate(
+              [
+                { transform: 'scale(1)', easing: 'linear', offset: 0 },
+                { transform: `scale(${mid})`, easing: 'linear', offset: 0.88 },
+                { transform: `scale(${target})`, easing: 'cubic-bezier(0, 0, 0.2, 1)', offset: 1 },
+              ],
+              { duration: zoomMs, fill: 'forwards' }
+            );
+            // Pin final transform so it persists through class/DOM changes
+            try {
+              anim.addEventListener('finish', () => {
+                n.style.transform = `scale(${target})`;
+              });
+            } catch {
+              anim.onfinish = () => {
+                n.style.transform = `scale(${target})`;
+              };
+            }
+            n.__zoomAnim = anim;
+          } else {
+            // Fallback: single ease-out transition
+            // Preserve opacity transition while adding transform
+            void n.offsetWidth; // reflow
+            n.style.transition = `opacity 1s ease-in-out, transform ${zoomMs}ms cubic-bezier(0, 0, 0.2, 1)`;
+            n.style.transform = `scale(${target})`;
+          }
+        } catch {}
+      }
+      // After fade-out completes, cleanup outgoing transform/animation (but only if not active)
+      if (prev >= 0 && prev !== next) {
+        const out = nodes[prev];
+        const token = Symbol('cleanup');
+        out.__cleanupToken = token;
+        setTimeout(() => {
+          // Skip if out became active again or is the current
+          if (i === prev || out.classList.contains('active') || out.__cleanupToken !== token)
+            return;
+          try {
+            if (out.__zoomAnim) {
+              out.__zoomAnim.cancel();
+              out.__zoomAnim = null;
+            }
+          } catch {}
+          out.style.transition = '';
+          out.style.transform = '';
+        }, FADE_MS + 50);
+      }
+      i = next;
+    }
+    function tick() {
+      show((i + 1) % nodes.length);
+    }
+    // Hide root until first show to avoid flash (init immediately)
+    if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
+      window.hdisplay.hiddenUntilReady(root, () => {
+        tick();
+      });
     } else {
-      el = document.createElement('img');
-      el.src = url;
+      root.style.visibility = 'hidden';
+      tick();
+      requestAnimationFrame(() => {
+        root.style.visibility = 'visible';
+      });
     }
-    root.appendChild(el);
-    return el;
-  });
-  let i = -1;
-  const FADE_MS = 1000; // matches CSS opacity transition
-  function show(next){
-    const prev = i;
-    // Reset classes and cleanup zoom for non-visible slides
-  for (let idx = 0; idx < nodes.length; idx++) {
-      const n = nodes[idx];
-      n.classList.remove('active');
-      // Do not reset transform for outgoing (prev) or incoming (next) here
-      if (idx === prev || idx === next) continue;
-      try { if (n.__zoomAnim) { n.__zoomAnim.cancel(); n.__zoomAnim = null; } } catch {}
-      n.style.transition = '';
-      n.style.transform = '';
-    }
-  const n = nodes[next];
-    if (n.tagName === 'VIDEO') { try { n.currentTime = 0; n.play().catch(()=>{}); } catch {} }
-  n.classList.add('active');
-  // Apply zoom-in effect on activate
-  const canZoom = (zoomScale > 1.0) && (n.tagName === 'IMG' || (zoomOnVideo && n.tagName === 'VIDEO'));
-    if (canZoom) {
-      try {
-        const target = Math.max(1.0, Math.min(1.5, zoomScale));
-        // Ensure starting transform state for incoming
-        try { if (n.__zoomAnim) { n.__zoomAnim.cancel(); n.__zoomAnim = null; } } catch {}
-        n.style.transform = 'scale(1)';
-        // Prefer Web Animations API for piecewise easing (linear then ease-out)
-        if (typeof n.animate === 'function') {
-          const mid = 1 + (target - 1) * 0.88; // reach ~88% linearly, then decelerate
-          const anim = n.animate([
-            { transform: 'scale(1)', easing: 'linear', offset: 0 },
-            { transform: `scale(${mid})`, easing: 'linear', offset: 0.88 },
-            { transform: `scale(${target})`, easing: 'cubic-bezier(0, 0, 0.2, 1)', offset: 1 }
-          ], { duration: zoomMs, fill: 'forwards' });
-          // Pin final transform so it persists through class/DOM changes
-          try { anim.addEventListener('finish', () => { n.style.transform = `scale(${target})`; }); } catch { anim.onfinish = () => { n.style.transform = `scale(${target})`; }; }
-          n.__zoomAnim = anim;
-        } else {
-          // Fallback: single ease-out transition
-          // Preserve opacity transition while adding transform
-          void n.offsetWidth; // reflow
-          n.style.transition = `opacity 1s ease-in-out, transform ${zoomMs}ms cubic-bezier(0, 0, 0.2, 1)`;
-          n.style.transform = `scale(${target})`;
-        }
-      } catch {}
-    }
-    // After fade-out completes, cleanup outgoing transform/animation (but only if not active)
-    if (prev >= 0 && prev !== next) {
-      const out = nodes[prev];
-      const token = Symbol('cleanup'); out.__cleanupToken = token;
-      setTimeout(() => {
-        // Skip if out became active again or is the current
-        if (i === prev || out.classList.contains('active') || out.__cleanupToken !== token) return;
-        try { if (out.__zoomAnim) { out.__zoomAnim.cancel(); out.__zoomAnim = null; } } catch {}
-        out.style.transition = '';
-        out.style.transform = '';
-      }, FADE_MS + 50);
-    }
-    i = next;
-  }
-  function tick(){ show((i+1) % nodes.length); }
-  // Hide root until first show to avoid flash (init immediately)
-  if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
-    window.hdisplay.hiddenUntilReady(root, () => { tick(); });
-  } else {
-    root.style.visibility = 'hidden';
-    tick();
-    requestAnimationFrame(()=>{ root.style.visibility = 'visible'; });
-  }
-  setInterval(tick, duration);
-})();
+    setInterval(tick, duration);
+  })();
 </script>

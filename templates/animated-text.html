@@ -1,65 +1,97 @@
 <style>
-  .wrap { position: relative; width:100%; height:100%; background:#000; overflow:hidden; }
-  .track { position:absolute; top:50%; left:0; transform: translate(var(--start, 100%), -50%); white-space:nowrap; will-change: transform; animation: scroll var(--duration, 12s) linear infinite; visibility: hidden; }
-  .paused { animation-play-state: paused; }
-  .text { color:#fff; font-size:64px; font-weight:700; }
-  @keyframes scroll { to { transform: translate(var(--end, -100%), -50%); } }
+  .wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  .track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translate(var(--start, 100%), -50%);
+    white-space: nowrap;
+    will-change: transform;
+    animation: scroll var(--duration, 12s) linear infinite;
+    visibility: hidden;
+  }
+  .paused {
+    animation-play-state: paused;
+  }
+  .text {
+    color: #fff;
+    font-size: 64px;
+    font-weight: 700;
+  }
+  @keyframes scroll {
+    to {
+      transform: translate(var(--end, -100%), -50%);
+    }
+  }
 </style>
 <div class="wrap">
   <div class="track paused"><span class="text">{{ text }}</span></div>
 </div>
 <script>
-(function(){
-  // velocity: pixels per second (preferred) or legacy speed (seconds per loop)
-  const velocityRaw = String.raw`{{ velocity }}`;
-  const speedRaw = String.raw`{{ speed }}`; // legacy
-  const velocity = Number(velocityRaw) || 80; // px/s default
-  const fixedDuration = Number(speedRaw);
+  (function () {
+    // velocity: pixels per second (preferred) or legacy speed (seconds per loop)
+    const velocityRaw = String.raw`{{ velocity }}`;
+    const speedRaw = String.raw`{{ speed }}`; // legacy
+    const velocity = Number(velocityRaw) || 80; // px/s default
+    const fixedDuration = Number(speedRaw);
 
-  const wrap = document.querySelector('.wrap');
-  const track = document.querySelector('.track');
+    const wrap = document.querySelector('.wrap');
+    const track = document.querySelector('.track');
 
-  let pending = false;
-  function setup(){
-    if (pending) return; // coalesce
-    pending = true;
-    requestAnimationFrame(()=>{
-      pending = false;
-      // Measure after layout
-      const cw = wrap.clientWidth || 1280; // viewport width
-      const tw = track.scrollWidth || track.getBoundingClientRect().width || 1000; // text width
-      const distance = cw + tw; // from just outside right to just outside left
-      const durationSec = Number.isFinite(fixedDuration) && fixedDuration > 0
-        ? fixedDuration
-        : Math.max(0.1, distance / Math.max(10, velocity));
+    let pending = false;
+    function setup() {
+      if (pending) return; // coalesce
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        // Measure after layout
+        const cw = wrap.clientWidth || 1280; // viewport width
+        const tw = track.scrollWidth || track.getBoundingClientRect().width || 1000; // text width
+        const distance = cw + tw; // from just outside right to just outside left
+        const durationSec =
+          Number.isFinite(fixedDuration) && fixedDuration > 0
+            ? fixedDuration
+            : Math.max(0.1, distance / Math.max(10, velocity));
 
-      track.style.setProperty('--start', (cw + 1) + 'px');
-      track.style.setProperty('--end', (-tw - 1) + 'px');
-      track.style.setProperty('--duration', durationSec + 's');
+        track.style.setProperty('--start', cw + 1 + 'px');
+        track.style.setProperty('--end', -tw - 1 + 'px');
+        track.style.setProperty('--duration', durationSec + 's');
 
-      track.classList.add('paused');
-      void track.offsetWidth; // force reflow
-      track.classList.remove('paused');
-      // Reveal precisely when the animation starts
-      try {
-        const onStart = () => { track.style.visibility = 'visible'; };
-        track.addEventListener('animationstart', onStart, { once: true });
-      } catch {}
-    });
-  }
+        track.classList.add('paused');
+        void track.offsetWidth; // force reflow
+        track.classList.remove('paused');
+        // Reveal precisely when the animation starts
+        try {
+          const onStart = () => {
+            track.style.visibility = 'visible';
+          };
+          track.addEventListener('animationstart', onStart, { once: true });
+        } catch {}
+      });
+    }
 
-  // Initialize immediately (templates are injected after page load)
-  if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
-    window.hdisplay.hiddenUntilReady(track, setup);
-  } else {
-    // Fallback
-    track.style.visibility = 'hidden';
-    setup();
-    requestAnimationFrame(()=>{ track.style.visibility = 'visible'; });
-    setTimeout(()=>{ track.style.visibility = 'visible'; }, 300);
-  }
-  window.addEventListener('resize', setup);
-  // Fonts or late layout changes
-  setTimeout(setup, 80);
-})();
+    // Initialize immediately (templates are injected after page load)
+    if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
+      window.hdisplay.hiddenUntilReady(track, setup);
+    } else {
+      // Fallback
+      track.style.visibility = 'hidden';
+      setup();
+      requestAnimationFrame(() => {
+        track.style.visibility = 'visible';
+      });
+      setTimeout(() => {
+        track.style.visibility = 'visible';
+      }, 300);
+    }
+    window.addEventListener('resize', setup);
+    // Fonts or late layout changes
+    setTimeout(setup, 80);
+  })();
 </script>

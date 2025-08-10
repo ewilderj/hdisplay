@@ -1,6 +1,7 @@
 # Product Requirements Document: hdisplay
 
 ## Executive Summary
+
 A lightweight display system for a 1280x400 USB monitor connected to a Raspberry Pi, featuring real-time content updates, animations, and remote control via CLI/API.
 
 ## System Architecture
@@ -13,7 +14,7 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
    - Auto-recovery on connection loss
    - Runs on X11 (compatible with existing desktop environment)
 
-2. **Display Server** 
+2. **Display Server**
    - Node.js + Express (excellent AI support, mature WebSocket ecosystem)
    - Socket.io for real-time bidirectional communication
    - Static file serving for web assets
@@ -29,6 +30,7 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
 ## Technical Specifications
 
 ### Display Client (Browser)
+
 - **Resolution**: 1280x400 fixed
 - **Technology**: HTML5 + CSS3 + JavaScript (ES6+)
 - **Framework**: Vanilla JS with Web Components for modularity
@@ -39,7 +41,8 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
   - Fullscreen API
 
 ### Server
-- **Runtime**: Node.js 18+ 
+
+- **Runtime**: Node.js 18+
 - **Framework**: Express 4.x
 - **Real-time**: Socket.io 4.x
 - **Port**: 3000 (configurable)
@@ -59,36 +62,40 @@ A lightweight display system for a 1280x400 USB monitor connected to a Raspberry
 Goal: Allow a configurable playlist (runlist) of templates that the server rotates through automatically with a smooth transition. Default dwell per item is 20 seconds. Adding/removing items is possible via CLI/API. Legacy template activations remain supported and temporarily override the playlist.
 
 Behavior
+
 - Playlist is an ordered list of items: `{ id, data? }` referencing files in `templates/` with optional data payloads.
 - Rotation:
-   - If playlist has ≥ 2 items: rotate sequentially, each displayed for `delayMs` (default 20000 ms).
-   - If playlist has exactly 1 item: render it and do not rotate/restart the same item.
-   - If playlist is empty: do nothing; whatever content/template was last set via legacy methods remains until changed.
+  - If playlist has ≥ 2 items: rotate sequentially, each displayed for `delayMs` (default 20000 ms).
+  - If playlist has exactly 1 item: render it and do not rotate/restart the same item.
+  - If playlist is empty: do nothing; whatever content/template was last set via legacy methods remains until changed.
 - Legacy override: Any template applied via existing methods (`POST /api/template/:id`, CLI `hdisplay template ...`, `set`, `push:*`) will
-   - Immediately interrupt the current playlist item (playlist is retained in memory/persistence).
-   - Remain on-screen for exactly `delayMs` (use current playlist delay), then the playlist resumes from the next item (wrap to start if at end).
-   - If the playlist is empty, the override remains indefinitely (preserves legacy behavior).
+  - Immediately interrupt the current playlist item (playlist is retained in memory/persistence).
+  - Remain on-screen for exactly `delayMs` (use current playlist delay), then the playlist resumes from the next item (wrap to start if at end).
+  - If the playlist is empty, the override remains indefinitely (preserves legacy behavior).
 - Transition: Crossfade between items (default 500 ms) implemented client-side. Outgoing content fades out while incoming fades in; swap occurs at fade start to avoid flicker. Transition duration should not reduce the effective dwell by more than 10% of `delayMs`.
 
 State model (server)
+
 - Persisted in `data/state.json` with existing fields:
-   ```
-   {
-      ...,
-      "playlist": {
-         "delayMs": number,          // default 20000, min 2000, max 300000
-         "items": [ { "id": string, "data"?: object } ],
-         "active": boolean           // derived: true when items.length > 0
-      }
-   }
-   ```
+  ```
+  {
+     ...,
+     "playlist": {
+        "delayMs": number,          // default 20000, min 2000, max 300000
+        "items": [ { "id": string, "data"?: object } ],
+        "active": boolean           // derived: true when items.length > 0
+     }
+  }
+  ```
 - Internal timers control dwell and are reset on playlist changes or overrides; timers should be `unref()` where appropriate.
 
 Events (WebSocket)
+
 - `playlist:update` – emitted on add/remove/clear/delay change.
 - `content:update` – continues to fire on every playlist advance or override, as today.
 
 API (sketch)
+
 - `GET  /api/playlist` → `{ delayMs, items: [{id,data?}], active }`
 - `PUT  /api/playlist` → replace entire playlist; body `{ delayMs?, items? }` (validates item ids + data via per-template validators)
 - `POST /api/playlist/items` → append `{ id, data? }` (404 on unknown id; 400 on invalid data)
@@ -97,6 +104,7 @@ API (sketch)
 - `POST /api/playlist/delay` → body `{ delayMs }` clamped to [2000, 300000]
 
 Edge cases
+
 - Unknown template id → reject add/update with 404.
 - Invalid data per validator → 400 with validator error.
 - Template removed from disk → skip at runtime with warning; continue to next item.
@@ -105,13 +113,16 @@ Edge cases
 - Concurrent updates → last-writer-wins; dwell timer restarts.
 
 Testing (high level)
+
 - API correctness for list/add/remove/clear/delay with validation.
 - Rotation: 1 item stays; 2+ items rotate at ~`delayMs` and emit updates.
 - Override pauses rotation for `delayMs`, then resumes at next item.
 - Client crossfade smoke test (opacity over ~500 ms) with correct content swap.
 
 ### CLI Tool
+
 - **Commands**:
+
   ```bash
    hdisplay status                             # Show current display state
    hdisplay set <content>                      # Set static HTML content
@@ -147,35 +158,39 @@ Testing (high level)
   ```
 
 #### Global Options and UX
+
 - Global flags available to all commands:
-   - `--server <url>`: one-off override of server URL (precedence: flag > env > config > default).
-   - `--timeout <ms>`: request timeout (defaults reasonable for LAN).
-   - `--quiet`: reduce non-essential output; errors still printed to stderr.
+  - `--server <url>`: one-off override of server URL (precedence: flag > env > config > default).
+  - `--timeout <ms>`: request timeout (defaults reasonable for LAN).
+  - `--quiet`: reduce non-essential output; errors still printed to stderr.
 - Environment variables:
-   - `HDISPLAY_SERVER` as an alternative to config file for server URL.
+  - `HDISPLAY_SERVER` as an alternative to config file for server URL.
 - Config precedence: flag > env > config file (~/.hdisplay.json) > default (`http://localhost:3000`).
 
 #### Data/Input Modes
-- Template data can be provided via:
-   - `--data '{"k":"v"}'` (inline JSON)
-   - `--data-file ./data.json` (reads from file)
-   - `--data -` (reads JSON from stdin)
-   - On parse error, CLI prints a concise message and exits with non-zero code.
 
- 
+- Template data can be provided via:
+  - `--data '{"k":"v"}'` (inline JSON)
+  - `--data-file ./data.json` (reads from file)
+  - `--data -` (reads JSON from stdin)
+  - On parse error, CLI prints a concise message and exits with non-zero code.
 
 #### Discovery UX
+
 - `discover` prints all found servers. If multiple:
-   - Interactive chooser by default; `--non-interactive` selects the first.
-   - `--set` persists the chosen server to `~/.hdisplay.json`.
+  - Interactive chooser by default; `--non-interactive` selects the first.
+  - `--set` persists the chosen server to `~/.hdisplay.json`.
 
 #### Exit Codes
+
 - `0` on success; `1` on errors (network, validation, HTTP 4xx/5xx). Reserved codes may be added later for specific classes.
 
 #### Schema-aware template flags (no JSON) — Implemented
+
 Goal: make `hdisplay template <id>` ergonomic without hand-typing JSON. Map CLI flags directly onto the template’s data object, using light type inference.
 
 Scope (MVP)
+
 - Keys map 1:1 to flags: `data.foo` ⇔ `--foo <value>`.
 - Arrays of primitives via repeated flags: `--items A --items B` ⇔ `data.items = ["A","B"]`.
 - Nested objects via dot notation: `--theme.bg '#000'` ⇔ `data.theme.bg = "#000"`.
@@ -184,6 +199,7 @@ Scope (MVP)
 - Strings kept as-is (quotes optional; shell quoting rules still apply).
 
 Syntax rules
+
 - Flag name normalization: kebab- or camel-case map to camelCase in data (`--font-family` or `--fontFamily` ⇒ `data.fontFamily`).
 - Dot-path builds nested objects: `--a.b.c 1` ⇒ `{ a: { b: { c: 1 } } }`.
 - Repeated flags accumulate into arrays (array created on second occurrence).
@@ -191,43 +207,49 @@ Syntax rules
 - Explicit array indices not supported (no `--items[0]`). Arrays of objects out of scope for MVP.
 
 Type inference
+
 - Value `true|false` (case-insensitive) parsed as boolean only when supplied as a value (not presence).
 - Integers/floats parsed as numbers; otherwise leave as string.
 - If a value begins with `{` or `[` and parses as JSON, accept it (escape hatch for complex shapes).
 
 Error handling
+
 - Unknown flags are forwarded as data and validated server-side by per-template validators.
 - If both `--foo` and `--no-foo` are provided, last one wins.
 - If numeric parsing fails, value remains a string; server validator returns a clear error.
 
 Help and discoverability
+
 - `hdisplay templates` continues to list placeholders. Add short per-template usage examples to README and optionally `--help`.
 - Future: extend `GET /api/templates` to include type hints so CLI can render richer help (flag suggestions).
 
 Examples
+
 - Animated text
-   - Today (JSON): `hdisplay template animated-text --data '{"text":"Hello","velocity":120}'`
-   - No-JSON: `hdisplay template animated-text --text 'Hello' --velocity 120`
+  - Today (JSON): `hdisplay template animated-text --data '{"text":"Hello","velocity":120}'`
+  - No-JSON: `hdisplay template animated-text --text 'Hello' --velocity 120`
 
 - Carousel (array of URLs)
-   - Today (JSON): `--data '{"items":["url1","url2"],"duration":4000}'`
-   - No-JSON: `hdisplay template carousel --items url1 --items url2 --duration 4000`
+  - Today (JSON): `--data '{"items":["url1","url2"],"duration":4000}'`
+  - No-JSON: `hdisplay template carousel --items url1 --items url2 --duration 4000`
 
 - TimeLeft (nested theme)
-   - Today (JSON): `--data '{"minutes":90,"theme":{"bg":"#000"}}'`
-   - No-JSON: `hdisplay template timeleft --minutes 90 --theme.bg '#000'`
+  - Today (JSON): `--data '{"minutes":90,"theme":{"bg":"#000"}}'`
+  - No-JSON: `hdisplay template timeleft --minutes 90 --theme.bg '#000'`
 
 - WebP loop (booleans)
-   - `hdisplay template webp-loop --url /uploads/anim.webp --fit contain --rendering pixelated`
-   - or `hdisplay template webp-loop --url /uploads/anim.webp --pixelated` (boolean true)
+  - `hdisplay template webp-loop --url /uploads/anim.webp --fit contain --rendering pixelated`
+  - or `hdisplay template webp-loop --url /uploads/anim.webp --pixelated` (boolean true)
 
 Compatibility and precedence
+
 - All existing data modes remain supported.
 - Precedence when mixed for `template <id>`: flags (`--foo`, `--items`) override inline/file/stdin JSON (`--data*`), which override server defaults.
 
 Status: Implemented for `template <id>` and `playlist:add`.
 
 Implementation notes (CLI)
+
 - Collect unknown options into a data map without failing (Commander.js unknown option passthrough for these commands).
 - Normalize names (kebab/camel → camelCase), build dot-path objects, coerce booleans (presence toggles), parse numbers; escape hatch: if a value starts with `{` or `[` and parses as JSON, accept it.
 - Aggregate repeated flags into arrays (arrays of primitives only).
@@ -236,6 +258,7 @@ Implementation notes (CLI)
 - Safeguard: reserved/global CLI flags are excluded from data; a test ensures templates don’t collide with reserved names.
 
 Out of scope (MVP)
+
 - Arrays of objects (e.g., `[{ url, duration }]`). If needed later, consider `--items-json` or repeated grouped prefixes like `--item.url`/`--item.duration` with an index.
 - Rich enum validation on the CLI (keep on server).
 
@@ -250,6 +273,7 @@ Out of scope (MVP)
 ## Development Setup
 
 ### Directory Structure
+
 ```
 hdisplay/
 ├── server/
@@ -273,12 +297,14 @@ hdisplay/
 ### Installation Process
 
 #### Raspberry Pi Setup
+
 ```bash
 # One-line installer
 curl -sSL https://raw.githubusercontent.com/ewilderj/hdisplay/main/scripts/setup-pi.sh | bash
 ```
 
 This script will:
+
 1. Install Node.js and Chromium
 2. Configure Chromium kiosk mode
 3. Set up systemd service for auto-start
@@ -286,6 +312,7 @@ This script will:
 5. Install and start hdisplay server
 
 #### Mac Development Setup
+
 ```bash
 # Clone and install
 git clone https://github.com/ewilderj/hdisplay.git
@@ -297,6 +324,7 @@ npm run dev  # Starts server + opens browser at 1280x400
 ## Implementation Phases
 
 ### Phase 1: Core Infrastructure (Week 1)
+
 - [x] Repository setup
 - [x] Basic Express server
 - [x] WebSocket connection
@@ -304,17 +332,20 @@ npm run dev  # Starts server + opens browser at 1280x400
 - [x] Basic CLI with set/clear commands
 
 ### Phase 2: Content Management (Week 2)
+
 - [x] Template system
 - [x] Notification overlay
 - [x] Enhanced CLI commands
 
 ### Phase 3: Polish & Features (Week 3)
+
 - [x] Animations and transitions (initial via templates)
 - [x] Error recovery (basic: socket.io auto-reconnect, state persistence)
 - [x] Configuration management (CLI config + env)
 - [x] Example templates and content
 
 ### Phase 4: Raspberry Pi Integration (Week 4)
+
 - [x] Setup script
 - [x] Systemd service
 - [ ] Performance optimization
@@ -338,7 +369,9 @@ npm run dev  # Starts server + opens browser at 1280x400
    - Long-running stability tests
 
 ### Capture & Preview Automation
+
 To keep documentation up to date with real visuals, we use a black-box capture system:
+
 - Tooling: Playwright (Chromium) drives the display client and records both screenshots and short videos per template.
 - Profiles: per-template YAML files in `capture-profiles/` define readiness strategies, sample data, optional screenshot delay, video duration, and per-template trimming (`video.trim_ms`). Profiles override heuristic defaults.
 - Orchestration: apply a template via API, wait for an externally observable ready signal (document title), then capture; a clear command is sent after each capture to avoid recording transitions.
@@ -387,22 +420,25 @@ Type: Template (HTML + CSS + JS, Canvas2D rendering)
 Apply: `POST /api/template/snake` with optional JSON `data` payload
 
 Rendering and Layout
+
 - Canvas 2D on black background. No external assets.
 - Default cell size: 20px. Grid derived from viewport: widthCells=⌊1280/20⌋=64, heightCells=⌊400/20⌋=20.
 - Responsive: recompute on resize; keep cells square; letterbox the canvas if needed to avoid fractional cells.
 - Frame pacing: game tick every 100ms by default (10 FPS logical), render at requestAnimationFrame.
 
 Gameplay Rules (Autonomous)
+
 - Start: snake length 5, initial heading right, spawn at grid center.
 - Fruit: one fruit at a time, placed uniformly at random on any free cell (not on snake).
 - Movement: on each tick the head advances by one cell; when eating fruit, grow by 1 and increment score; otherwise remove tail.
 - Walls: solid by default (collision = game over). Optional wrap mode via config.
 - Auto-play AI: deterministic, safe-first policy.
-   - Primary: shortest-path to fruit using BFS on the current grid (obstacle = snake body). Recompute each tick.
-   - Fallback safety: if no safe path exists (or would create a trap), follow a precomputed Hamiltonian-like traversal pattern that visits all cells cyclically until a safe BFS appears again. This guarantees no self-collision while circling.
+  - Primary: shortest-path to fruit using BFS on the current grid (obstacle = snake body). Recompute each tick.
+  - Fallback safety: if no safe path exists (or would create a trap), follow a precomputed Hamiltonian-like traversal pattern that visits all cells cyclically until a safe BFS appears again. This guarantees no self-collision while circling.
 - Game over: if collision occurs, auto-restart after 1s and reset score.
 
 Data Schema (placeholders)
+
 ```
 {
    "cellSize": number,         // px, default 20, min 8, max 40
@@ -424,24 +460,29 @@ Data Schema (placeholders)
 ```
 
 Visual/HUD
+
 - Minimal HUD showing score and speed on the top-right by default. Use device pixel ratio for crisp text.
 - Optional subtle grid lines at low alpha to fit brand aesthetic.
 
 Performance Constraints
+
 - Maintain smooth animation on Raspberry Pi: avoid per-frame allocations; reuse arrays.
 - BFS limited to grid (≤ 64×20 by default) is fast; throttle to once per tick.
 - Precompute a Hamiltonian-ish path once per grid; store as indexable sequence.
 
 Edge Cases and Safety
+
 - If grid is too small to place a fruit (snake occupies all cells), auto-restart.
 - If cellSize doesn’t divide viewport cleanly, center canvas and clamp to whole cells.
 - If tickMs < 30ms, cap to 30ms to avoid CPU spikes on Pi.
 
 API Examples
+
 - CLI: `hdisplay template snake --data '{"cellSize":20,"tickMs":100}'`
 - HTTP: `POST /api/template/snake` body `{ "data": { "wrap": true, "colors": { "snake": "#39e" } } }`
 
 Success Criteria
+
 - Never freezes or self-collides while in fallback traversal.
 - Continuous motion with stable CPU on Pi (<30% during updates).
 - Template loads with no external dependencies and recovers after resize.
@@ -457,6 +498,7 @@ Type: Template (HTML + CSS + JS, lightweight; no external deps required)
 Apply: `POST /api/template/timeleft` with JSON `data` payload
 
 Input/Data Schema (placeholders)
+
 ```
 {
    "minutes": number,        // required; whole minutes left
@@ -473,30 +515,35 @@ Input/Data Schema (placeholders)
 ```
 
 Display Rules
+
 - Formatting:
-   - If minutes > 90, display as hours and minutes: e.g., `2h 15m`.
-   - Otherwise, display minutes only: `12m`.
+  - If minutes > 90, display as hours and minutes: e.g., `2h 15m`.
+  - Otherwise, display minutes only: `12m`.
 - Colors (priority by thresholds of current remaining time):
-   - > 8 minutes: green
-   - > 4 minutes: amber
-   - ≤ 4 minutes: red
+  - > 8 minutes: green
+  - > 4 minutes: amber
+  - ≤ 4 minutes: red
 - Layout: Large, centered digits sized to the 1280×400 viewport. Minimal chrome. Optional friendly label above or below in smaller type.
 - Font: Use a dot-matrix style if available (via fontFamily). If the specific face isn’t available, fall back to system fonts while keeping letter-spacing to suggest an LED display.
 
 Behavior
+
 - Stateless render: no internal countdown, no seconds, and no animations/transitions. To update the display, the client re-applies the template with a new `minutes` value.
 - When minutes ≤ 0, clamp display to `0m` and keep the red color.
 
 Accessibility & Performance
+
 - High contrast text; avoid thin strokes.
 - No per-frame allocations; update DOM only when values change.
 - Resize-aware: keep the main value scaled and centered on window resize.
 
 Examples
+
 - CLI: `hdisplay template timeleft --data '{"minutes":15}'`
 - HTTP: `POST /api/template/timeleft` body `{ "data": { "minutes": 3, "theme": { "bg": "#000" } } }`
 
 Success Criteria
+
 - Correct formatting (hours+minutes when >90m; minutes otherwise).
 - Color selection matches thresholds (>8 green, >4 amber, ≤4 red).
 - Visible at a glance on 1280×400; reads comfortably from a distance.
@@ -516,12 +563,13 @@ Rendering and Layout
 
 Three equal panels (≈426px each) arranged horizontally
 Each panel contains:
-* Day name (e.g., "Today", "Tomorrow", or weekday name)
-* Weather icon/graphic (large, centered)
-* High/Low temperatures
-* Optional: brief condition text (e.g., "Partly Cloudy")
-High contrast design optimized for readability at a distance
-Responsive to 1280×400 viewport with consistent spacing
+
+- Day name (e.g., "Today", "Tomorrow", or weekday name)
+- Weather icon/graphic (large, centered)
+- High/Low temperatures
+- Optional: brief condition text (e.g., "Partly Cloudy")
+  High contrast design optimized for readability at a distance
+  Responsive to 1280×400 viewport with consistent spacing
 
 Data Schema (placeholders)
 
@@ -545,24 +593,25 @@ Data Schema (placeholders)
 Weather Icons and Conditions
 
 Use OpenWeatherMap icon codes mapped to high-contrast visuals:
-* Clear (01d/01n): ☀️ or sun icon
-* Few clouds (02d/02n): ⛅ or sun with cloud
-* Scattered clouds (03d/03n): ☁️ or cloud icon
-* Broken clouds (04d/04n): ☁️ or cloud icon
-* Shower rain (09d/09n): 🌧️ or rain drops
-* Rain (10d/10n): 🌧️ or rain drops
-* Thunderstorm (11d/11n): ⛈️ or cloud with lightning
-* Snow (13d/13n): ❄️ or snowflake
-* Mist (50d/50n): 🌫️ or fog lines
-Icons should be large (≈120px) and centered in each panel
-Fallback to text description if icon rendering fails
+
+- Clear (01d/01n): ☀️ or sun icon
+- Few clouds (02d/02n): ⛅ or sun with cloud
+- Scattered clouds (03d/03n): ☁️ or cloud icon
+- Broken clouds (04d/04n): ☁️ or cloud icon
+- Shower rain (09d/09n): 🌧️ or rain drops
+- Rain (10d/10n): 🌧️ or rain drops
+- Thunderstorm (11d/11n): ⛈️ or cloud with lightning
+- Snow (13d/13n): ❄️ or snowflake
+- Mist (50d/50n): 🌫️ or fog lines
+  Icons should be large (≈120px) and centered in each panel
+  Fallback to text description if icon rendering fails
 
 Temperature Display
 
-* Format: "72° / 58°" (with proper degree symbol)
-* High temp in warmer color (default white or light)
-* Low temp in cooler color (default gray or muted)
-* Large, readable font size (≈32px for temps)
+- Format: "72° / 58°" (with proper degree symbol)
+- High temp in warmer color (default white or light)
+- Low temp in cooler color (default gray or muted)
+- Large, readable font size (≈32px for temps)
 
 Day Labels
 
@@ -575,18 +624,19 @@ OpenWeatherMap Integration
 
 Server-side API calls to protect API keys
 Endpoints used:
-* Geocoding: /geo/1.0/direct for city names
-* Forecast: /data/2.5/forecast for 5-day/3-hour forecast data
-API key source priority:
-* Template data apiKey field
-* Server environment variable OPENWEATHERMAP_API_KEY
-* Server config file config.apiKeys.openweathermap
-* Cache results for refreshInterval minutes (default 30)
-Location resolution:
-* City names: "San Francisco" or "San Francisco,CA,US" → geocode → forecast
-* Zip codes: "94107" or "94107,US" → geocode → forecast
-* Coordinates: "37.7749,-122.4194" → direct forecast lookup
-Data aggregation: Group forecast entries by day, extract min/max temps
+
+- Geocoding: /geo/1.0/direct for city names
+- Forecast: /data/2.5/forecast for 5-day/3-hour forecast data
+  API key source priority:
+- Template data apiKey field
+- Server environment variable OPENWEATHERMAP_API_KEY
+- Server config file config.apiKeys.openweathermap
+- Cache results for refreshInterval minutes (default 30)
+  Location resolution:
+- City names: "San Francisco" or "San Francisco,CA,US" → geocode → forecast
+- Zip codes: "94107" or "94107,US" → geocode → forecast
+- Coordinates: "37.7749,-122.4194" → direct forecast lookup
+  Data aggregation: Group forecast entries by day, extract min/max temps
 
 Error Handling
 
@@ -607,6 +657,7 @@ No direct API calls from browser
 Examples
 
 CLI:
+
 ```
 hdisplay template weather --location "San Francisco" --units F
 hdisplay template weather --location "London,UK" --units C --theme.bg "#1a1a2e"
@@ -615,10 +666,11 @@ hdisplay template weather --location "37.7749,-122.4194" --units C
 ```
 
 HTTP: `POST /api/template/weather` body:
+
 ```
-{ 
-  "data": { 
-    "location": "San Francisco,CA,US", 
+{
+  "data": {
+    "location": "San Francisco,CA,US",
     "units": "F",
     "refreshInterval": 60
   }
@@ -632,11 +684,10 @@ Also write an E2E test that does need an API key.
 
 Success Criteria
 
-* Clean, readable 3-panel layout fits perfectly in 1280×400
-* Temperature and conditions clearly visible from across a room
-* Graceful error messages when API is unavailable or misconfigured
-* Updates automatically at specified interval without flicker
-* Supports both Celsius and Fahrenheit units
-* Works with city names, zip codes, and coordinates
-* Respects OpenWeatherMap rate limits through caching
-
+- Clean, readable 3-panel layout fits perfectly in 1280×400
+- Temperature and conditions clearly visible from across a room
+- Graceful error messages when API is unavailable or misconfigured
+- Updates automatically at specified interval without flicker
+- Supports both Celsius and Fahrenheit units
+- Works with city names, zip codes, and coordinates
+- Respects OpenWeatherMap rate limits through caching

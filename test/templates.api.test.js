@@ -16,7 +16,9 @@ describe('Templates API', () => {
   });
 
   afterAll(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
     delete process.env.HDS_UPLOADS_DIR;
   });
 
@@ -25,9 +27,9 @@ describe('Templates API', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.templates)).toBe(true);
     // Expect a couple known templates to exist
-    const ids = res.body.templates.map(t => t.id);
+    const ids = res.body.templates.map((t) => t.id);
     expect(ids.length).toBeGreaterThan(0);
-    expect(ids).toEqual(expect.arrayContaining(['animated-text','carousel','message-banner']));
+    expect(ids).toEqual(expect.arrayContaining(['animated-text', 'carousel', 'message-banner']));
   });
 
   test('POST /api/template/:id applies known template', async () => {

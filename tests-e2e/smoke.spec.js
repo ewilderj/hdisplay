@@ -24,7 +24,11 @@ test.describe('smoke', () => {
     await stopServer(server);
   });
 
-  test('default page renders and updates after applying a template', async ({ page, request, baseURL }) => {
+  test('default page renders and updates after applying a template', async ({
+    page,
+    request,
+    baseURL,
+  }) => {
     // Open the display page
     await page.goto(baseURL);
     await expect(page.locator('#root')).toBeVisible();

@@ -31,9 +31,13 @@ try {
 if (!VisualDetectorCtor) {
   // Safe fallback that just waits a moment
   VisualDetectorCtor = class {
-    constructor() { this.debugEnabled = process.env.CAPTURE_DEBUG === 'true'; }
-    log(...args){ if (this.debugEnabled) console.log('🔍', ...args); }
-    async detectReadiness(page, profile){
+    constructor() {
+      this.debugEnabled = process.env.CAPTURE_DEBUG === 'true';
+    }
+    log(...args) {
+      if (this.debugEnabled) console.log('🔍', ...args);
+    }
+    async detectReadiness(page, profile) {
       const wait = (profile && profile.screenshot && profile.screenshot.after_detection) || 500;
       this.log(`Fallback detector: waiting ${wait}ms`);
       await page.waitForTimeout(wait);
@@ -42,9 +46,16 @@ if (!VisualDetectorCtor) {
 }
 if (!TemplateHeuristicsCtor) {
   TemplateHeuristicsCtor = class {
-    getSampleData(){ return {}; }
-    async generateProfile(_page, templateId){
-      return { template: templateId, readiness_detection: { strategy: 'visual_stability', timeout: 3000 }, screenshot: { after_detection: 500 }, video: { duration: 0 } };
+    getSampleData() {
+      return {};
+    }
+    async generateProfile(_page, templateId) {
+      return {
+        template: templateId,
+        readiness_detection: { strategy: 'visual_stability', timeout: 3000 },
+        screenshot: { after_detection: 500 },
+        video: { duration: 0 },
+      };
     }
   };
 }
@@ -58,8 +69,8 @@ class BlackBoxCapture {
     this.serverUrl = options.serverUrl || 'http://localhost:3000';
     this.outputDir = options.outputDir || './captures';
     this.profiles = {};
-  this.detector = new VisualDetectorCtor();
-  this.heuristics = new TemplateHeuristicsCtor();
+    this.detector = new VisualDetectorCtor();
+    this.heuristics = new TemplateHeuristicsCtor();
     this.debugEnabled = process.env.CAPTURE_DEBUG === 'true';
 
     this.loadProfiles();
@@ -75,7 +86,7 @@ class BlackBoxCapture {
 
   loadProfiles() {
     const profileDir = './capture-profiles';
-    
+
     if (!fs.existsSync(profileDir)) {
       this.log('No capture-profiles directory found, using intelligent defaults');
       return;
@@ -137,7 +148,7 @@ class BlackBoxCapture {
     // Setup browser
     const browser = await chromium.launch({
       headless: !this.debugEnabled,
-      args: ['--font-render-hinting=none']
+      args: ['--font-render-hinting=none'],
     });
 
     const context = await browser.newContext({
@@ -145,25 +156,25 @@ class BlackBoxCapture {
       deviceScaleFactor: 2,
       recordVideo: {
         dir: path.join(this.outputDir, 'videos-raw'),
-        size: { width: 1280, height: 400 }
-      }
+        size: { width: 1280, height: 400 },
+      },
     });
 
-  const page = await context.newPage();
-  // Capture handle to the page video (if recording is enabled)
-  const pageVideo = (typeof page.video === 'function') ? page.video() : null;
+    const page = await context.newPage();
+    // Capture handle to the page video (if recording is enabled)
+    const pageVideo = typeof page.video === 'function' ? page.video() : null;
 
     try {
       // Navigate to hdisplay
       this.log('Loading hdisplay page...');
-    await page.goto(this.serverUrl, { 
+      await page.goto(this.serverUrl, {
         waitUntil: 'networkidle',
-        timeout: 10000 
+        timeout: 10000,
       });
 
-  // Apply template and wait until page reflects it (title update via socket event)
-  this.log('Applying template...');
-  await this.applyTemplateAndWait(page, templateId, data);
+      // Apply template and wait until page reflects it (title update via socket event)
+      this.log('Applying template...');
+      await this.applyTemplateAndWait(page, templateId, data);
 
       // Generate profile if needed
       if (!profile) {
@@ -184,7 +195,6 @@ class BlackBoxCapture {
       }
 
       this.log(`✅ Successfully captured ${templateId}`);
-
     } catch (error) {
       this.log(`❌ Failed to capture ${templateId}: ${error.message}`);
       throw error;
@@ -216,8 +226,12 @@ class BlackBoxCapture {
       const child = spawn(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
-      child.stdout.on('data', (d) => { out += d.toString(); });
-      child.stderr.on('data', (d) => { err += d.toString(); });
+      child.stdout.on('data', (d) => {
+        out += d.toString();
+      });
+      child.stderr.on('data', (d) => {
+        err += d.toString();
+      });
       child.on('close', (code) => {
         if (this.debugEnabled) {
           if (out.trim()) this.debug('[clear stdout]', out.trim());
@@ -243,18 +257,16 @@ class BlackBoxCapture {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const res = await page.request.post(`${this.serverUrl}/api/template/${templateId}`, {
-          data: { data }
+          data: { data },
         });
         if (!res.ok()) {
           const txt = await res.text();
           throw new Error(`HTTP ${res.status()} ${txt}`);
         }
         this.debug(`Applied template (attempt ${attempt}), waiting for page update...`);
-        await page.waitForFunction(
-          (id) => document.title === `hdisplay - ${id}`,
-          templateId,
-          { timeout: 4000 }
-        );
+        await page.waitForFunction((id) => document.title === `hdisplay - ${id}`, templateId, {
+          timeout: 4000,
+        });
         this.debug('Page reflected template');
         return;
       } catch (e) {
@@ -264,12 +276,14 @@ class BlackBoxCapture {
         await page.waitForTimeout(500);
       }
     }
-    throw new Error(`Failed to apply template '${templateId}' after ${maxAttempts} attempts: ${lastError?.message || 'unknown error'}`);
+    throw new Error(
+      `Failed to apply template '${templateId}' after ${maxAttempts} attempts: ${lastError?.message || 'unknown error'}`
+    );
   }
 
   async captureScreenshot(page, templateId, profile) {
     const delay = profile.screenshot?.after_detection || 500;
-    
+
     if (delay > 0) {
       this.debug(`Waiting ${delay}ms before screenshot`);
       await page.waitForTimeout(delay);
@@ -277,11 +291,11 @@ class BlackBoxCapture {
 
     await fs.ensureDir(path.join(this.outputDir, 'screenshots'));
     const screenshotPath = path.join(this.outputDir, 'screenshots', `${templateId}.png`);
-    
+
     await page.screenshot({
       path: screenshotPath,
       type: 'png',
-      fullPage: false
+      fullPage: false,
     });
 
     this.log(`📷 Screenshot saved: ${screenshotPath}`);
@@ -290,7 +304,7 @@ class BlackBoxCapture {
   async processVideo(templateId, pageVideo, profile) {
     const rawVideoDir = path.join(this.outputDir, 'videos-raw');
     const videoDir = path.join(this.outputDir, 'videos');
-    
+
     await fs.ensureDir(videoDir);
 
     // Per-profile trim in milliseconds (default 150ms)
@@ -309,18 +323,18 @@ class BlackBoxCapture {
 
     if (!sourcePath) {
       // Fallback: find a recorded .webm in the raw directory
-      const files = (await fs.readdir(rawVideoDir)).filter(f => f.endsWith('.webm'));
+      const files = (await fs.readdir(rawVideoDir)).filter((f) => f.endsWith('.webm'));
       if (files.length > 0) {
         sourcePath = path.join(rawVideoDir, files[0]);
       }
     }
 
-    if (sourcePath && await fs.pathExists(sourcePath)) {
+    if (sourcePath && (await fs.pathExists(sourcePath))) {
       const webmPath = path.join(videoDir, `${templateId}.webm`);
       const mp4Path = path.join(videoDir, `${templateId}.mp4`);
 
       // Transcode both WEBM and MP4 from the raw source, trimming initial white flash.
-  let webmOk = await this.transcodeTrimmedWebm(sourcePath, webmPath, trimSec);
+      let webmOk = await this.transcodeTrimmedWebm(sourcePath, webmPath, trimSec);
       if (webmOk) {
         this.log(`🎬 WEBM saved: ${webmPath}`);
       } else {
@@ -329,7 +343,7 @@ class BlackBoxCapture {
         this.debug('FFmpeg not available or failed; moved raw WEBM without trim.');
       }
 
-  const mp4Ok = await this.transcodeTrimmedMp4(sourcePath, mp4Path, trimSec);
+      const mp4Ok = await this.transcodeTrimmedMp4(sourcePath, mp4Path, trimSec);
       if (mp4Ok) {
         this.log(`📼 MP4 saved: ${mp4Path}`);
       } else {
@@ -348,8 +362,12 @@ class BlackBoxCapture {
       let stderr = '';
       let stdout = '';
       const child = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-      child.stdout.on('data', d => { stdout += d.toString(); });
-      child.stderr.on('data', d => { stderr += d.toString(); });
+      child.stdout.on('data', (d) => {
+        stdout += d.toString();
+      });
+      child.stderr.on('data', (d) => {
+        stderr += d.toString();
+      });
       child.on('error', (err) => {
         if (err.code === 'ENOENT') {
           this.debug('ffmpeg not found on PATH.');
@@ -372,14 +390,22 @@ class BlackBoxCapture {
     // Input-seek and drop first frame to avoid white flash; re-encode for accuracy.
     const args = [
       '-y',
-    '-ss', String(trimSec),
-      '-i', srcPath,
-      '-vf', 'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2',
-      '-c:v', 'libvpx-vp9',
-      '-b:v', '0',
-      '-crf', '35',
-      '-row-mt', '1',
-      '-cpu-used', '4',
+      '-ss',
+      String(trimSec),
+      '-i',
+      srcPath,
+      '-vf',
+      'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      '-c:v',
+      'libvpx-vp9',
+      '-b:v',
+      '0',
+      '-crf',
+      '35',
+      '-row-mt',
+      '1',
+      '-cpu-used',
+      '4',
       '-an',
       destPath,
     ];
@@ -391,13 +417,20 @@ class BlackBoxCapture {
     // Input-seek and drop first frame; encode H.264 MP4 for broad compatibility.
     const args = [
       '-y',
-    '-ss', String(trimSec),
-      '-i', srcPath,
-      '-vf', 'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p',
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '23',
-      '-movflags', '+faststart',
+      '-ss',
+      String(trimSec),
+      '-i',
+      srcPath,
+      '-vf',
+      'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '23',
+      '-movflags',
+      '+faststart',
       '-an',
       destPath,
     ];
@@ -408,12 +441,12 @@ class BlackBoxCapture {
   async captureAll() {
     this.log('Fetching available templates...');
     const templates = await this.getAvailableTemplates();
-    
+
     this.log(`Found ${templates.length} templates to capture`);
 
     const results = {
       successful: [],
-      failed: []
+      failed: [],
     };
 
     for (const template of templates) {
@@ -432,7 +465,7 @@ class BlackBoxCapture {
 
     if (results.failed.length > 0) {
       console.log('\nFailed templates:');
-      results.failed.forEach(f => console.log(`  - ${f.id}: ${f.error}`));
+      results.failed.forEach((f) => console.log(`  - ${f.id}: ${f.error}`));
     }
 
     return results;
@@ -441,7 +474,7 @@ class BlackBoxCapture {
   async generateGallery() {
     const screenshotsDir = path.join(this.outputDir, 'screenshots');
     const videosDir = path.join(this.outputDir, 'videos');
-    
+
     if (!fs.existsSync(screenshotsDir)) {
       throw new Error('No screenshots found. Run capture first.');
     }
@@ -450,8 +483,8 @@ class BlackBoxCapture {
     const videos = fs.existsSync(videosDir) ? await fs.readdir(videosDir) : [];
 
     const templateData = screenshots
-      .filter(f => f.endsWith('.png'))
-      .map(f => {
+      .filter((f) => f.endsWith('.png'))
+      .map((f) => {
         const templateId = path.basename(f, '.png');
         const hasVideo = videos.includes(`${templateId}.webm`);
         return { templateId, hasVideo };
@@ -459,10 +492,10 @@ class BlackBoxCapture {
 
     const html = this.generateGalleryHTML(templateData);
     const galleryPath = path.join(this.outputDir, 'gallery.html');
-    
+
     await fs.writeFile(galleryPath, html);
     this.log(`📚 Gallery generated: ${galleryPath}`);
-    
+
     return galleryPath;
   }
 
@@ -526,11 +559,14 @@ class BlackBoxCapture {
     </div>
     
     <div class="template-grid">
-        ${templateData.map(template => `
+        ${templateData
+          .map(
+            (template) => `
         <div class="template-demo">
             <h2 class="template-title">${template.templateId}</h2>
             <img class="screenshot" src="screenshots/${template.templateId}.png" alt="${template.templateId} screenshot" />
-            ${template.hasVideo 
+            ${
+              template.hasVideo
                 ? `<video controls muted>
                      <source src="videos/${template.templateId}.webm" type="video/webm">
                      Your browser does not support video.
@@ -538,7 +574,9 @@ class BlackBoxCapture {
                 : '<p class="no-video">No video available</p>'
             }
         </div>
-        `).join('')}
+        `
+          )
+          .join('')}
     </div>
 </body>
 </html>`;
@@ -557,11 +595,11 @@ async function main() {
       case 'all':
         await capture.captureAll();
         break;
-        
+
       case 'gallery':
         await capture.generateGallery();
         break;
-        
+
       case 'template':
         const templateId = args[1];
         if (!templateId) {
@@ -570,7 +608,7 @@ async function main() {
         }
         await capture.captureTemplate(templateId);
         break;
-        
+
       default:
         console.log(`
 hdisplay Black-Box Template Capture System

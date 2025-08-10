@@ -15,7 +15,9 @@ describe('Uploads static serving and delete API', () => {
   });
 
   afterAll(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
     delete process.env.HDS_UPLOADS_DIR;
   });
 
@@ -24,9 +26,7 @@ describe('Uploads static serving and delete API', () => {
     const samplePath = path.join(tmpDir, 'sample2.txt');
     fs.writeFileSync(samplePath, 'abc123');
 
-    const uploadRes = await request(app)
-      .post('/api/upload')
-      .attach('file', samplePath);
+    const uploadRes = await request(app).post('/api/upload').attach('file', samplePath);
 
     expect(uploadRes.statusCode).toBe(200);
     expect(uploadRes.body && uploadRes.body.ok).toBe(true);
@@ -46,7 +46,7 @@ describe('Uploads static serving and delete API', () => {
     // List should no longer include it
     const listRes = await request(app).get('/api/uploads');
     expect(Array.isArray(listRes.body.files)).toBe(true);
-    expect(listRes.body.files.find(f => f.name === name)).toBeUndefined();
+    expect(listRes.body.files.find((f) => f.name === name)).toBeUndefined();
 
     // Static should return 404 now
     const getResAfter = await request(app).get(url);

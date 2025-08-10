@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -24,7 +25,10 @@ html, body {
 }
 .layer {
   position: absolute;
-  left: 0; top: 0; right: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,25 +39,50 @@ html, body {
   will-change: opacity;
   contain: content;
 }
-.layer.visible { opacity: 1; }
-.center { animation: pulse 4s infinite; }
-@keyframes pulse { 0%{opacity:0.3} 50%{opacity:1} 100%{opacity:0.3} }
+.layer.visible {
+  opacity: 1;
+}
+.center {
+  animation: pulse 4s infinite;
+}
+@keyframes pulse {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
 #notification {
   position: absolute;
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(4px);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 20px;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   transition: opacity 0.3s;
 }
-#notification.info { background: rgba(0,128,255,0.25); }
-#notification.warn { background: rgba(255,165,0,0.3); }
-#notification.error { background: rgba(255,0,64,0.35); }
-#notification.success { background: rgba(0,180,80,0.35); }
-.hidden { opacity:0; pointer-events:none; }
+#notification.info {
+  background: rgba(0, 128, 255, 0.25);
+}
+#notification.warn {
+  background: rgba(255, 165, 0, 0.3);
+}
+#notification.error {
+  background: rgba(255, 0, 64, 0.35);
+}
+#notification.success {
+  background: rgba(0, 180, 80, 0.35);
+}
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
