@@ -19,6 +19,7 @@ uploads/*
 !uploads/.gitkeep
 data/*
 !data/.gitkeep
+test-results/
 
 # Test coverage
 coverage/

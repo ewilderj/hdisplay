@@ -45,8 +45,9 @@ SERVICE_HOME=$(eval echo ~${SERVICE_USER})
 
 # Install systemd units (templated by user)
 sudo install -D -m 0644 systemd/hdisplay@.service /etc/systemd/system/hdisplay@.service
+# Install health check as templated service unit (source file is non-templated but installs to @.service)
 sudo install -D -m 0644 systemd/hdisplay-health.service /etc/systemd/system/hdisplay-health@.service
-sudo install -D -m 0644 systemd/hdisplay-health.timer /etc/systemd/system/hdisplay-health.timer
+sudo install -D -m 0644 systemd/hdisplay-health.timer /etc/systemd/system/hdisplay-health@.timer
 
 sudo systemctl daemon-reload
 sudo systemctl enable hdisplay@${SERVICE_USER}.service
