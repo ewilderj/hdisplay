@@ -1,0 +1,17 @@
+[Unit]
+Description=hdisplay Server (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/hdisplay
+Environment=PORT=3000
+# Use bash -lc to ensure nvm or user env is loaded if present; fallback to system node
+ExecStart=/usr/bin/env bash -lc '/usr/bin/env node /home/%i/hdisplay/server/index.js'
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target
