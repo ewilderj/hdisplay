@@ -11,6 +11,7 @@ screenshot:
 
 video:
   duration: 15000  # Show multiple carousel transitions
+  trim_ms: 2000    # Trim initial loading/white flash
 
 sample_data:
   items:

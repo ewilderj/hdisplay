@@ -5,7 +5,7 @@ The Black-Box Template Capture System automatically generates screenshots and vi
 ## Features
 
 - **Automated Screenshot Capture**: High-quality PNG screenshots of all templates
-- **Video Recording**: WebM videos showing animated content and interactions
+- **Video Recording**: WebM videos showing animated content and interactions, plus optional MP4 copies
 - **Intelligent Detection**: Multiple strategies to detect when content is ready
 - **Profile-Based Configuration**: YAML profiles for fine-tuning capture behavior
 - **Gallery Generation**: HTML gallery showcasing all captured templates
@@ -93,6 +93,7 @@ screenshot:
 
 video:
   duration: 8000                # Video length in ms (0 = no video)
+  trim_ms: 150                  # Optional: trim this much from the start (ms)
 
 sample_data:
   # Template-specific data
@@ -168,7 +169,7 @@ capture-profiles/
 
 captures/                   # Output directory
 ├── screenshots/           # PNG screenshots
-├── videos/               # WebM videos
+├── videos/               # WEBM and MP4 videos
 └── gallery.html          # Generated gallery
 ```
 
@@ -176,6 +177,24 @@ captures/                   # Output directory
 
 - `CAPTURE_DEBUG=true` - Enable debug logging
 - `HDISPLAY_SERVER` - Override server URL
+
+## Video Encoding
+
+MP4 creation is best-effort and requires ffmpeg on your PATH. WEBM is always produced when recording is enabled; MP4 is generated from the same raw source when ffmpeg is available.
+
+- Encoder settings:
+  - WEBM (VP9): CRF 35, row-mt, cpu-used 4
+  - MP4 (H.264): CRF 23, preset veryfast, +faststart, yuv420p
+- Trimming: The first portion of the raw recording can be trimmed to avoid initial white flashes or loading transitions. Use `video.trim_ms` in the profile. Default is 150ms.
+
+Example per-profile override (carousel):
+
+```yaml
+template: carousel
+video:
+  duration: 15000
+  trim_ms: 2000  # Trim 2s to account for image load
+```
 
 ## Troubleshooting
 
