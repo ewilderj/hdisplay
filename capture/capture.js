@@ -195,7 +195,7 @@ class BlackBoxCapture {
 
       // Process video
       if (profile.video && profile.video.duration > 0) {
-        await this.processVideo(templateId, pageVideo);
+        await this.processVideo(templateId, pageVideo, profile);
       }
 
       // Clear after capture so the next run starts from a blank state without recording the clear.
@@ -287,11 +287,15 @@ class BlackBoxCapture {
     this.log(`📷 Screenshot saved: ${screenshotPath}`);
   }
 
-  async processVideo(templateId, pageVideo) {
+  async processVideo(templateId, pageVideo, profile) {
     const rawVideoDir = path.join(this.outputDir, 'videos-raw');
     const videoDir = path.join(this.outputDir, 'videos');
     
     await fs.ensureDir(videoDir);
+
+    // Per-profile trim in milliseconds (default 150ms)
+    const trimMs = Math.max(0, Number(profile?.video?.trim_ms ?? 150));
+    const trimSec = (trimMs / 1000).toFixed(2);
 
     // Prefer the specific page video path when available
     let sourcePath = null;
@@ -313,20 +317,23 @@ class BlackBoxCapture {
 
     if (sourcePath && await fs.pathExists(sourcePath)) {
       const webmPath = path.join(videoDir, `${templateId}.webm`);
-      await fs.move(sourcePath, webmPath, { overwrite: true });
-      this.log(`🎬 Video saved: ${webmPath}`);
-
-      // Also produce an MP4 for wider compatibility (best-effort via ffmpeg)
       const mp4Path = path.join(videoDir, `${templateId}.mp4`);
-      try {
-        const ok = await this.convertWebmToMp4(webmPath, mp4Path);
-        if (ok) {
-          this.log(`📼 MP4 saved: ${mp4Path}`);
-        } else {
-          this.debug('FFmpeg conversion did not succeed; MP4 not generated.');
-        }
-      } catch (e) {
-        this.debug(`FFmpeg conversion error: ${e.message}`);
+
+      // Transcode both WEBM and MP4 from the raw source, trimming initial white flash.
+  let webmOk = await this.transcodeTrimmedWebm(sourcePath, webmPath, trimSec);
+      if (webmOk) {
+        this.log(`🎬 WEBM saved: ${webmPath}`);
+      } else {
+        // Fallback: move raw file if ffmpeg not available
+        await fs.move(sourcePath, webmPath, { overwrite: true });
+        this.debug('FFmpeg not available or failed; moved raw WEBM without trim.');
+      }
+
+  const mp4Ok = await this.transcodeTrimmedMp4(sourcePath, mp4Path, trimSec);
+      if (mp4Ok) {
+        this.log(`📼 MP4 saved: ${mp4Path}`);
+      } else {
+        this.debug('FFmpeg conversion to MP4 failed; MP4 not generated.');
       }
     } else {
       this.debug('No video file found to process.');
@@ -336,22 +343,8 @@ class BlackBoxCapture {
     await fs.emptyDir(rawVideoDir);
   }
 
-  async convertWebmToMp4(webmPath, mp4Path) {
+  async runFfmpeg(args) {
     return new Promise((resolve) => {
-      // Avoid an initial white frame by input-seeking and dropping the first decoded frame.
-      // ffmpeg -y -ss 0.1 -i input.webm -vf "select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" -c:v libx264 -preset veryfast -crf 23 -movflags +faststart -an output.mp4
-      const args = [
-        '-y',
-        '-ss', '0.1',
-        '-i', webmPath,
-        '-vf', 'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p',
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
-        '-movflags', '+faststart',
-        '-an',
-        mp4Path,
-      ];
       let stderr = '';
       let stdout = '';
       const child = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -359,7 +352,7 @@ class BlackBoxCapture {
       child.stderr.on('data', d => { stderr += d.toString(); });
       child.on('error', (err) => {
         if (err.code === 'ENOENT') {
-          this.debug('ffmpeg not found on PATH; skipping MP4 generation.');
+          this.debug('ffmpeg not found on PATH.');
         } else {
           this.debug(`ffmpeg spawn error: ${err.message}`);
         }
@@ -373,6 +366,43 @@ class BlackBoxCapture {
         resolve(code === 0);
       });
     });
+  }
+
+  async transcodeTrimmedWebm(srcPath, destPath, trimSec) {
+    // Input-seek and drop first frame to avoid white flash; re-encode for accuracy.
+    const args = [
+      '-y',
+    '-ss', String(trimSec),
+      '-i', srcPath,
+      '-vf', 'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      '-c:v', 'libvpx-vp9',
+      '-b:v', '0',
+      '-crf', '35',
+      '-row-mt', '1',
+      '-cpu-used', '4',
+      '-an',
+      destPath,
+    ];
+    const ok = await this.runFfmpeg(args);
+    return ok;
+  }
+
+  async transcodeTrimmedMp4(srcPath, destPath, trimSec) {
+    // Input-seek and drop first frame; encode H.264 MP4 for broad compatibility.
+    const args = [
+      '-y',
+    '-ss', String(trimSec),
+      '-i', srcPath,
+      '-vf', 'select=not(eq(n\\,0)),setpts=N/FRAME_RATE/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '23',
+      '-movflags', '+faststart',
+      '-an',
+      destPath,
+    ];
+    const ok = await this.runFfmpeg(args);
+    return ok;
   }
 
   async captureAll() {
