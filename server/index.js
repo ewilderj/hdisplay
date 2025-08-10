@@ -597,26 +597,46 @@ const WEATHER_MIN_REFRESH_MIN = 10;
 const WEATHER_MAX_REFRESH_MIN = 120;
 const WEATHER_STALE_TOLERANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-const weatherCache = new Map(); // key: `${loc}|${units}` -> { data, fetchedAt, ttlMs }
+const weatherCache = new Map(); // key: `${provider}|${loc}|${units}` -> { data, fetchedAt, ttlMs }
+
+function getConfigPath() {
+  return process.env.HDS_CONFIG_PATH || path.join(__dirname, '..', 'config.json');
+}
+
+function getConfigJSON() {
+  try {
+    const cfgPath = getConfigPath();
+    if (fs.existsSync(cfgPath)) {
+      const raw = fs.readFileSync(cfgPath, 'utf8');
+      return JSON.parse(raw);
+    }
+  } catch {}
+  return {};
+}
+
+function getWeatherProviderId() {
+  // Read from config: { weather: { provider: 'openweathermap' } }
+  const cfg = getConfigJSON();
+  const raw = (cfg && cfg.weather && cfg.weather.provider) || null;
+  const val = String(raw || '').toLowerCase();
+  if (val === 'owm' || val === 'openweathermap' || val === 'open-weather-map') return 'openweathermap';
+  // default
+  return 'openweathermap';
+}
 
 function getOWMApiKey() {
-  // Priority: env var OPENWEATHERMAP_API_KEY; optionally support config later
+  // Priority: env var OPENWEATHERMAP_API_KEY; then config.json -> apiKeys.openweathermap
   const fromEnv = process.env.OPENWEATHERMAP_API_KEY;
   if (fromEnv && String(fromEnv).trim()) return String(fromEnv).trim();
   try {
-    // Optional config.json (override path via HDS_CONFIG_PATH) with { apiKeys: { openweathermap: "..." } }
-    const cfgPath = process.env.HDS_CONFIG_PATH || path.join(__dirname, '..', 'config.json');
-    if (fs.existsSync(cfgPath)) {
-      const raw = fs.readFileSync(cfgPath, 'utf8');
-      const cfg = JSON.parse(raw);
-      const val = cfg?.apiKeys?.openweathermap;
-      if (val && String(val).trim()) return String(val).trim();
-    }
+    const cfg = getConfigJSON();
+    const val = cfg?.apiKeys?.openweathermap;
+    if (val && String(val).trim()) return String(val).trim();
   } catch {}
   return null;
 }
 
-function parseLocationQuery(loc) {
+function parseLatLonOrQuery(loc) {
   const s = String(loc || '').trim();
   if (!s) return null;
   const parts = s.split(',').map((x) => x.trim());
@@ -638,61 +658,90 @@ function unitsToOWM(units) {
   return units === 'F' ? 'imperial' : 'metric';
 }
 
-async function geocodeLocation(apiKey, loc) {
-  if (loc.lat != null && loc.lon != null) return { name: null, country: null, lat: loc.lat, lon: loc.lon };
-  const url = 'https://api.openweathermap.org/geo/1.0/direct';
-  const res = await axios.get(url, { params: { q: loc.q, limit: 1, appid: apiKey }, timeout: 5000 });
-  const arr = Array.isArray(res && res.data) ? res.data : [];
-  if (arr.length === 0) return null;
-  const it = arr[0];
-  return { name: it.name || loc.q, country: it.country || null, lat: it.lat, lon: it.lon };
-}
-
-async function fetchOneCall(apiKey, coords, units) {
-  const url = 'https://api.openweathermap.org/data/3.0/onecall';
-  const params = {
-    lat: coords.lat,
-    lon: coords.lon,
-    units: unitsToOWM(units),
-    exclude: 'minutely,hourly,alerts',
-    appid: apiKey,
-  };
-  const res = await axios.get(url, { params, timeout: 5000 });
-  return (res && res.data) || {};
-}
-
-function aggregateForecast(data) {
-  const daily = Array.isArray(data?.daily) ? data.daily : [];
-  const out = [];
-  for (let i = 0; i < daily.length && out.length < 7; i++) {
-    const d = daily[i];
-    const dt = Number(d.dt) * 1000;
-    const date = new Date(dt);
-    const key = isFinite(dt) ? date.toISOString().substring(0, 10) : '';
-    const lo = Number(d.temp?.min);
-    const hi = Number(d.temp?.max);
-    let icon = null;
-    let description = null;
-    if (Array.isArray(d.weather) && d.weather[0]) {
-      icon = d.weather[0].icon || null;
-      description = d.weather[0].description || null;
-    }
-  if (Number.isFinite(lo) && Number.isFinite(hi)) {
-      out.push({ date: key, low: Math.round(lo), high: Math.round(hi), icon, description });
-    }
-  }
-  return out;
-}
+// Provider registry (extensible). Each provider returns { coords, locationLabel?, daily[] } or raw provider data to be aggregated.
+const weatherProviders = {
+  openweathermap: {
+    id: 'openweathermap',
+    needsApiKey: true,
+    getApiKey: getOWMApiKey,
+    parseLocation(locStr) {
+      return parseLatLonOrQuery(locStr);
+    },
+    async geocode(apiKey, loc) {
+      if (loc.lat != null && loc.lon != null) return { name: null, country: null, lat: loc.lat, lon: loc.lon };
+      const url = 'https://api.openweathermap.org/geo/1.0/direct';
+      const res = await axios.get(url, { params: { q: loc.q, limit: 1, appid: apiKey }, timeout: 5000 });
+      const arr = Array.isArray(res && res.data) ? res.data : [];
+      if (arr.length === 0) return null;
+      const it = arr[0];
+      return { name: it.name || loc.q, country: it.country || null, lat: it.lat, lon: it.lon };
+    },
+    async fetchForecast(apiKey, coords, units) {
+      const url = 'https://api.openweathermap.org/data/3.0/onecall';
+      const params = {
+        lat: coords.lat,
+        lon: coords.lon,
+        units: unitsToOWM(units),
+        exclude: 'minutely,hourly,alerts',
+        appid: apiKey,
+      };
+      const res = await axios.get(url, { params, timeout: 5000 });
+      return (res && res.data) || {};
+    },
+    aggregate(data) {
+      const daily = Array.isArray(data?.daily) ? data.daily : [];
+      const out = [];
+      for (let i = 0; i < daily.length && out.length < 7; i++) {
+        const d = daily[i];
+        const dt = Number(d.dt) * 1000;
+        const date = new Date(dt);
+        const key = isFinite(dt) ? date.toISOString().substring(0, 10) : '';
+        const lo = Number(d.temp?.min);
+        const hi = Number(d.temp?.max);
+        let icon = null;
+        let description = null;
+        if (Array.isArray(d.weather) && d.weather[0]) {
+          icon = d.weather[0].icon || null;
+          description = d.weather[0].description || null;
+        }
+        if (Number.isFinite(lo) && Number.isFinite(hi)) {
+          out.push({ date: key, low: Math.round(lo), high: Math.round(hi), icon, description });
+        }
+      }
+      return out;
+    },
+    async geocodeZipFallback(apiKey, loc) {
+      // If plain numeric zip (optionally with ,CC), try zip endpoint
+      if (!loc.lat && !loc.lon && /^[0-9]{4,8}(?:,[A-Za-z]{2})?$/.test(loc.q || '')) {
+        try {
+          const zipUrl = 'https://api.openweathermap.org/geo/1.0/zip';
+          const zipRes = await axios.get(zipUrl, {
+            params: { zip: loc.q, appid: apiKey },
+            timeout: 5000,
+          });
+          const z = (zipRes && zipRes.data) || {};
+          return { name: z.name || loc.q, country: z.country || null, lat: z.lat, lon: z.lon };
+        } catch {}
+      }
+      return null;
+    },
+  },
+};
 
 app.get('/api/weather', async (req, res) => {
   try {
     const location = String(req.query.location || '').trim();
     const units = String(req.query.units || 'C').toUpperCase() === 'F' ? 'F' : 'C';
     const refresh = clampRefreshMinutes(req.query.refresh);
-    const key = `${location}|${units}`;
+    const providerId = getWeatherProviderId();
+    const provider = weatherProviders[providerId] || weatherProviders.openweathermap;
+    const key = `${provider.id}|${location}|${units}`;
 
-    const apiKey = getOWMApiKey();
-    if (!apiKey) return res.status(400).json({ error: 'Weather API key required' });
+    let apiKey = null;
+    if (provider.needsApiKey) {
+      apiKey = provider.getApiKey ? provider.getApiKey() : null;
+      if (!apiKey) return res.status(400).json({ error: 'Weather API key required' });
+    }
     if (!location) return res.status(400).json({ error: 'Location required' });
 
     const now = Date.now();
@@ -701,21 +750,15 @@ app.get('/api/weather', async (req, res) => {
       return res.json({ ...cached.data, cached: true });
     }
 
-    const locObj = parseLocationQuery(location);
+    const locObj = provider.parseLocation ? provider.parseLocation(location) : parseLatLonOrQuery(location);
     if (!locObj) return res.status(400).json({ error: 'Invalid location' });
 
-    let coords = await geocodeLocation(apiKey, locObj);
+    let coords = await provider.geocode(apiKey, locObj);
     if (!coords) {
-      // try zip endpoint if plain numeric zip
-      if (!locObj.lat && !locObj.lon && /^[0-9]{4,8}(?:,[A-Za-z]{2})?$/.test(locObj.q || '')) {
+      // provider-specific zip fallback if available
+      if (provider.geocodeZipFallback) {
         try {
-          const zipUrl = 'https://api.openweathermap.org/geo/1.0/zip';
-          const zipRes = await axios.get(zipUrl, {
-            params: { zip: locObj.q, appid: apiKey },
-            timeout: 5000,
-          });
-          const z = (zipRes && zipRes.data) || {};
-          coords = { name: z.name || locObj.q, country: z.country || null, lat: z.lat, lon: z.lon };
+          coords = await provider.geocodeZipFallback(apiKey, locObj);
         } catch {}
       }
     }
@@ -723,7 +766,7 @@ app.get('/api/weather', async (req, res) => {
 
     let forecast;
     try {
-      forecast = await fetchOneCall(apiKey, coords, units);
+      forecast = await provider.fetchForecast(apiKey, coords, units);
     } catch (e) {
       // on failure, serve stale if available within 2h
       if (cached && now - cached.fetchedAt < WEATHER_STALE_TOLERANCE_MS) {
@@ -731,7 +774,7 @@ app.get('/api/weather', async (req, res) => {
       }
       return res.status(502).json({ error: 'Weather API failed' });
     }
-    const days = aggregateForecast(forecast);
+    const days = provider.aggregate ? provider.aggregate(forecast) : [];
     if (process.env.NODE_ENV === 'test') {
       try {
         const dailyLen = Array.isArray(forecast && forecast.daily) ? forecast.daily.length : 0;
