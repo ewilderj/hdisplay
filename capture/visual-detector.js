@@ -7,6 +7,15 @@ const sharp = require('sharp');
 class VisualDetector {
   constructor() {
     this.debugEnabled = process.env.CAPTURE_DEBUG === 'true';
+    // Public registry of supported detection strategies (for introspection/tests)
+    this.strategies = new Set([
+      'animation',
+      'pixel_coverage',
+      'visual_stability',
+      'text_content',
+      'media_loading',
+      'wait_ms',
+    ]);
   }
 
   log(...args) {
