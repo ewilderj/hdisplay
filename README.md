@@ -505,9 +505,22 @@ Notes
 
 On the Pi:
 
-- curl -sSL https://raw.githubusercontent.com/ewilderj/hdisplay/main/scripts/setup-pi.sh | bash
+```bash
+curl -sSL https://raw.githubusercontent.com/ewilderj/hdisplay/main/scripts/setup-pi.sh | bash
+```
 
 This installs Node.js and Chromium, sets up the server as a systemd service, and configures Chromium to auto-launch in kiosk mode pointing at http://localhost:3000.
+
+Node version selection (optional)
+
+- The setup script installs Node.js using NodeSource. By default it installs Node 22.x.
+- To choose a different major (e.g., 24), set HDS_NODE_MAJOR when running the script:
+
+```bash
+HDS_NODE_MAJOR=24 curl -sSL https://raw.githubusercontent.com/ewilderj/hdisplay/main/scripts/setup-pi.sh | bash
+```
+
+The script will install Node if missing, or upgrade if the installed major doesn’t match.
 
 ### Systemd units and health checks
 
