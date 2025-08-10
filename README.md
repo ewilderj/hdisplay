@@ -165,8 +165,6 @@ Preview
 
 ![animated-text preview](captures/screenshots/animated-text.png)
 
-https://github.com/ewilderj/hdisplay/raw/main/captures/videos/animated-text.mp4
-
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/animated-text.mp4)
 
 Notes:
@@ -199,8 +197,6 @@ Preview
 
 ![carousel preview](captures/screenshots/carousel.png)
 
-https://github.com/ewilderj/hdisplay/raw/main/captures/videos/carousel.mp4
-
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/carousel.mp4)
 
 Notes:
@@ -224,8 +220,6 @@ hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example
 Preview
 
 ![message-banner preview](captures/screenshots/message-banner.png)
-
-https://github.com/ewilderj/hdisplay/raw/main/captures/videos/message-banner.mp4
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/message-banner.mp4)
 
@@ -260,8 +254,6 @@ Preview
 
 ![webp-loop preview](captures/screenshots/webp-loop.png)
 
-https://github.com/ewilderj/hdisplay/raw/main/captures/videos/webp-loop.mp4
-
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/webp-loop.mp4)
 
 Video credit: [kieutruongphoto on Pixabay](https://pixabay.com/videos/saigon-landscape-vietnam-travel-14385/)
@@ -281,8 +273,6 @@ Notes
 Preview
 
 ![snake preview](captures/screenshots/snake.png)
-
-https://github.com/ewilderj/hdisplay/raw/main/captures/videos/snake.mp4
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/snake.mp4)
 
@@ -304,8 +294,6 @@ Rules
 Preview
 
 ![timeleft preview](captures/screenshots/timeleft.png)
-
-https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4)
 
