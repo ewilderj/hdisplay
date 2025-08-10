@@ -1,0 +1,21 @@
+template: weather
+description: '6-day weather forecast (Tomorrow.io by default)'
+
+readiness_detection:
+  strategy: 'text_content'
+  wait_for_text: true
+  min_content_length: 5
+  timeout: 8000
+
+screenshot:
+  after_detection: 1000
+
+video:
+  duration: 0 # static layout
+
+sample_data:
+  location: 'Santa Rosa, CA, US'
+  units: 'F'
+  refreshInterval: 30
+  showConditionText: true
+  darkMode: true
