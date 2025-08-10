@@ -264,6 +264,8 @@ https://github.com/ewilderj/hdisplay/raw/main/captures/videos/webp-loop.mp4
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/webp-loop.mp4)
 
+Video credit: [kieutruongphoto on Pixabay](https://pixabay.com/videos/saigon-landscape-vietnam-travel-14385/)
+
 ### Snake (auto-play)
 
 ```bash
