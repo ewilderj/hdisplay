@@ -465,4 +465,83 @@ program.command('playlist:delay <ms>')
     } catch(e) { console.error(chalk.red('Error:'), e.message); process.exitCode = 1; }
   });
 
+// Capture commands
+program.command('capture:all')
+  .description('Capture screenshots and videos of all templates')
+  .option('--output <dir>', 'Output directory for captures', './captures')
+  .action(async (opts) => {
+    try {
+      const BlackBoxCapture = require('../capture/capture');
+      const capture = new BlackBoxCapture({
+        serverUrl: getServerBase(),
+        outputDir: opts.output
+      });
+      
+      console.log(chalk.blue('🚀 Starting automated capture of all templates...'));
+      const results = await capture.captureAll();
+      
+      if (results.successful.length > 0) {
+        console.log(chalk.green(`✅ Successfully captured ${results.successful.length} templates`));
+      }
+      if (results.failed.length > 0) {
+        console.log(chalk.red(`❌ Failed to capture ${results.failed.length} templates`));
+        process.exitCode = 1;
+      }
+    } catch (e) {
+      console.error(chalk.red('Capture failed:'), e.message);
+      process.exitCode = 1;
+    }
+  });
+
+program.command('capture:template <templateId>')
+  .description('Capture screenshots and video of a specific template')
+  .option('--output <dir>', 'Output directory for captures', './captures')
+  .option('--data <json>', 'Custom template data as JSON')
+  .action(async (templateId, opts) => {
+    try {
+      const BlackBoxCapture = require('../capture/capture');
+      const capture = new BlackBoxCapture({
+        serverUrl: getServerBase(),
+        outputDir: opts.output
+      });
+      
+      let customData = null;
+      if (opts.data) {
+        try {
+          customData = JSON.parse(opts.data);
+        } catch {
+          console.error(chalk.red('Error: Invalid JSON for --data'));
+          process.exitCode = 1;
+          return;
+        }
+      }
+      
+      console.log(chalk.blue(`📸 Capturing template: ${templateId}`));
+      await capture.captureTemplate(templateId, customData);
+      console.log(chalk.green(`✅ Successfully captured ${templateId}`));
+    } catch (e) {
+      console.error(chalk.red('Capture failed:'), e.message);
+      process.exitCode = 1;
+    }
+  });
+
+program.command('capture:gallery')
+  .description('Generate an HTML gallery of captured templates')
+  .option('--output <dir>', 'Output directory containing captures', './captures')
+  .action(async (opts) => {
+    try {
+      const BlackBoxCapture = require('../capture/capture');
+      const capture = new BlackBoxCapture({
+        outputDir: opts.output
+      });
+      
+      console.log(chalk.blue('📚 Generating template gallery...'));
+      const galleryPath = await capture.generateGallery();
+      console.log(chalk.green(`✅ Gallery generated: ${galleryPath}`));
+    } catch (e) {
+      console.error(chalk.red('Gallery generation failed:'), e.message);
+      process.exitCode = 1;
+    }
+  });
+
 program.parse(process.argv);

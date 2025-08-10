@@ -1,0 +1,19 @@
+template: snake
+description: "Classic Snake game with automatic AI player"
+
+readiness_detection:
+  strategy: "pixel_coverage"
+  min_coverage: 0.1
+  timeout: 5000
+
+screenshot:
+  after_detection: 1000  # Wait for game to start
+
+video:
+  duration: 12000  # Show several moves of the snake
+
+sample_data:
+  cellSize: 20
+  tickMs: 50
+
+  # Snake game runs automatically with AI

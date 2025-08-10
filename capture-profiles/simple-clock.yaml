@@ -1,0 +1,16 @@
+template: simple-clock
+description: "A simple digital clock display"
+
+readiness_detection:
+  strategy: "text_content"
+  wait_for_text: true
+  min_content_length: 5
+  timeout: 3000
+
+screenshot:
+  after_detection: 500
+
+video:
+  duration: 0  # Static content, no video needed
+
+sample_data:
