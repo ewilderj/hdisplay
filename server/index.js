@@ -620,8 +620,9 @@ function getWeatherProviderId() {
   const raw = (cfg && cfg.weather && cfg.weather.provider) || null;
   const val = String(raw || '').toLowerCase();
   if (val === 'tomorrowio') return 'tomorrowio';
+  if (val === 'openweathermap') return 'openweathermap';
   // default (and when set to any other/unrecognized value)
-  return 'openweathermap';
+  return 'tomorrowio';
 }
 
 function getOWMApiKey() {
@@ -838,9 +839,16 @@ const weatherProviders = {
   const v = d.values || {};
   const lo = Number(v.temperatureMin);
   const hi = Number(v.temperatureMax);
-  const wc = (v.weatherCodeMax ?? null);
-        const icon = mapCode(wc);
-        const description = codeDesc(wc);
+  // Prefer weatherCodeMax; fallback to other daily codes if needed
+  const wcRaw =
+    (v.weatherCodeMax !== undefined ? v.weatherCodeMax : undefined) ??
+    (v.weatherCodeFullDay !== undefined ? v.weatherCodeFullDay : undefined) ??
+    (v.weatherCodeDay !== undefined ? v.weatherCodeDay : undefined) ??
+    (v.weatherCode !== undefined ? v.weatherCode : undefined) ??
+    (v.weatherCodeMin !== undefined ? v.weatherCodeMin : undefined) ??
+    null;
+        const icon = mapCode(wcRaw);
+        const description = codeDesc(wcRaw);
         if (Number.isFinite(lo) && Number.isFinite(hi)) {
           out.push({ date: dateStr, low: Math.round(lo), high: Math.round(hi), icon, description });
         }
@@ -913,10 +921,14 @@ app.get('/api/weather', async (req, res) => {
           const fullDay = v.weatherCodeFullDay;
           const max = v.weatherCodeMax;
           const min = v.weatherCodeMin;
+      const chosen = (max !== undefined ? max : undefined) ?? (fullDay !== undefined ? fullDay : undefined) ?? (day !== undefined ? day : undefined) ?? (code !== undefined ? code : undefined) ?? (min !== undefined ? min : undefined) ?? null;
           return {
             idx: i,
             codes: { day, fullDay, code, max, min },
-      chosen: { value: max ?? null, source: 'weatherCodeMax' },
+      chosen: {
+        value: chosen,
+        source: max !== undefined ? 'weatherCodeMax' : fullDay !== undefined ? 'weatherCodeFullDay' : day !== undefined ? 'weatherCodeDay' : code !== undefined ? 'weatherCode' : min !== undefined ? 'weatherCodeMin' : 'none',
+      },
             mapped: days[i] ? days[i].icon : null,
             desc: days[i] ? days[i].description : null,
           };

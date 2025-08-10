@@ -40,8 +40,10 @@ describe('Weather API', () => {
     jest.clearAllMocks();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hdisplay-weather-'));
     process.env.HDS_UPLOADS_DIR = tmpDir;
-  // Ensure server doesn't read repo config.json during tests
-  process.env.HDS_CONFIG_PATH = path.join(tmpDir, 'no-config.json');
+  // Ensure server uses OpenWeatherMap provider explicitly for this suite
+  const cfgPath = path.join(tmpDir, 'config.json');
+  fs.writeFileSync(cfgPath, JSON.stringify({ weather: { provider: 'openweathermap' } }));
+  process.env.HDS_CONFIG_PATH = cfgPath;
     setEnvKey();
     nextDaily = undefined;
     // Provide a default axios.get implementation for both endpoints
