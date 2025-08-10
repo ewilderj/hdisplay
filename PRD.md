@@ -500,3 +500,143 @@ Success Criteria
 - Correct formatting (hours+minutes when >90m; minutes otherwise).
 - Color selection matches thresholds (>8 green, >4 amber, ≤4 red).
 - Visible at a glance on 1280×400; reads comfortably from a distance.
+
+### Weather
+
+Weather (3-day forecast)
+Goal: Display a clean, glanceable 3-day weather forecast split into equal panels across the 1280×400 display. Shows today plus two future days with high/low temperatures, day names, and clear weather condition icons.
+
+ID: weather
+
+Type: Template (HTML + CSS + JS, uses OpenWeatherMap API)
+
+Apply: POST /api/template/weather with JSON data payload
+
+Rendering and Layout
+
+Three equal panels (≈426px each) arranged horizontally
+Each panel contains:
+* Day name (e.g., "Today", "Tomorrow", or weekday name)
+* Weather icon/graphic (large, centered)
+* High/Low temperatures
+* Optional: brief condition text (e.g., "Partly Cloudy")
+High contrast design optimized for readability at a distance
+Responsive to 1280×400 viewport with consistent spacing
+
+Data Schema (placeholders)
+
+```
+{
+   "location": string,         // required; city name, zip code, or lat,lon coordinates
+   "units": "C" | "F",        // required; temperature units (Celsius or Fahrenheit)
+   "apiKey": string,          // optional; OpenWeatherMap API key (falls back to server config)
+   "theme": {
+      "bg": string,            // CSS color; default "#000"
+      "text": string,          // default "#fff"
+      "accent": string,        // default "#00a8ff" (for highlights)
+      "divider": string,       // default "rgba(255,255,255,0.1)" (panel separators)
+      "fontFamily": string     // optional; default "system-ui, sans-serif"
+   },
+   "showConditionText": boolean,  // default true; show text description below icon
+   "refreshInterval": number       // minutes between API updates; default 30, min 10, max 120
+}
+```
+
+Weather Icons and Conditions
+
+Use OpenWeatherMap icon codes mapped to high-contrast visuals:
+* Clear (01d/01n): ☀️ or sun icon
+* Few clouds (02d/02n): ⛅ or sun with cloud
+* Scattered clouds (03d/03n): ☁️ or cloud icon
+* Broken clouds (04d/04n): ☁️ or cloud icon
+* Shower rain (09d/09n): 🌧️ or rain drops
+* Rain (10d/10n): 🌧️ or rain drops
+* Thunderstorm (11d/11n): ⛈️ or cloud with lightning
+* Snow (13d/13n): ❄️ or snowflake
+* Mist (50d/50n): 🌫️ or fog lines
+Icons should be large (≈120px) and centered in each panel
+Fallback to text description if icon rendering fails
+
+Temperature Display
+
+* Format: "72° / 58°" (with proper degree symbol)
+* High temp in warmer color (default white or light)
+* Low temp in cooler color (default gray or muted)
+* Large, readable font size (≈32px for temps)
+
+Day Labels
+
+Today: "Today"
+Tomorrow: "Tomorrow"
+Day after: Full weekday name (e.g., "Wednesday")
+Font size ≈24px, positioned at top of each panel
+
+OpenWeatherMap Integration
+
+Server-side API calls to protect API keys
+Endpoints used:
+* Geocoding: /geo/1.0/direct for city names
+* Forecast: /data/2.5/forecast for 5-day/3-hour forecast data
+API key source priority:
+* Template data apiKey field
+* Server environment variable OPENWEATHERMAP_API_KEY
+* Server config file config.apiKeys.openweathermap
+* Cache results for refreshInterval minutes (default 30)
+Location resolution:
+* City names: "San Francisco" or "San Francisco,CA,US" → geocode → forecast
+* Zip codes: "94107" or "94107,US" → geocode → forecast
+* Coordinates: "37.7749,-122.4194" → direct forecast lookup
+Data aggregation: Group forecast entries by day, extract min/max temps
+
+Error Handling
+
+Invalid location: Display "Location not found" message
+Missing API key: Display "Weather API key required" message
+API failure: Show cached data if available (within 2 hours), otherwise error state
+Rate limiting (60 calls/minute, 1M calls/month): Cache aggressively, min refresh 10 minutes
+Network timeout: 5 second timeout for API calls
+
+Performance Considerations
+
+Initial render with loading state while fetching
+Smooth fade-in when data arrives (300ms)
+Server-side caching shared across all clients
+Client polls server for updates at refreshInterval
+No direct API calls from browser
+
+Examples
+
+CLI:
+```
+hdisplay template weather --location "San Francisco" --units F
+hdisplay template weather --location "London,UK" --units C --theme.bg "#1a1a2e"
+hdisplay template weather --location "94107,US" --units F --refreshInterval 60
+hdisplay template weather --location "37.7749,-122.4194" --units C
+```
+
+HTTP: `POST /api/template/weather` body:
+```
+{ 
+  "data": { 
+    "location": "San Francisco,CA,US", 
+    "units": "F",
+    "refreshInterval": 60
+  }
+}
+```
+
+Testing
+
+Write tests that use mock API returns so an API key is not needed for testing.
+Also write an E2E test that does need an API key.
+
+Success Criteria
+
+* Clean, readable 3-panel layout fits perfectly in 1280×400
+* Temperature and conditions clearly visible from across a room
+* Graceful error messages when API is unavailable or misconfigured
+* Updates automatically at specified interval without flicker
+* Supports both Celsius and Fahrenheit units
+* Works with city names, zip codes, and coordinates
+* Respects OpenWeatherMap rate limits through caching
+

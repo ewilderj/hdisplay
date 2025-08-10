@@ -1,11 +1,52 @@
 {
-  "env": { "node": true, "es2022": true, "jest": true },
-  "extends": ["eslint:recommended"],
-  "parserOptions": { "ecmaVersion": 2022, "sourceType": "script" },
-  "rules": {
-    "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
-    "no-undef": "error",
-    "no-console": "off"
+  "root": true,
+  "env": {
+    "es2022": true,
+    "node": true,
+    "jest": true
   },
-  "ignorePatterns": ["server/public/**", "uploads/**", "data/**", "tests-e2e/**"]
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "captures/",
+    "uploads/",
+    "data/",
+    "dist/",
+    "server/public/**",
+    "tests-e2e/**"
+  ],
+  "extends": [
+    "eslint:recommended"
+  ],
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-undef": "error",
+    "eqeqeq": ["warn", "smart"],
+    "no-console": "off",
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-useless-escape": "warn",
+    "no-inner-declarations": "off",
+    "no-constant-condition": "off",
+    "no-case-declarations": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["capture/**/*.js"],
+      "env": { "browser": true, "node": true },
+      "globals": { "document": "readonly", "window": "readonly" },
+      "rules": {
+        "no-undef": "off"
+      }
+    },
+    {
+      "files": ["test/**/*.js"],
+      "env": { "jest": true, "node": true },
+      "rules": {
+        "no-empty": ["warn", { "allowEmptyCatch": true }]
+      }
+    }
+  ]
 }
