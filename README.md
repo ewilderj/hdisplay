@@ -17,7 +17,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Message banner](#message-banner)
   - [Snake](#snake-auto-play)
   - [TimeLeft](#timeleft-meeting-countdown)
-  - [Weather](#weather-7-day-forecast)
+  - [Weather](#weather-6-day-forecast)
 - [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
@@ -44,7 +44,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - Message banner (title/subtitle)
   - Snake (auto-play, ambient)
   - TimeLeft (meeting minutes remaining)
-  - Weather (7-day forecast)
+  - Weather (6-day forecast)
 - Assets & media:
   - Upload/download/delete files under `/uploads`
   - Push image/video from file or URL and display immediately (ephemeral, no disk write unless requested)
@@ -306,9 +306,9 @@ https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4)
 
-### Weather (7-day forecast)
+### Weather (6-day forecast)
 
-Render a 7-day forecast using OpenWeatherMap One Call 3.0 with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
+Render a 6-day forecast using OpenWeatherMap One Call 3.0 (or Tomorrow.io) with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
 
 Examples
 
@@ -352,9 +352,9 @@ Options (data fields)
 
 Notes
 
-- Requires an OpenWeatherMap API key. See Configuration below.
+- Requires an OpenWeatherMap or Tomorrow.io API key (depending on provider). See Configuration below.
 - Data is fetched server-side and cached per `location+units` for `refreshInterval` minutes.
-- Up to 7 days are shown. Today and Tomorrow are labeled; subsequent days use weekday names.
+- Up to 6 days are shown (Today + 5). This cap is applied regardless of provider.
 - If you see HTTP 401 from `/api/weather`, your API key is missing or invalid. 404 indicates the location couldn’t be geocoded.
 - Coordinates (`lat,lon`) skip geocoding and are most reliable.
 
@@ -574,15 +574,20 @@ Environment variables:
 Weather
 
 - `OPENWEATHERMAP_API_KEY` – Your OpenWeatherMap API key (required for the weather template)
+- `TOMORROW_API_KEY` – Your Tomorrow.io API key (when using the Tomorrow provider)
 - Optional config file: Create `config.json` in the repo root (or set `HDS_CONFIG_PATH` to a JSON file) with:
 
 ```json
 {
-  "apiKeys": { "openweathermap": "<your-key>" }
+  "weather": { "provider": "openweathermap" },
+  "apiKeys": {
+    "openweathermap": "<owm-key>",
+    "tomorrowio": "<tomorrow-key>"
+  }
 }
 ```
 
-The server looks for `OPENWEATHERMAP_API_KEY` first, then falls back to `config.json`.
+Provider selection: set `weather.provider` to `openweathermap` (default) or `tomorrowio`. The server looks for provider API keys in environment variables first, then in `config.json`.
 
 CLI config is stored at `~/.hdisplay.json` (set via `hdisplay config --server <url>` or discover `--set`).
 
