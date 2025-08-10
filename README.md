@@ -128,6 +128,15 @@ hdisplay template animated-text --text "Hello world" --velocity 120
 hdisplay template animated-text --data '{"text":"Hello world","velocity":120}'
 ```
 
+Preview
+
+<div>
+  <video controls muted loop playsinline poster="captures/screenshots/animated-text.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="captures/videos/animated-text.mp4" type="video/mp4" />
+    <source src="captures/videos/animated-text.webm" type="video/webm" />
+  </video>
+</div>
+
 Notes:
 - Velocity is objective: higher = faster, independent of text length.
 - Starts fully offscreen on the right and exits fully on the left, auto-resizes.
@@ -151,6 +160,15 @@ hdisplay template carousel \
 hdisplay template carousel --data '{"items":["/uploads/a.jpg","/uploads/b.mp4","/uploads/c.jpg"],"duration":3000}'
 ```
 
+Preview
+
+<div>
+  <video controls muted loop playsinline poster="captures/screenshots/carousel.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="captures/videos/carousel.mp4" type="video/mp4" />
+    <source src="captures/videos/carousel.webm" type="video/webm" />
+  </video>
+</div>
+
 Notes:
 - Sources can be either:
   - Paths under `/uploads` (e.g., `/uploads/xyz.jpg`) served by this server
@@ -166,6 +184,15 @@ hdisplay template message-banner --title "hdisplay" --subtitle "example banner"
 # or JSON
 hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example banner"}'
 ```
+
+Preview
+
+<div>
+  <video controls muted loop playsinline poster="captures/screenshots/message-banner.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="captures/videos/message-banner.mp4" type="video/mp4" />
+    <source src="captures/videos/message-banner.webm" type="video/webm" />
+  </video>
+</div>
 
 ### WebP loop (animated WebP)
 ```bash
@@ -189,6 +216,15 @@ hdisplay template webp-loop --url /uploads/anim.webp
 hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain","position":"50% 50%","rendering":"pixelated"}'
 ```
 
+Preview
+
+<div>
+  <video controls muted loop playsinline poster="captures/screenshots/webp-loop.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="captures/videos/webp-loop.mp4" type="video/mp4" />
+    <source src="captures/videos/webp-loop.webm" type="video/webm" />
+  </video>
+</div>
+
 ### Snake (auto-play)
 ```bash
 hdisplay template snake --cellSize 20 --tickMs 100
@@ -197,6 +233,15 @@ hdisplay template snake --data '{"cellSize":20,"tickMs":100}'
 ```
 Notes
 - Auto-plays with safe pathing; optional wrap mode via data `{ "wrap": true }`.
+
+Preview
+
+<div>
+  <video controls muted loop playsinline poster="captures/screenshots/snake.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="captures/videos/snake.mp4" type="video/mp4" />
+    <source src="captures/videos/snake.webm" type="video/webm" />
+  </video>
+</div>
 
 ### TimeLeft (meeting countdown)
 ```bash
@@ -209,6 +254,15 @@ hdisplay template timeleft --data '{"minutes":135,"label":"Time left","theme":{"
 Rules
 - >90 minutes shows `Hh Mm`; otherwise `Xm`
 - Color thresholds: >8 green, >4 amber, ≤4 red (value only); label uses `theme.labelColor` (default white)
+
+Preview
+
+<div>
+  <video controls muted loop playsinline poster="captures/screenshots/timeleft.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="captures/videos/timeleft.mp4" type="video/mp4" />
+    <source src="captures/videos/timeleft.webm" type="video/webm" />
+  </video>
+</div>
 
 ## Playlists
 Create a rotating sequence of templates. The server plays items in order, loops, and persists across restarts. Applying a one-off template or push temporarily overrides playback; rotation resumes automatically.
