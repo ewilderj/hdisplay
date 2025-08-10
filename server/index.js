@@ -619,8 +619,8 @@ function getWeatherProviderId() {
   const cfg = getConfigJSON();
   const raw = (cfg && cfg.weather && cfg.weather.provider) || null;
   const val = String(raw || '').toLowerCase();
-  if (val === 'owm' || val === 'openweathermap' || val === 'open-weather-map') return 'openweathermap';
-  // default
+  if (val === 'tomorrowio') return 'tomorrowio';
+  // default (and when set to any other/unrecognized value)
   return 'openweathermap';
 }
 
@@ -632,6 +632,18 @@ function getOWMApiKey() {
     const cfg = getConfigJSON();
     const val = cfg?.apiKeys?.openweathermap;
     if (val && String(val).trim()) return String(val).trim();
+  } catch {}
+  return null;
+}
+
+function getTomorrowApiKey() {
+  // Env precedence: TOMORROW_API_KEY
+  const e1 = process.env.TOMORROW_API_KEY;
+  if (e1 && String(e1).trim()) return String(e1).trim();
+  try {
+    const cfg = getConfigJSON();
+    const a = cfg?.apiKeys?.tomorrowio;
+    if (a && String(a).trim()) return String(a).trim();
   } catch {}
   return null;
 }
@@ -691,7 +703,7 @@ const weatherProviders = {
     aggregate(data) {
       const daily = Array.isArray(data?.daily) ? data.daily : [];
       const out = [];
-      for (let i = 0; i < daily.length && out.length < 7; i++) {
+  for (let i = 0; i < daily.length && out.length < 6; i++) {
         const d = daily[i];
         const dt = Number(d.dt) * 1000;
         const date = new Date(dt);
@@ -724,6 +736,116 @@ const weatherProviders = {
         } catch {}
       }
       return null;
+    },
+  },
+  tomorrowio: {
+    id: 'tomorrowio',
+    needsApiKey: true,
+    getApiKey: getTomorrowApiKey,
+    parseLocation(locStr) {
+      return parseLatLonOrQuery(locStr);
+    },
+    async geocode(apiKey, loc) {
+      // Tomorrow.io API expects coordinates; optional OWM geocode if OWM key present and a query string is provided
+      if (loc.lat != null && loc.lon != null) return { name: null, country: null, lat: loc.lat, lon: loc.lon };
+      const owmKey = getOWMApiKey();
+      if (owmKey && loc.q) {
+        try { return await weatherProviders.openweathermap.geocode(owmKey, loc); } catch {}
+      }
+      return null;
+    },
+    async fetchForecast(apiKey, coords, units) {
+      const url = 'https://api.tomorrow.io/v4/weather/forecast';
+    const params = {
+        location: `${coords.lat},${coords.lon}`,
+        timesteps: '1d',
+        units: units === 'F' ? 'imperial' : 'metric',
+  // Request daily code extrema; we will use weatherCodeMax
+  fields: 'temperatureMin,temperatureMax,weatherCodeMax,weatherCodeMin',
+  // Explicit 6-day window; Tomorrow.io supports relative tokens like now/nowPlusXd
+  startTime: 'now',
+  endTime: 'nowPlus5d',
+        apikey: apiKey,
+      };
+      const res = await axios.get(url, { params, timeout: 5000 });
+      return (res && res.data) || {};
+    },
+    aggregate(data) {
+      const daily = (data && data.timelines && Array.isArray(data.timelines.daily) && data.timelines.daily) || [];
+      const mapCode = (code) => {
+        const c = Number(code);
+        if (!Number.isFinite(c)) return null;
+        // Best-effort mapping to OWM-like icon codes for client emoji mapping
+        // Clear / Cloud cover family
+        if (c === 1000) return '01d'; // Clear
+        if (c === 1001) return '04d'; // Cloudy/overcast
+        if (c === 1100) return '02d'; // Mostly clear
+        if (c === 1101) return '03d'; // Partly cloudy
+        if (c === 1102) return '04d'; // Mostly cloudy
+        // Visibility/fog
+        if (c === 2000 || c === 2100) return '50d';
+        // Drizzle/rain family
+        if (c === 4000) return '09d'; // Drizzle
+        if (c === 4001) return '10d'; // Rain
+        if (c === 4200) return '10d'; // Light rain
+        if (c === 4201) return '10d'; // Heavy rain
+        // Freezing rain/drizzle → show as rain
+        if (c === 6000 || c === 6001 || c === 6200 || c === 6201) return '10d';
+        // Snow family
+        if (c === 5000 || c === 5001 || c === 5100 || c === 5101) return '13d';
+        // Ice pellets / sleet → use snow icon
+        if (c === 7000 || c === 7101 || c === 7102) return '13d';
+        // Thunderstorm
+        if (c === 8000) return '11d';
+        return '03d'; // Default to cloudy
+      };
+      const codeDesc = (code) => {
+        const c = Number(code);
+        if (!Number.isFinite(c)) return null;
+        const lut = {
+          1000: 'clear',
+          1001: 'cloudy',
+          1100: 'mostly clear',
+          1101: 'partly cloudy',
+          1102: 'mostly cloudy',
+          2000: 'fog',
+          2100: 'light fog',
+          4000: 'drizzle',
+          4001: 'rain',
+          4200: 'light rain',
+          4201: 'heavy rain',
+          5000: 'snow',
+          5001: 'flurries',
+          5100: 'light snow',
+          5101: 'heavy snow',
+          6000: 'freezing drizzle',
+          6001: 'freezing rain',
+          6200: 'light freezing rain',
+          6201: 'heavy freezing rain',
+          7000: 'ice pellets',
+          7101: 'heavy ice pellets',
+          7102: 'light ice pellets',
+          8000: 'thunderstorm',
+        };
+        return lut[c] || null;
+      };
+      const out = [];
+  for (let i = 0; i < daily.length && out.length < 6; i++) {
+        const d = daily[i];
+        const t = d.time || d.startTime;
+        let dateStr = '';
+        try { dateStr = new Date(t).toISOString().substring(0, 10); } catch {}
+  const v = d.values || {};
+  const lo = Number(v.temperatureMin);
+  const hi = Number(v.temperatureMax);
+  const wc = (v.weatherCodeMax ?? null);
+        const icon = mapCode(wc);
+        const description = codeDesc(wc);
+        if (Number.isFinite(lo) && Number.isFinite(hi)) {
+          out.push({ date: dateStr, low: Math.round(lo), high: Math.round(hi), icon, description });
+        }
+      }
+      return out;
     },
   },
 };
@@ -779,6 +901,27 @@ app.get('/api/weather', async (req, res) => {
       try {
         const dailyLen = Array.isArray(forecast && forecast.daily) ? forecast.daily.length : 0;
         console.log('[weather-debug]', { dailyLen, daysLen: Array.isArray(days) ? days.length : -1 });
+      } catch {}
+    }
+    if (process.env.HDS_WEATHER_DEBUG && provider.id === 'tomorrowio') {
+      try {
+        const rawDaily = forecast?.timelines?.daily || [];
+    const diag = rawDaily.slice(0, 6).map((d, i) => {
+          const v = d.values || {};
+          const code = v.weatherCode;
+          const day = v.weatherCodeDay;
+          const fullDay = v.weatherCodeFullDay;
+          const max = v.weatherCodeMax;
+          const min = v.weatherCodeMin;
+          return {
+            idx: i,
+            codes: { day, fullDay, code, max, min },
+      chosen: { value: max ?? null, source: 'weatherCodeMax' },
+            mapped: days[i] ? days[i].icon : null,
+            desc: days[i] ? days[i].description : null,
+          };
+        });
+        console.log('[weather-debug] tomorrowio map', JSON.stringify(diag));
       } catch {}
     }
     let finalDays = days;

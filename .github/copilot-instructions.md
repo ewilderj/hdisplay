@@ -162,6 +162,11 @@ Uploads/media changes
 - ffmpeg optional: WEBM produced; MP4 best-effort
 - mDNS: bonjour-service must not crash server when unavailable; errors are caught
 
+Ergonomics discipline for config/env/CLI
+
+- Do not propose or implement multiple aliases for configuration keys, environment variables, or command-line flags unless explicitly requested.
+- Treat these names as unique and unambiguous sources of truth. Avoid offering “helpful” alternatives (e.g., TOMORROWIO_API_KEY vs TOMORROW_API_KEY); pick the single canonical spelling defined in the repo.
+
 ## Minimal ask-policy for Copilot
 
 - Prefer doing the work if you can infer missing details from repo patterns
