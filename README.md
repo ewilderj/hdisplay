@@ -131,10 +131,11 @@ hdisplay template animated-text --data '{"text":"Hello world","velocity":120}'
 Preview
 
 <div>
-  <video controls muted loop playsinline poster="captures/screenshots/animated-text.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
-    <source src="captures/videos/animated-text.mp4" type="video/mp4" />
-    <source src="captures/videos/animated-text.webm" type="video/webm" />
+  <video controls muted loop playsinline poster="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/screenshots/animated-text.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/animated-text.mp4" type="video/mp4" />
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/animated-text.webm" type="video/webm" />
   </video>
+  <div><a href="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/animated-text.mp4">Watch video</a></div>
 </div>
 
 Notes:
@@ -163,10 +164,11 @@ hdisplay template carousel --data '{"items":["/uploads/a.jpg","/uploads/b.mp4","
 Preview
 
 <div>
-  <video controls muted loop playsinline poster="captures/screenshots/carousel.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
-    <source src="captures/videos/carousel.mp4" type="video/mp4" />
-    <source src="captures/videos/carousel.webm" type="video/webm" />
+  <video controls muted loop playsinline poster="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/screenshots/carousel.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/carousel.mp4" type="video/mp4" />
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/carousel.webm" type="video/webm" />
   </video>
+  <div><a href="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/carousel.mp4">Watch video</a></div>
 </div>
 
 Notes:
@@ -188,10 +190,11 @@ hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example
 Preview
 
 <div>
-  <video controls muted loop playsinline poster="captures/screenshots/message-banner.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
-    <source src="captures/videos/message-banner.mp4" type="video/mp4" />
-    <source src="captures/videos/message-banner.webm" type="video/webm" />
+  <video controls muted loop playsinline poster="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/screenshots/message-banner.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/message-banner.mp4" type="video/mp4" />
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/message-banner.webm" type="video/webm" />
   </video>
+  <div><a href="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/message-banner.mp4">Watch video</a></div>
 </div>
 
 ### WebP loop (animated WebP)
@@ -219,10 +222,11 @@ hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain",
 Preview
 
 <div>
-  <video controls muted loop playsinline poster="captures/screenshots/webp-loop.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
-    <source src="captures/videos/webp-loop.mp4" type="video/mp4" />
-    <source src="captures/videos/webp-loop.webm" type="video/webm" />
+  <video controls muted loop playsinline poster="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/screenshots/webp-loop.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/webp-loop.mp4" type="video/mp4" />
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/webp-loop.webm" type="video/webm" />
   </video>
+  <div><a href="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/webp-loop.mp4">Watch video</a></div>
 </div>
 
 ### Snake (auto-play)
@@ -237,10 +241,11 @@ Notes
 Preview
 
 <div>
-  <video controls muted loop playsinline poster="captures/screenshots/snake.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
-    <source src="captures/videos/snake.mp4" type="video/mp4" />
-    <source src="captures/videos/snake.webm" type="video/webm" />
+  <video controls muted loop playsinline poster="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/screenshots/snake.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/snake.mp4" type="video/mp4" />
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/snake.webm" type="video/webm" />
   </video>
+  <div><a href="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/snake.mp4">Watch video</a></div>
 </div>
 
 ### TimeLeft (meeting countdown)
@@ -258,10 +263,11 @@ Rules
 Preview
 
 <div>
-  <video controls muted loop playsinline poster="captures/screenshots/timeleft.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
-    <source src="captures/videos/timeleft.mp4" type="video/mp4" />
-    <source src="captures/videos/timeleft.webm" type="video/webm" />
+  <video controls muted loop playsinline poster="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/screenshots/timeleft.png" style="max-width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/timeleft.mp4" type="video/mp4" />
+    <source src="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/timeleft.webm" type="video/webm" />
   </video>
+  <div><a href="https://raw.githubusercontent.com/ewilderj/hdisplay/main/captures/videos/timeleft.mp4">Watch video</a></div>
 </div>
 
 ## Playlists
