@@ -664,7 +664,7 @@ async function fetchOneCall(apiKey, coords, units) {
 function aggregateForecast(data) {
   const daily = Array.isArray(data?.daily) ? data.daily : [];
   const out = [];
-  for (let i = 0; i < daily.length && out.length < 3; i++) {
+  for (let i = 0; i < daily.length && out.length < 7; i++) {
     const d = daily[i];
     const dt = Number(d.dt) * 1000;
     const date = new Date(dt);
@@ -677,7 +677,7 @@ function aggregateForecast(data) {
       icon = d.weather[0].icon || null;
       description = d.weather[0].description || null;
     }
-    if (Number.isFinite(lo) && Number.isFinite(hi)) {
+  if (Number.isFinite(lo) && Number.isFinite(hi)) {
       out.push({ date: key, low: Math.round(lo), high: Math.round(hi), icon, description });
     }
   }
