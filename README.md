@@ -130,7 +130,11 @@ hdisplay template animated-text --data '{"text":"Hello world","velocity":120}'
 
 Preview
 
+![animated-text preview](captures/screenshots/animated-text.png)
+
 https://github.com/ewilderj/hdisplay/raw/main/captures/videos/animated-text.mp4
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/animated-text.mp4)
 
 Notes:
 - Velocity is objective: higher = faster, independent of text length.
@@ -157,7 +161,11 @@ hdisplay template carousel --data '{"items":["/uploads/a.jpg","/uploads/b.mp4","
 
 Preview
 
+![carousel preview](captures/screenshots/carousel.png)
+
 https://github.com/ewilderj/hdisplay/raw/main/captures/videos/carousel.mp4
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/carousel.mp4)
 
 Notes:
 - Sources can be either:
@@ -177,7 +185,11 @@ hdisplay template message-banner --data '{"title":"hdisplay","subtitle":"example
 
 Preview
 
+![message-banner preview](captures/screenshots/message-banner.png)
+
 https://github.com/ewilderj/hdisplay/raw/main/captures/videos/message-banner.mp4
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/message-banner.mp4)
 
 ### WebP loop (animated WebP)
 ```bash
@@ -203,7 +215,11 @@ hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain",
 
 Preview
 
+![webp-loop preview](captures/screenshots/webp-loop.png)
+
 https://github.com/ewilderj/hdisplay/raw/main/captures/videos/webp-loop.mp4
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/webp-loop.mp4)
 
 ### Snake (auto-play)
 ```bash
@@ -216,7 +232,11 @@ Notes
 
 Preview
 
+![snake preview](captures/screenshots/snake.png)
+
 https://github.com/ewilderj/hdisplay/raw/main/captures/videos/snake.mp4
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/snake.mp4)
 
 ### TimeLeft (meeting countdown)
 ```bash
@@ -232,7 +252,11 @@ Rules
 
 Preview
 
+![timeleft preview](captures/screenshots/timeleft.png)
+
 https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4)
 
 ## Playlists
 Create a rotating sequence of templates. The server plays items in order, loops, and persists across restarts. Applying a one-off template or push temporarily overrides playback; rotation resumes automatically.
