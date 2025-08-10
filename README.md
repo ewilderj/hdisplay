@@ -17,6 +17,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Message banner](#message-banner)
   - [Snake](#snake-auto-play)
   - [TimeLeft](#timeleft-meeting-countdown)
+  - [Weather](#weather-7-day-forecast)
 - [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
@@ -43,6 +44,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - Message banner (title/subtitle)
   - Snake (auto-play, ambient)
   - TimeLeft (meeting minutes remaining)
+  - Weather (7-day forecast)
 - Assets & media:
   - Upload/download/delete files under `/uploads`
   - Push image/video from file or URL and display immediately (ephemeral, no disk write unless requested)
@@ -304,6 +306,58 @@ https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4)
 
+### Weather (7-day forecast)
+
+Render a 7-day forecast using OpenWeatherMap One Call 3.0 with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
+
+Examples
+
+```bash
+# City, state, country; imperial units
+hdisplay template weather --location "Santa Rosa, CA, US" --units F
+
+# Coordinates; metric units, refresh hourly
+hdisplay template weather --location "38.44,-122.71" --units C --refresh-interval 60
+
+# Light mode with custom colors
+hdisplay template weather \
+  --location "Portland, OR, US" \
+  --units F \
+  --no-dark-mode \
+  --theme.bg "#ffffff" \
+  --theme.text "#111111" \
+  --theme.accent "#00a8ff"
+
+# or JSON
+hdisplay template weather --data '{
+  "location":"Santa Rosa, CA, US",
+  "units":"F",
+  "refreshInterval":30,
+  "showConditionText":true,
+  "darkMode":true
+}'
+```
+
+Options (data fields)
+
+- location (required): string. Supported forms:
+  - "City[, State][, Country]" (geocoded)
+  - "lat,lon" (decimal degrees)
+  - "ZIP,cc" (e.g., "97201,US")
+- units: "C" (default) or "F"
+- refreshInterval: minutes between updates (10–120, default 30)
+- showConditionText: boolean (default true)
+- darkMode: boolean (default true)
+- theme overrides (optional): `theme.bg`, `theme.text`, `theme.accent`, `theme.divider`, `theme.fontFamily`
+
+Notes
+
+- Requires an OpenWeatherMap API key. See Configuration below.
+- Data is fetched server-side and cached per `location+units` for `refreshInterval` minutes.
+- Up to 7 days are shown. Today and Tomorrow are labeled; subsequent days use weekday names.
+- If you see HTTP 401 from `/api/weather`, your API key is missing or invalid. 404 indicates the location couldn’t be geocoded.
+- Coordinates (`lat,lon`) skip geocoding and are most reliable.
+
 ## Playlists
 
 Create a rotating sequence of templates. The server plays items in order, loops, and persists across restarts. Applying a one-off template or push temporarily overrides playback; rotation resumes automatically.
@@ -440,6 +494,7 @@ Most users only need the CLI. If you prefer HTTP, an unauthenticated local API m
 - POST `/api/push/image` – multipart `file` OR JSON `{ url }`, query/body `persist=true|false`
 - POST `/api/push/video` – same as above
 - GET `/ephemeral/:id` – Serve in-memory pushed content (short-lived)
+- GET `/api/weather` – Query: `location` (string), `units` = `C|F` (default C), `refresh` = minutes (10–120). Returns `{ location: { name,country,lat,lon }, days: [{ date, low, high, icon, description }], units }`.
 
 Notes
 
@@ -515,6 +570,19 @@ Environment variables:
 - `PORT` – Server port (default 3000)
 - `HDS_UPLOADS_DIR` – Uploads directory (default `<repo>/uploads`)
 - `HDS_EPHEMERAL_TTL_MS` – Ephemeral in-memory file TTL in ms (default ~600k)
+
+Weather
+
+- `OPENWEATHERMAP_API_KEY` – Your OpenWeatherMap API key (required for the weather template)
+- Optional config file: Create `config.json` in the repo root (or set `HDS_CONFIG_PATH` to a JSON file) with:
+
+```json
+{
+  "apiKeys": { "openweathermap": "<your-key>" }
+}
+```
+
+The server looks for `OPENWEATHERMAP_API_KEY` first, then falls back to `config.json`.
 
 CLI config is stored at `~/.hdisplay.json` (set via `hdisplay config --server <url>` or discover `--set`).
 
