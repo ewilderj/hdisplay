@@ -172,7 +172,7 @@ Testing (high level)
 #### Exit Codes
 - `0` on success; `1` on errors (network, validation, HTTP 4xx/5xx). Reserved codes may be added later for specific classes.
 
-#### Schema-aware template flags (no JSON) — Proposal
+#### Schema-aware template flags (no JSON) — Implemented
 Goal: make `hdisplay template <id>` ergonomic without hand-typing JSON. Map CLI flags directly onto the template’s data object, using light type inference.
 
 Scope (MVP)
@@ -225,12 +225,15 @@ Compatibility and precedence
 - All existing data modes remain supported.
 - Precedence when mixed for `template <id>`: flags (`--foo`, `--items`) override inline/file/stdin JSON (`--data*`), which override server defaults.
 
-Implementation plan (CLI)
-- For `template <id>` only, collect unknown options into a map without failing.
-- Normalize names (kebab/camel → camelCase), build dot-path objects, coerce booleans (presence toggles), parse numbers, optionally parse JSON when value begins with `{` or `[`.
-- Aggregate repeated flags into arrays.
+Status: Implemented for `template <id>` and `playlist:add`.
+
+Implementation notes (CLI)
+- Collect unknown options into a data map without failing (Commander.js unknown option passthrough for these commands).
+- Normalize names (kebab/camel → camelCase), build dot-path objects, coerce booleans (presence toggles), parse numbers; escape hatch: if a value starts with `{` or `[` and parses as JSON, accept it.
+- Aggregate repeated flags into arrays (arrays of primitives only).
 - Merge with any provided JSON (`--data*`), with flag-data winning.
-- POST to `/api/template/:id` as today; rely on existing validators.
+- Post to `/api/template/:id` as today and validate server-side; `playlist:add` packages `{ id, data }` likewise.
+- Safeguard: reserved/global CLI flags are excluded from data; a test ensures templates don’t collide with reserved names.
 
 Out of scope (MVP)
 - Arrays of objects (e.g., `[{ url, duration }]`). If needed later, consider `--items-json` or repeated grouped prefixes like `--item.url`/`--item.duration` with an index.
@@ -333,6 +336,15 @@ npm run dev  # Starts server + opens browser at 1280x400
    - Real Raspberry Pi validation
    - Performance monitoring
    - Long-running stability tests
+
+### Capture & Preview Automation
+To keep documentation up to date with real visuals, we use a black-box capture system:
+- Tooling: Playwright (Chromium) drives the display client and records both screenshots and short videos per template.
+- Profiles: per-template YAML files in `capture-profiles/` define readiness strategies, sample data, optional screenshot delay, video duration, and per-template trimming (`video.trim_ms`). Profiles override heuristic defaults.
+- Orchestration: apply a template via API, wait for an externally observable ready signal (document title), then capture; a clear command is sent after each capture to avoid recording transitions.
+- Video processing: Playwright records raw WebM; we transcode to VP9 WebM and H.264 MP4 using `ffmpeg`, trimming a small amount from the start (default 150ms; e.g., carousel uses 2000ms) to eliminate initial white flashes.
+- Outputs: screenshots saved under `captures/screenshots/`, videos under `captures/videos/`. An HTML gallery can be generated for quick review.
+- CLI: developer commands exist to capture all templates, a single template, or regenerate the gallery.
 
 ## Performance Requirements
 

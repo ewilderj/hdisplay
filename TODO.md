@@ -26,7 +26,7 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 - [ ] Testing & CI (from PRD)
   - [ ] Hardware smoke on Raspberry Pi
   - [ ] 12h stability soak test script
-  - [ ] CI workflow to run Jest + Playwright smoke + Docker build
+  - [ ] CI workflow: Jest unit/integration, Playwright e2e smoke, capture gallery (optional), Docker build
   - Acceptance: pipeline green; soak test stable without crashes
 
 ## Tests and quality gates
@@ -35,12 +35,12 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - Acceptance: invalid payloads are rejected with 400 and clear messages
 
 ## Template UX and docs
-
-_(none pending — update as new template UX needs arise)_
+ - [ ] Author minimal `CAPTURES.md` or section in README describing how to regenerate captures and ffmpeg requirement
+   - Acceptance: contributor can run `hdisplay capture:all` and see outputs; README links remain valid
 
 ## Small server/CLI improvements
-
-_(none pending — track future CLI niceties here)_
+ - [ ] Add `playlist:add` examples using schema-aware flags (mirrors template examples)
+ - [ ] Optional: CLI flag to skip post-capture clear during capture runs
 
 ## Optional quick wins
 
@@ -51,7 +51,6 @@ _(add more here as they come up)_
 - [ ] Auth (token or local network-only) for APIs
 - [ ] MQTT/Home Assistant integration
 - [ ] Plugin system for third-party templates/widgets
- - [ ] Plugin system for third-party templates
 - [ ] Multiple display support (from PRD)
 - [ ] Mobile control app (from PRD)
 - [ ] Cloud sync for configurations (from PRD)
@@ -108,3 +107,13 @@ Quality gates when merging:
 
 - Playwright smoke
   - Simple e2e to assert that socket content swap updates DOM
+
+- Schema-aware flags (no JSON)
+  - Implemented for `template <id>` and `playlist:add` with dot-paths, repeated flags for arrays, and booleans; reserved-flag collision test added
+  - README examples updated; server validators continue to enforce payloads
+
+- Black-box capture system
+  - Playwright-driven screenshots and videos per template; readiness detection via visual heuristics and profile strategies
+  - Post-capture clear via CLI to avoid recording transitions; robust apply-and-wait using document.title
+  - Video post-processing with ffmpeg to produce WEBM (VP9) and MP4 (H.264); trims initial frames (`video.trim_ms`, default 150ms; carousel 2000ms)
+  - Capture README updated; main README shows per-template screenshots with MP4 links
