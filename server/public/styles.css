@@ -8,6 +8,7 @@ body {
   color: #0ff;
   font-family: system-ui, sans-serif;
   overflow: hidden;
+  cursor: none;
 }
 /* Optional bundled dot-matrix font */
 @font-face {

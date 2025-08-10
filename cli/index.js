@@ -1,16 +1,9 @@
 #!/usr/bin/env node
 const { Command } = require('commander');
 const axios = require('axios');
-// Chalk v5 is ESM-only; require() will throw on some Node setups. Fallback to no-color shim.
-let chalk;
-try {
-  // If chalk is CommonJS or Node can interop, use it
-  const chalkImport = require('chalk');
-  chalk = chalkImport.default || chalkImport;
-} catch {
-  const nc = (s) => String(s);
-  chalk = { red: nc, green: nc, yellow: nc, cyan: nc, blue: nc };
-}
+// Normalize chalk import for ESM-only v5 (require returns { default: chalkFn })
+const chalkImport = require('chalk');
+const chalk = chalkImport.default || chalkImport;
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
