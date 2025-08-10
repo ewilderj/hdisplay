@@ -252,6 +252,7 @@ hdisplay template webp-loop --url /uploads/anim.webp --fit contain --position "5
 hdisplay template webp-loop --url /uploads/anim.webp
 
 # or JSON
+
 hdisplay template webp-loop --data '{"url":"/uploads/anim.webp","fit":"contain","position":"50% 50%","rendering":"pixelated"}'
 ```
 
@@ -309,6 +310,10 @@ https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4
 ### Weather (6-day forecast)
 
 Render a 6-day forecast using Tomorrow.io (default) or OpenWeatherMap One Call 3.0 with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
+
+Preview
+
+![weather preview](captures/screenshots/weather.png)
 
 Examples
 
