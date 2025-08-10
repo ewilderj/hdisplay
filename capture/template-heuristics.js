@@ -138,7 +138,7 @@ class TemplateHeuristics {
         subtitle: 'Template Demo',
       },
       'webp-loop': {
-        url: 'https://raw.githubusercontent.com/ewilderj/tidbyt/refs/heads/main/github/invert-mark-github-64x32.webp',
+        url: 'https://raw.githubusercontent.com/ewilderj/hdisplay/refs/heads/main/examples/skyline.webp',
         fit: 'contain',
       },
       timeleft: {
