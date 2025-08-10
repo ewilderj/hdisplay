@@ -3,9 +3,26 @@ set -euo pipefail
 
 echo "[hdisplay] Raspberry Pi setup starting"
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "Installing Node.js 18.x"
-  curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# Select Node.js major via HDS_NODE_MAJOR (defaults to 18). Accepts values like 18, 20, 22, 24.
+NODE_MAJOR_DEFAULT=18
+NODE_MAJOR="${HDS_NODE_MAJOR:-$NODE_MAJOR_DEFAULT}"
+if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]]; then
+  echo "[hdisplay] Invalid HDS_NODE_MAJOR='$NODE_MAJOR'; falling back to ${NODE_MAJOR_DEFAULT}"
+  NODE_MAJOR=$NODE_MAJOR_DEFAULT
+fi
+
+# Install or upgrade Node.js to desired major if missing or mismatched
+NEED_NODE_INSTALL=1
+if command -v node >/dev/null 2>&1; then
+  CURRENT_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || true)
+  if [[ "$CURRENT_MAJOR" == "$NODE_MAJOR" ]]; then
+    NEED_NODE_INSTALL=0
+  fi
+fi
+
+if [[ "$NEED_NODE_INSTALL" -eq 1 ]]; then
+  echo "Installing Node.js ${NODE_MAJOR}.x"
+  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | sudo -E bash -
   sudo apt-get install -y nodejs
 fi
 
