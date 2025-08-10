@@ -8,6 +8,9 @@ pnpm-debug.log*
 .env
 .env.*
 
+# Config file, may contain secrets
+config.json
+
 # macOS
 .DS_Store
 

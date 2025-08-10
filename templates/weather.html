@@ -16,7 +16,7 @@
     }
     body { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); }
     body.light { --bg: #fff; --text: #111; --divider: rgba(0,0,0,0.12); --panel-bg: rgba(0,0,0,0.05); }
-    .container { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; height: 100%; padding: 16px; box-sizing: border-box; }
+  .container { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; height: 100%; padding: 12px; box-sizing: border-box; }
     .panel { display: flex; flex-direction: column; align-items: center; justify-content: space-between; background: var(--panel-bg); border: 1px solid var(--divider); border-radius: 8px; padding: 16px; min-width: 0; }
     .day { font-size: 24px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; }
     .icon { font-size: 120px; line-height: 1; margin: 8px 0; }
@@ -27,6 +27,10 @@
 </head>
 <body>
   <div class="container" id="weather-container">
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
     <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
     <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
     <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
@@ -80,7 +84,7 @@
       function labelForDay(index, dateStr){
         if (index === 0) return 'Today';
         if (index === 1) return 'Tomorrow';
-        try { return new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long' }); } catch { return '—'; }
+        try { return new Date(dateStr).toLocaleDateString(undefined, { weekday: 'short' }); } catch { return '—'; }
       }
 
       function fmtTemp(n){
@@ -103,7 +107,7 @@
       function render(data){
         const container = document.getElementById('weather-container');
         const panels = Array.from(container.children);
-        const days = Array.isArray(data.days) ? data.days.slice(0,3) : [];
+        const days = Array.isArray(data.days) ? data.days.slice(0,7) : [];
         for (let i = 0; i < panels.length; i++){
           const p = panels[i];
           const d = days[i] || {};
