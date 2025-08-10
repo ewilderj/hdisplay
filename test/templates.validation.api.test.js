@@ -50,4 +50,25 @@ describe('Templates API validation', () => {
       .send({ data: { minutes: 10, label: 123 } });
     expect(r3.status).toBe(400);
   });
+
+  test('weather requires location, units and valid refreshInterval', async () => {
+    const w1 = await request(app).post('/api/template/weather').send({ data: {} });
+    expect(w1.status).toBe(400);
+    const w2 = await request(app)
+      .post('/api/template/weather')
+      .send({ data: { location: 'Paris' } });
+    expect(w2.status).toBe(400);
+    const w3 = await request(app)
+      .post('/api/template/weather')
+      .send({ data: { location: 'Paris', units: 'X' } });
+    expect(w3.status).toBe(400);
+    const w4 = await request(app)
+      .post('/api/template/weather')
+      .send({ data: { location: 'Paris', units: 'C', refreshInterval: 5 } });
+    expect(w4.status).toBe(400);
+    const w5 = await request(app)
+      .post('/api/template/weather')
+      .send({ data: { location: 'Paris', units: 'F', refreshInterval: 999 } });
+    expect(w5.status).toBe(400);
+  });
 });

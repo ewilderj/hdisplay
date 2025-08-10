@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hdisplay - weather</title>
+  <style>
+    /* Sensible dark defaults; can be overridden by theme values via JS */
+    :root {
+      --bg: #000;
+      --text: #fff;
+      --accent: #00a8ff;
+      --divider: rgba(255,255,255,0.12);
+      --font: system-ui, sans-serif;
+      --panel-bg: rgba(255,255,255,0.06);
+    }
+    body { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); }
+    body.light { --bg: #fff; --text: #111; --divider: rgba(0,0,0,0.12); --panel-bg: rgba(0,0,0,0.05); }
+    .container { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; height: 100%; padding: 16px; box-sizing: border-box; }
+    .panel { display: flex; flex-direction: column; align-items: center; justify-content: space-between; background: var(--panel-bg); border: 1px solid var(--divider); border-radius: 8px; padding: 16px; min-width: 0; }
+    .day { font-size: 24px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .icon { font-size: 120px; line-height: 1; margin: 8px 0; }
+    .temps { font-size: 32px; font-weight: 600; }
+    .temps .low { opacity: 0.7; font-weight: 500; margin-left: 8px; }
+    .desc { font-size: 18px; opacity: 0.85; margin-top: 8px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container" id="weather-container">
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
+    <div class="panel"><div class="day">–</div><div class="icon">☁️</div><div class="temps"><span class="high">–</span><span class="low">–</span></div><div class="desc"></div></div>
+  </div>
+
+  <script>
+    (function(){
+      const locationStr = '{{ location }}';
+      const units = '{{ units }}'; // 'C' or 'F'
+      const refreshMinutes = Number('{{ refreshInterval }}') || 30;
+      const showConditionText = (function(v){ if (v === 'true' || v === true) return true; if (v === 'false' || v === false) return false; return true; })('{{ showConditionText }}');
+      const darkMode = (function(v){ if (v === 'true' || v === true) return true; if (v === 'false' || v === false) return false; return true; })('{{ darkMode }}');
+
+      // Apply light/dark mode early
+      if (darkMode) document.body.classList.remove('light');
+      else document.body.classList.add('light');
+
+      // Apply theme overrides only if provided to avoid empty CSS var issues
+      const theme = {
+        bg: '{{ theme.bg }}',
+        text: '{{ theme.text }}',
+        accent: '{{ theme.accent }}',
+        divider: '{{ theme.divider }}',
+        font: '{{ theme.fontFamily }}',
+      };
+      const rootStyle = document.documentElement.style;
+      const setIf = (name, val) => { if (val && String(val).trim().length > 0) rootStyle.setProperty(name, val); };
+      setIf('--bg', theme.bg);
+      setIf('--text', theme.text);
+      setIf('--accent', theme.accent);
+      setIf('--divider', theme.divider);
+      setIf('--font', theme.font);
+
+      function iconFor(code){
+        try {
+          if (!code) return '☁️';
+          const m = String(code);
+          if (m.startsWith('01')) return '☀️';
+          if (m.startsWith('02')) return '⛅';
+          if (m.startsWith('03')) return '☁️';
+          if (m.startsWith('04')) return '☁️';
+          if (m.startsWith('09')) return '🌧️';
+          if (m.startsWith('10')) return '🌧️';
+          if (m.startsWith('11')) return '⛈️';
+          if (m.startsWith('13')) return '❄️';
+          if (m.startsWith('50')) return '🌫️';
+        } catch {}
+        return '☁️';
+      }
+
+      function labelForDay(index, dateStr){
+        if (index === 0) return 'Today';
+        if (index === 1) return 'Tomorrow';
+        try { return new Date(dateStr).toLocaleDateString(undefined, { weekday: 'long' }); } catch { return '—'; }
+      }
+
+      function fmtTemp(n){
+        if (typeof n !== 'number' || !isFinite(n)) return '–';
+        const unitSym = units === 'F' ? '°F' : '°C';
+        return Math.round(n) + '°';
+      }
+
+      async function load(){
+        try {
+          const res = await fetch(`/api/weather?location=${encodeURIComponent(locationStr)}&units=${encodeURIComponent(units)}&refresh=${encodeURIComponent(refreshMinutes)}`);
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          render(data);
+        } catch (e) {
+          // Leave placeholders
+        }
+      }
+
+      function render(data){
+        const container = document.getElementById('weather-container');
+        const panels = Array.from(container.children);
+        const days = Array.isArray(data.days) ? data.days.slice(0,3) : [];
+        for (let i = 0; i < panels.length; i++){
+          const p = panels[i];
+          const d = days[i] || {};
+          p.querySelector('.day').textContent = labelForDay(i, d.date || '');
+          p.querySelector('.icon').textContent = iconFor(d.icon);
+          const highEl = p.querySelector('.temps .high');
+          const lowEl = p.querySelector('.temps .low');
+          highEl.textContent = fmtTemp(d.high);
+          lowEl.textContent = '/ ' + fmtTemp(d.low);
+          const descEl = p.querySelector('.desc');
+          if (showConditionText && d.description) {
+            descEl.textContent = d.description;
+            descEl.style.display = '';
+          } else {
+            descEl.textContent = '';
+            descEl.style.display = 'none';
+          }
+        }
+      }
+
+      load();
+      setInterval(load, Math.max(10, refreshMinutes) * 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
