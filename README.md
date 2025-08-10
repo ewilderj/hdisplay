@@ -29,6 +29,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
 - [Appendix: API (optional)](#appendix-api-optional)
 - [Development](#development)
 - [Testing](#testing)
+ - [Captures and previews](#captures-and-previews)
 - [License](#license)
 
 ## Highlights
@@ -273,6 +274,17 @@ hdisplay playlist:add animated-text --data '{"text":"Welcome to the lab","veloci
 hdisplay playlist:add message-banner --data '{"title":"Meeting","subtitle":"Room A"}'
 ```
 
+Or using flags (no JSON):
+```bash
+hdisplay playlist:add carousel \
+  --items https://picsum.photos/id/1015/1280/400 \
+  --items https://picsum.photos/id/1022/1280/400 \
+  --duration 4000
+
+hdisplay playlist:add animated-text --text "Welcome to the lab" --velocity 120
+hdisplay playlist:add message-banner --title "Meeting" --subtitle "Room A"
+```
+
 - Remove by index or by id (first match)
 ```bash
 hdisplay playlist:remove 0
@@ -452,6 +464,30 @@ Jest + Supertest covers the uploads API:
 - Upload validation (missing file)
 - Upload + list
 - Static serving from `/uploads` and delete cleanup
+
+## Captures and previews
+The screenshots and MP4 links in this README are generated automatically.
+
+- Requirements: Playwright (dev dependency) and ffmpeg on your PATH for MP4 output. If ffmpeg is missing, WEBM will still be produced.
+- Regenerate all assets:
+```bash
+hdisplay capture:all
+```
+- Capture a single template:
+```bash
+hdisplay capture:template <templateId>
+```
+- Generate the HTML gallery for quick review:
+```bash
+hdisplay capture:gallery
+```
+
+Outputs:
+- Screenshots: `captures/screenshots/<template>.png`
+- Videos: `captures/videos/<template>.webm` and `captures/videos/<template>.mp4`
+
+Notes:
+- Per-template capture profiles live in `capture-profiles/` and can set readiness detection, sample data, and a small initial trim to remove early frames. See `capture/README.md` for details.
 
 ## Troubleshooting
 - CLI chalk error (TypeError chalk.red is not a function): fixed by using normalized import; ensure `npm install`.
