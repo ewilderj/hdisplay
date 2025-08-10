@@ -46,6 +46,29 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 _(add more here as they come up)_
 
+## New template ideas
+
+- Headlines ticker (RSS/Atom): feedUrl[], speed, separator, theme
+- Stock tape: symbols[], currency, showChange, updateMs (mock/static mode by default)
+- Transit departures: stopId/routeId, provider URL (GTFS-RT), maxItems (allow static JSON)
+- Room schedule strip: events[{title,start,end}], nowIndicator
+- World clocks: cities[{label,tz}], format, showDate
+- Quote/Tip rotator: items[], durationMs, randomize, theme
+- Progress/Timeline bar: start, end, label, milestones[]
+- Build status bar: projects[{name,status}], updatedAt (offline; colors for pass/fail)
+- Leaderboard: rows[{name,score}], highlightTopN, unit
+- Social wall (curated/static): posts[{avatarUrl,text,handle}], rotateMs
+- QR join/info card: title, subtitle, qrText/url, logoUrl (client-side QR)
+- Word clock: language, showSeconds (CSS grid)
+- Sunrise/Sunset bar: lat, lon, date?, tz (compute locally)
+- Ambient gauges: metrics[{label,value,unit,max}], style="arc|bar"
+- Image wall (Ken Burns): items[/uploads/...], dwellMs, panZoom
+- Scoreboard: home, away, scoreH, scoreA, period, clock
+- Trivia flash: questions[{q,a}], rotateMs, showAnswerDelay
+- System status strip: nodes[{name,cpu,mem}], updatedAt
+- Mini weather sparkline: temps[], precip[] (inline SVG)
+- Bokeh/Particles animator: density, hue, speed (Canvas; low CPU)
+
 ## Stretch ideas (later)
 
 - [ ] Auth (token or local network-only) for APIs
