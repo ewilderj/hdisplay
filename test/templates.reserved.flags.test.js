@@ -34,7 +34,12 @@ describe('Template placeholders must not collide with reserved global flags', ()
     }
 
     if (offenders.length) {
-      const msg = offenders.map(o => `${o.id}: placeholder "${o.placeholder}" conflicts with reserved flag "${o.conflict}"`).join('\n');
+      const msg = offenders
+        .map(
+          (o) =>
+            `${o.id}: placeholder "${o.placeholder}" conflicts with reserved flag "${o.conflict}"`
+        )
+        .join('\n');
       throw new Error(`Reserved flag name collision(s) detected:\n${msg}`);
     }
   });

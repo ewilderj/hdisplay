@@ -13,7 +13,13 @@ services:
       - ./uploads:/app/uploads
       - ./data:/app/data
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/healthz',r=>{if(r.statusCode!==200)process.exit(1);r.resume();}).on('error',()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3000/healthz',r=>{if(r.statusCode!==200)process.exit(1);r.resume();}).on('error',()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3

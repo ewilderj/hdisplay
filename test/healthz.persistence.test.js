@@ -15,8 +15,10 @@ describe('/healthz and state persistence', () => {
   let backup;
 
   beforeAll(() => {
-    try { fs.mkdirSync(STATE_DIR, { recursive: true }); } catch {}
-  process.env.HDS_DATA_DIR = STATE_DIR;
+    try {
+      fs.mkdirSync(STATE_DIR, { recursive: true });
+    } catch {}
+    process.env.HDS_DATA_DIR = STATE_DIR;
     if (fs.existsSync(STATE_FILE)) {
       backup = fs.readFileSync(STATE_FILE, 'utf8');
     }
@@ -26,10 +28,14 @@ describe('/healthz and state persistence', () => {
     if (backup !== undefined) {
       fs.writeFileSync(STATE_FILE, backup);
     } else {
-      try { fs.unlinkSync(STATE_FILE); } catch {}
+      try {
+        fs.unlinkSync(STATE_FILE);
+      } catch {}
     }
-  try { fs.rmSync(STATE_DIR, { recursive: true, force: true }); } catch {}
-  delete process.env.HDS_DATA_DIR;
+    try {
+      fs.rmSync(STATE_DIR, { recursive: true, force: true });
+    } catch {}
+    delete process.env.HDS_DATA_DIR;
   });
 
   test('GET /healthz returns ok, version, uptime', async () => {
@@ -46,7 +52,9 @@ describe('/healthz and state persistence', () => {
 
   test('state persists to file and loads on next boot', async () => {
     // Ensure clean slate
-    try { fs.unlinkSync(STATE_FILE); } catch {}
+    try {
+      fs.unlinkSync(STATE_FILE);
+    } catch {}
     clearModule('../server');
 
     // First load app, set content

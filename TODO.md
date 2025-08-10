@@ -17,8 +17,6 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - [ ] Fullscreen API: ensure kiosk enters fullscreen and recovers if exited
   - Acceptance: display recovers seamlessly after server restarts or network loss
 
-  
-
 - [ ] Charts (from PRD)
   - [ ] Add a simple sparkline/line chart template fed via API
   - Acceptance: renders smoothly with low CPU on Pi
@@ -35,12 +33,14 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
   - Acceptance: invalid payloads are rejected with 400 and clear messages
 
 ## Template UX and docs
- - [ ] Author minimal `CAPTURES.md` or section in README describing how to regenerate captures and ffmpeg requirement
-   - Acceptance: contributor can run `hdisplay capture:all` and see outputs; README links remain valid
+
+- [ ] Author minimal `CAPTURES.md` or section in README describing how to regenerate captures and ffmpeg requirement
+  - Acceptance: contributor can run `hdisplay capture:all` and see outputs; README links remain valid
 
 ## Small server/CLI improvements
- - [ ] Add `playlist:add` examples using schema-aware flags (mirrors template examples)
- - [ ] Optional: CLI flag to skip post-capture clear during capture runs
+
+- [ ] Add `playlist:add` examples using schema-aware flags (mirrors template examples)
+- [ ] Optional: CLI flag to skip post-capture clear during capture runs
 
 ## Optional quick wins
 
@@ -58,6 +58,7 @@ _(add more here as they come up)_
 ---
 
 Quality gates when merging:
+
 - Build/Start: PASS
 - Lint/Format: PASS
 - Unit/Integration tests: PASS

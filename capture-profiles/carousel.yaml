@@ -1,17 +1,17 @@
 template: carousel
-description: "Image carousel with automatic transitions"
+description: 'Image carousel with automatic transitions'
 
 readiness_detection:
-  strategy: "media_loading"
+  strategy: 'media_loading'
   wait_for_images: true
   timeout: 10000
 
 screenshot:
-  after_detection: 2000  # Wait for first transition
+  after_detection: 2000 # Wait for first transition
 
 video:
-  duration: 15000  # Show multiple carousel transitions
-  trim_ms: 2000    # Trim initial loading/white flash
+  duration: 15000 # Show multiple carousel transitions
+  trim_ms: 2000 # Trim initial loading/white flash
 
 sample_data:
   items:

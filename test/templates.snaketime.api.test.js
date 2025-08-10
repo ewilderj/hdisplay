@@ -15,7 +15,9 @@ describe('Templates API (snake & timeleft)', () => {
   });
 
   afterAll(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
     delete process.env.HDS_UPLOADS_DIR;
   });
 

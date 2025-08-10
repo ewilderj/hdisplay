@@ -6,7 +6,7 @@ const path = require('path');
 
 describe('BlackBoxCapture System', () => {
   const testOutputDir = './test-captures';
-  
+
   beforeAll(async () => {
     // Ensure clean test environment
     await fs.remove(testOutputDir);
@@ -19,7 +19,7 @@ describe('BlackBoxCapture System', () => {
 
   describe('VisualDetector', () => {
     let detector;
-    
+
     beforeEach(() => {
       detector = new VisualDetector();
     });
@@ -32,8 +32,14 @@ describe('BlackBoxCapture System', () => {
     });
 
     test('should have all detection strategies', () => {
-      const strategies = ['animation', 'pixel_coverage', 'visual_stability', 'text_content', 'media_loading'];
-      strategies.forEach(strategy => {
+      const strategies = [
+        'animation',
+        'pixel_coverage',
+        'visual_stability',
+        'text_content',
+        'media_loading',
+      ];
+      strategies.forEach((strategy) => {
         expect(detector.strategies.has(strategy)).toBe(true);
       });
     });
@@ -41,7 +47,7 @@ describe('BlackBoxCapture System', () => {
 
   describe('TemplateHeuristics', () => {
     let heuristics;
-    
+
     beforeEach(() => {
       heuristics = new TemplateHeuristics();
     });
@@ -49,11 +55,11 @@ describe('BlackBoxCapture System', () => {
     test('should generate sample data for known templates', () => {
       const clockData = heuristics.getSampleData('simple-clock');
       expect(clockData).toBeDefined();
-      
+
       const animatedData = heuristics.getSampleData('animated-text');
       expect(animatedData).toHaveProperty('text');
       expect(animatedData).toHaveProperty('velocity');
-      
+
       const carouselData = heuristics.getSampleData('carousel');
       expect(carouselData).toHaveProperty('items');
       expect(Array.isArray(carouselData.items)).toBe(true);
@@ -67,11 +73,11 @@ describe('BlackBoxCapture System', () => {
 
   describe('BlackBoxCapture', () => {
     let capture;
-    
+
     beforeEach(() => {
       capture = new BlackBoxCapture({
         serverUrl: 'http://localhost:3000',
-        outputDir: testOutputDir
+        outputDir: testOutputDir,
       });
     });
 
@@ -92,9 +98,9 @@ describe('BlackBoxCapture System', () => {
     test('should generate gallery HTML with template data', () => {
       const templateData = [
         { templateId: 'simple-clock', hasVideo: false },
-        { templateId: 'animated-text', hasVideo: true }
+        { templateId: 'animated-text', hasVideo: true },
       ];
-      
+
       const html = capture.generateGalleryHTML(templateData);
       expect(html).toContain('hdisplay Template Gallery');
       expect(html).toContain('simple-clock');
@@ -110,14 +116,14 @@ describe('BlackBoxCapture System', () => {
         template: 'test-template',
         readiness_detection: {
           strategy: 'text_content',
-          timeout: 3000
+          timeout: 3000,
         },
         screenshot: {
-          after_detection: 500
+          after_detection: 500,
         },
         video: {
-          duration: 0
-        }
+          duration: 0,
+        },
       };
 
       expect(sampleProfile).toHaveProperty('template');

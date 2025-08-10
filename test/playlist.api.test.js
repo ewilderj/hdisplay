@@ -16,7 +16,9 @@ describe('Playlist API', () => {
   });
 
   afterAll(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
     delete process.env.HDS_UPLOADS_DIR;
   });
 
@@ -36,13 +38,17 @@ describe('Playlist API', () => {
     const r2 = await request(app).post('/api/playlist/items').send({ id: 'animated-text' });
     expect(r2.status).toBe(400);
     // Valid add
-    const r3 = await request(app).post('/api/playlist/items').send({ id: 'animated-text', data: { text: 'hi', velocity: 80 } });
+    const r3 = await request(app)
+      .post('/api/playlist/items')
+      .send({ id: 'animated-text', data: { text: 'hi', velocity: 80 } });
     expect(r3.status).toBe(200);
     expect(typeof r3.body.index).toBe('number');
   });
 
   test('PUT /api/playlist replaces items and sets delay', async () => {
-    const res = await request(app).put('/api/playlist').send({ items: [ { id: 'animated-text', data: { text: 'a' } } ], delayMs: 5000 });
+    const res = await request(app)
+      .put('/api/playlist')
+      .send({ items: [{ id: 'animated-text', data: { text: 'a' } }], delayMs: 5000 });
     expect(res.status).toBe(200);
     expect(res.body.playlist.delayMs).toBeGreaterThanOrEqual(2000);
     expect(res.body.playlist.items.length).toBe(1);
@@ -50,10 +56,14 @@ describe('Playlist API', () => {
 
   test('DELETE /api/playlist/items/:index and /by-id/:id remove items', async () => {
     // Seed with two items
-    await request(app).put('/api/playlist').send({ items: [
-      { id: 'animated-text', data: { text: 'one' } },
-      { id: 'animated-text', data: { text: 'two' } }
-    ]});
+    await request(app)
+      .put('/api/playlist')
+      .send({
+        items: [
+          { id: 'animated-text', data: { text: 'one' } },
+          { id: 'animated-text', data: { text: 'two' } },
+        ],
+      });
     let get = await request(app).get('/api/playlist');
     expect(get.body.items.length).toBe(2);
     // Remove index 0
@@ -63,7 +73,7 @@ describe('Playlist API', () => {
     expect(get.body.items.length).toBe(1);
     // Remove by id (first match)
     const d2 = await request(app).delete('/api/playlist/items/by-id/animated-text');
-    expect([200,404]).toContain(d2.status); // ok if not found if previous already removed
+    expect([200, 404]).toContain(d2.status); // ok if not found if previous already removed
     get = await request(app).get('/api/playlist');
     expect(get.body.items.length).toBe(0);
   });

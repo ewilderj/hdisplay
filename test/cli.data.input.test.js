@@ -8,21 +8,22 @@ let tmpDir;
 let serverProcess;
 let serverUrl;
 
-const CLI = (args, opts={}) => spawnSync('node', ['cli/index.js', ...args], {
-  cwd: path.join(__dirname, '..'),
-  env: { ...process.env, ...opts.env },
-  encoding: 'utf8'
-});
+const CLI = (args, opts = {}) =>
+  spawnSync('node', ['cli/index.js', ...args], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, ...opts.env },
+    encoding: 'utf8',
+  });
 
 function startRealServer() {
   return new Promise((resolve, reject) => {
     // Create isolated tmp dir for this test
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hdisplay-cli-'));
-    
+
     // Find an available port
     const testPort = 50000 + Math.floor(Math.random() * 10000);
     serverUrl = `http://localhost:${testPort}`;
-    
+
     // Start the server as a separate process
     serverProcess = spawn('node', ['server/index.js'], {
       cwd: path.join(__dirname, '..'),
@@ -30,14 +31,14 @@ function startRealServer() {
         ...process.env,
         PORT: testPort.toString(),
         HDS_UPLOADS_DIR: tmpDir,
-        NODE_ENV: 'test'
+        NODE_ENV: 'test',
       },
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let serverReady = false;
     let output = '';
-    
+
     const timeout = setTimeout(() => {
       if (!serverReady) {
         reject(new Error(`Server didn't start within 10s. Output: ${output}`));
@@ -80,22 +81,22 @@ function stopRealServer() {
     const onExit = () => {
       if (exited) return;
       exited = true;
-      
+
       // Clear the force kill timeout if it exists
       if (forceKillTimeout) {
         clearTimeout(forceKillTimeout);
         forceKillTimeout = null;
       }
-      
-      try { 
-        fs.rmSync(tmpDir, { recursive: true, force: true }); 
+
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
       } catch {}
       resolve();
     };
 
     serverProcess.on('exit', onExit);
     serverProcess.kill('SIGTERM');
-    
+
     // Force kill after 2 seconds if it doesn't exit gracefully
     forceKillTimeout = setTimeout(() => {
       if (!exited && serverProcess && !serverProcess.killed) {
@@ -117,78 +118,151 @@ describe('CLI data input modes', () => {
 
   function expectOk(res) {
     if (res.status !== 0) {
-      throw new Error(`CLI failed (status ${res.status})\nSTDOUT:\n${res.stdout}\nSTDERR:\n${res.stderr}`);
+      throw new Error(
+        `CLI failed (status ${res.status})\nSTDOUT:\n${res.stdout}\nSTDERR:\n${res.stderr}`
+      );
     }
   }
 
   test('--data inline JSON', () => {
-    const res = CLI(['--server', serverUrl, '--timeout', '10000', 'template', 'animated-text', '--data', '{"text":"Hi"}']);
+    const res = CLI([
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'animated-text',
+      '--data',
+      '{"text":"Hi"}',
+    ]);
     expectOk(res);
   });
 
   test('--data-file path JSON', () => {
     const tmp = path.join(__dirname, 'tmp.data.json');
     fs.writeFileSync(tmp, JSON.stringify({ text: 'FromFile' }));
-    const res = CLI(['--server', serverUrl, '--timeout', '10000', 'template', 'animated-text', '--data-file', tmp]);
+    const res = CLI([
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'animated-text',
+      '--data-file',
+      tmp,
+    ]);
     fs.unlinkSync(tmp);
     expectOk(res);
   });
 
   test('--data - reads stdin', () => {
-    const child = spawnSync('bash', ['-lc', `printf '{"text":"FromStdin"}' | node cli/index.js --server ${serverUrl} --timeout 10000 template animated-text --data -`], {
-      cwd: path.join(__dirname, '..'), encoding: 'utf8'
-    });
+    const child = spawnSync(
+      'bash',
+      [
+        '-lc',
+        `printf '{"text":"FromStdin"}' | node cli/index.js --server ${serverUrl} --timeout 10000 template animated-text --data -`,
+      ],
+      {
+        cwd: path.join(__dirname, '..'),
+        encoding: 'utf8',
+      }
+    );
     if (child.status !== 0) {
-      throw new Error(`CLI failed (status ${child.status})\nSTDOUT:\n${child.stdout}\nSTDERR:\n${child.stderr}`);
+      throw new Error(
+        `CLI failed (status ${child.status})\nSTDOUT:\n${child.stdout}\nSTDERR:\n${child.stderr}`
+      );
     }
   });
 
   test('invalid JSON returns error', () => {
-    const res = CLI(['--server', serverUrl, '--timeout', '5000', 'template', 'animated-text', '--data', '{bad}']);
+    const res = CLI([
+      '--server',
+      serverUrl,
+      '--timeout',
+      '5000',
+      'template',
+      'animated-text',
+      '--data',
+      '{bad}',
+    ]);
     expect(res.status).not.toBe(0);
     expect(res.stderr).toMatch(/Invalid JSON/);
   });
 
   test('flag-based data: scalar + number (no JSON)', () => {
-    const res = CLI(['--server', serverUrl, '--timeout', '10000', 'template', 'animated-text', '--text', 'HiFlags', '--velocity', '150']);
+    const res = CLI([
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'animated-text',
+      '--text',
+      'HiFlags',
+      '--velocity',
+      '150',
+    ]);
     expectOk(res);
   });
 
   test('flag-based data: repeated flags become array', () => {
     const res = CLI([
-      '--server', serverUrl, '--timeout', '10000',
-      'template', 'carousel',
-      '--items', 'https://example.com/a.jpg',
-      '--items', 'https://example.com/b.jpg',
-      '--duration', '3000'
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'carousel',
+      '--items',
+      'https://example.com/a.jpg',
+      '--items',
+      'https://example.com/b.jpg',
+      '--duration',
+      '3000',
     ]);
     expectOk(res);
   });
 
   test('flag-based data: nested dot-path', () => {
     const res = CLI([
-      '--server', serverUrl, '--timeout', '10000',
-      'template', 'timeleft',
-      '--minutes', '45',
-      '--theme.bg', '#000'
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'timeleft',
+      '--minutes',
+      '45',
+      '--theme.bg',
+      '#000',
     ]);
     expectOk(res);
   });
 
   test('flag-based data: boolean presence/negation', () => {
     const res1 = CLI([
-      '--server', serverUrl, '--timeout', '10000',
-      'template', 'webp-loop',
-      '--url', 'https://example.com/anim.webp',
-      '--pixelated'
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'webp-loop',
+      '--url',
+      'https://example.com/anim.webp',
+      '--pixelated',
     ]);
     expectOk(res1);
 
     const res2 = CLI([
-      '--server', serverUrl, '--timeout', '10000',
-      'template', 'webp-loop',
-      '--url', 'https://example.com/anim.webp',
-      '--no-pixelated'
+      '--server',
+      serverUrl,
+      '--timeout',
+      '10000',
+      'template',
+      'webp-loop',
+      '--url',
+      'https://example.com/anim.webp',
+      '--no-pixelated',
     ]);
     expectOk(res2);
   });
@@ -196,21 +270,34 @@ describe('CLI data input modes', () => {
   describe('playlist:add flag-based data', () => {
     test('animated-text via flags', () => {
       const res = CLI([
-        '--server', serverUrl, '--timeout', '10000',
-        'playlist:add', 'animated-text',
-        '--text', 'FromPlaylist',
-        '--velocity', '110'
+        '--server',
+        serverUrl,
+        '--timeout',
+        '10000',
+        'playlist:add',
+        'animated-text',
+        '--text',
+        'FromPlaylist',
+        '--velocity',
+        '110',
       ]);
       expectOk(res);
     });
 
     test('carousel via repeated --items', () => {
       const res = CLI([
-        '--server', serverUrl, '--timeout', '10000',
-        'playlist:add', 'carousel',
-        '--items', 'https://example.com/a.jpg',
-        '--items', 'https://example.com/b.jpg',
-        '--duration', '3500'
+        '--server',
+        serverUrl,
+        '--timeout',
+        '10000',
+        'playlist:add',
+        'carousel',
+        '--items',
+        'https://example.com/a.jpg',
+        '--items',
+        'https://example.com/b.jpg',
+        '--duration',
+        '3500',
       ]);
       expectOk(res);
     });

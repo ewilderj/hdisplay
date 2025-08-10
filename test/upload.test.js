@@ -9,7 +9,9 @@ process.env.HDS_UPLOADS_DIR = tmpDir;
 
 describe('Asset uploads API', () => {
   afterAll(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
   });
 
   it('should reject when no file provided', async () => {
@@ -23,9 +25,7 @@ describe('Asset uploads API', () => {
     const samplePath = path.join(tmpDir, 'sample.txt');
     fs.writeFileSync(samplePath, sample);
 
-    const res = await request(app)
-      .post('/api/upload')
-      .attach('file', samplePath);
+    const res = await request(app).post('/api/upload').attach('file', samplePath);
 
     expect(res.statusCode).toBe(200);
     expect(res.body.ok).toBe(true);

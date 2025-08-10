@@ -1,6 +1,19 @@
 <style>
-  .webp-loop { position:relative; width:100%; height:100%; background:#000; overflow:hidden; }
-  .webp-loop img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 50%; }
+  .webp-loop {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  .webp-loop img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
   /* Pixelated scaling (browser picks the supported value) */
   .webp-loop img.pixelated {
     image-rendering: pixelated;
@@ -9,49 +22,61 @@
 </style>
 <div class="webp-loop" id="webp-root"></div>
 <script>
-(function(){
-  const url = String.raw`{{ url }}`.trim();
-  const fitRaw = String.raw`{{ fit }}`.trim().toLowerCase();
-  const fit = (fitRaw === 'contain') ? 'contain' : 'cover';
-  const position = (String.raw`{{ position }}`.trim() || '50% 50%');
+  (function () {
+    const url = String.raw`{{ url }}`.trim();
+    const fitRaw = String.raw`{{ fit }}`.trim().toLowerCase();
+    const fit = fitRaw === 'contain' ? 'contain' : 'cover';
+    const position = String.raw`{{ position }}`.trim() || '50% 50%';
 
-  // New: rendering mode (prefer 'pixelated'), or boolean 'pixelated'
-  const rendering = String.raw`{{ rendering }}`.trim().toLowerCase();
-  const pixelatedFlag = String.raw`{{ pixelated }}`.trim().toLowerCase();
-  const pixelated = rendering === 'pixelated' || pixelatedFlag === 'true' || pixelatedFlag === '1' || pixelatedFlag === 'yes';
+    // New: rendering mode (prefer 'pixelated'), or boolean 'pixelated'
+    const rendering = String.raw`{{ rendering }}`.trim().toLowerCase();
+    const pixelatedFlag = String.raw`{{ pixelated }}`.trim().toLowerCase();
+    const pixelated =
+      rendering === 'pixelated' ||
+      pixelatedFlag === 'true' ||
+      pixelatedFlag === '1' ||
+      pixelatedFlag === 'yes';
 
-  const root = document.getElementById('webp-root');
-  if (!url) {
-    root.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">No WebP URL</div>';
-    return;
-  }
-  function init(){
-    const img = document.createElement('img');
-    img.src = url;
-    img.decoding = 'async';
-    img.style.objectFit = fit;
-    img.style.objectPosition = position;
-    img.alt = '';
-
-    // Apply pixelated scaling when requested
-    if (pixelated) {
-      img.classList.add('pixelated');
-      // Inline as well for good measure (some engines prefer inline)
-      img.style.imageRendering = 'pixelated';
+    const root = document.getElementById('webp-root');
+    if (!url) {
+      root.innerHTML =
+        '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">No WebP URL</div>';
+      return;
     }
+    function init() {
+      const img = document.createElement('img');
+      img.src = url;
+      img.decoding = 'async';
+      img.style.objectFit = fit;
+      img.style.objectPosition = position;
+      img.alt = '';
 
-    img.addEventListener('error', ()=>{
-      root.innerHTML = '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">Failed to load WebP</div>';
-    }, { once:true });
+      // Apply pixelated scaling when requested
+      if (pixelated) {
+        img.classList.add('pixelated');
+        // Inline as well for good measure (some engines prefer inline)
+        img.style.imageRendering = 'pixelated';
+      }
 
-    root.appendChild(img);
-  }
-  if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
-    window.hdisplay.hiddenUntilReady(root, init);
-  } else {
-    root.style.visibility = 'hidden';
-    init();
-    requestAnimationFrame(()=>{ root.style.visibility = 'visible'; });
-  }
-})();
+      img.addEventListener(
+        'error',
+        () => {
+          root.innerHTML =
+            '<div style="color:#fff;display:flex;align-items:center;justify-content:center;width:100%;height:100%">Failed to load WebP</div>';
+        },
+        { once: true }
+      );
+
+      root.appendChild(img);
+    }
+    if (window.hdisplay && typeof window.hdisplay.hiddenUntilReady === 'function') {
+      window.hdisplay.hiddenUntilReady(root, init);
+    } else {
+      root.style.visibility = 'hidden';
+      init();
+      requestAnimationFrame(() => {
+        root.style.visibility = 'visible';
+      });
+    }
+  })();
 </script>

@@ -23,8 +23,8 @@ const state = {
   lastTemplate: null,
   playlist: {
     delayMs: 20000,
-    items: []
-  }
+    items: [],
+  },
 };
 
 // Playlist runtime (not persisted)
@@ -41,8 +41,8 @@ function saveState() {
     lastTemplate: state.lastTemplate,
     playlist: {
       delayMs: clampDelay(state.playlist?.delayMs),
-      items: Array.isArray(state.playlist?.items) ? state.playlist.items : []
-    }
+      items: Array.isArray(state.playlist?.items) ? state.playlist.items : [],
+    },
   };
   try {
     const tmp = STATE_FILE + '.tmp';
@@ -64,7 +64,9 @@ function loadState() {
       if (s.lastTemplate && typeof s.lastTemplate === 'object') state.lastTemplate = s.lastTemplate;
       if (s.playlist && typeof s.playlist === 'object') {
         state.playlist.delayMs = clampDelay(Number(s.playlist.delayMs) || 20000);
-        state.playlist.items = Array.isArray(s.playlist.items) ? s.playlist.items.filter(Boolean) : [];
+        state.playlist.items = Array.isArray(s.playlist.items)
+          ? s.playlist.items.filter(Boolean)
+          : [];
       }
     }
   } catch {
@@ -86,15 +88,20 @@ app.use('/uploads', express.static(UPLOADS_DIR, { fallthrough: true }));
 // Multer storage
 const multer = require('multer');
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) { cb(null, UPLOADS_DIR); },
+  destination: function (req, file, cb) {
+    cb(null, UPLOADS_DIR);
+  },
   filename: function (req, file, cb) {
     const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     cb(null, `${Date.now()}_${safe}`);
-  }
+  },
 });
 const upload = multer({ storage });
 // Memory storage for ephemeral pushes
-const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+const memUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
 
 // Ephemeral store served from memory (no disk persistence)
 const crypto = require('crypto');
@@ -109,12 +116,15 @@ app.get('/ephemeral/:id', (req, res) => {
   res.send(item.buffer);
 });
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, v] of ephemeralStore.entries()) {
-    if ((now - v.createdAt) > EPHEMERAL_TTL_MS) ephemeralStore.delete(id);
-  }
-}, Math.min(EPHEMERAL_TTL_MS, 60 * 1000)).unref();
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [id, v] of ephemeralStore.entries()) {
+      if (now - v.createdAt > EPHEMERAL_TTL_MS) ephemeralStore.delete(id);
+    }
+  },
+  Math.min(EPHEMERAL_TTL_MS, 60 * 1000)
+).unref();
 
 function sanitizeName(name) {
   return String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -130,12 +140,18 @@ function setVideoContentURL(url) {
 }
 
 // Render template
-function renderTemplate(content, data={}) {
+function renderTemplate(content, data = {}) {
   return content.replace(/{{\s*([a-zA-Z0-9_\.]+)\s*}}/g, (_, key) => {
-    const val = key.split('.').reduce((o,k)=> (o && typeof o === 'object') ? o[k] : undefined, data);
+    const val = key
+      .split('.')
+      .reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), data);
     if (val === undefined || val === null) return '';
     if (typeof val === 'object') {
-      try { return JSON.stringify(val); } catch { return ''; }
+      try {
+        return JSON.stringify(val);
+      } catch {
+        return '';
+      }
     }
     return String(val);
   });
@@ -145,7 +161,7 @@ function renderTemplate(content, data={}) {
 function listTemplateFiles() {
   try {
     const names = fs.readdirSync(TEMPLATES_DIR);
-    return names.filter(n => n.toLowerCase().endsWith('.html')).sort();
+    return names.filter((n) => n.toLowerCase().endsWith('.html')).sort();
   } catch {
     return [];
   }
@@ -177,9 +193,14 @@ function emitContentUpdate(payload) {
 
 function setContentInternal(html, templateMeta) {
   state.content = html;
-  if (templateMeta) state.lastTemplate = templateMeta; else state.lastTemplate = null;
+  if (templateMeta) state.lastTemplate = templateMeta;
+  else state.lastTemplate = null;
   state.updatedAt = new Date().toISOString();
-  emitContentUpdate({ content: state.content, updatedAt: state.updatedAt, template: state.lastTemplate || undefined });
+  emitContentUpdate({
+    content: state.content,
+    updatedAt: state.updatedAt,
+    template: state.lastTemplate || undefined,
+  });
   saveState();
 }
 
@@ -194,8 +215,14 @@ function applyContentUpdate({ html, template }) {
 
 function triggerOverrideAndResume() {
   // Cancel any rotation and existing override timer
-  if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
-  if (overrideTimer) { clearTimeout(overrideTimer); overrideTimer = null; }
+  if (rotationTimer) {
+    clearTimeout(rotationTimer);
+    rotationTimer = null;
+  }
+  if (overrideTimer) {
+    clearTimeout(overrideTimer);
+    overrideTimer = null;
+  }
   overrideActive = true;
   const delay = clampDelay(state.playlist.delayMs);
   overrideTimer = setTimeout(() => {
@@ -253,7 +280,10 @@ function playCurrentPlaylistItem() {
 
 function scheduleNextRotation() {
   if (overrideActive) return;
-  if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
+  if (rotationTimer) {
+    clearTimeout(rotationTimer);
+    rotationTimer = null;
+  }
   const items = state.playlist.items || [];
   if (items.length <= 1) return; // single or empty: no rotation
   const delay = clampDelay(state.playlist.delayMs);
@@ -268,15 +298,24 @@ function scheduleNextRotation() {
 
 function startPlaylistIfActive() {
   const items = state.playlist.items || [];
-  if (items.length === 0) { stopPlaylist(); return; }
+  if (items.length === 0) {
+    stopPlaylist();
+    return;
+  }
   // Show current (or first) immediately, then schedule
   if (playlistIndex >= items.length) playlistIndex = 0;
   playCurrentPlaylistItem();
 }
 
 function stopPlaylist() {
-  if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
-  if (overrideTimer) { clearTimeout(overrideTimer); overrideTimer = null; }
+  if (rotationTimer) {
+    clearTimeout(rotationTimer);
+    rotationTimer = null;
+  }
+  if (overrideTimer) {
+    clearTimeout(overrideTimer);
+    overrideTimer = null;
+  }
   overrideActive = false;
 }
 
@@ -285,14 +324,16 @@ app.get('/api/status', (req, res) => {
   res.json({
     content: state.content,
     notification: state.notification,
-  updatedAt: state.updatedAt
+    updatedAt: state.updatedAt,
   });
 });
 
 // Health/readiness endpoint
 app.get('/healthz', (req, res) => {
   let version = 'unknown';
-  try { version = require('../package.json').version || 'unknown'; } catch {}
+  try {
+    version = require('../package.json').version || 'unknown';
+  } catch {}
   res.json({ ok: true, version, uptime: process.uptime() });
 });
 
@@ -307,10 +348,13 @@ app.post('/api/content', (req, res) => {
 
 app.get('/api/templates', (req, res) => {
   const files = listTemplateFiles();
-  const templates = files.map(f => {
+  const templates = files.map((f) => {
     const full = path.join(TEMPLATES_DIR, f);
     let placeholders = [];
-    try { const c = fs.readFileSync(full,'utf8'); placeholders = parseTemplatePlaceholders(c); } catch {}
+    try {
+      const c = fs.readFileSync(full, 'utf8');
+      placeholders = parseTemplatePlaceholders(c);
+    } catch {}
     return { id: path.basename(f, '.html'), file: f, placeholders };
   });
   res.json({ templates });
@@ -334,9 +378,9 @@ app.post('/api/template/:id', (req, res) => {
       // If registry load fails, continue without validation (backwards compatible)
     }
 
-    const raw = fs.readFileSync(full,'utf8');
+    const raw = fs.readFileSync(full, 'utf8');
     const html = renderTemplate(raw, data);
-  applyContentUpdate({ html, template: { id, appliedAt: new Date().toISOString(), data } });
+    applyContentUpdate({ html, template: { id, appliedAt: new Date().toISOString(), data } });
     return res.json({ ok: true, template: state.lastTemplate });
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -362,7 +406,11 @@ app.post('/api/clear', (req, res) => {
   playlistIndex = 0;
   stopPlaylist();
   saveState();
-  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: [], active: false });
+  io.emit('playlist:update', {
+    delayMs: clampDelay(state.playlist.delayMs),
+    items: [],
+    active: false,
+  });
   res.json({ ok: true });
 });
 
@@ -370,11 +418,14 @@ app.post('/api/clear', (req, res) => {
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'file field required' });
   const url = `/uploads/${req.file.filename}`;
-  res.json({ ok: true, file: { name: req.file.originalname, url, size: req.file.size, type: req.file.mimetype } });
+  res.json({
+    ok: true,
+    file: { name: req.file.originalname, url, size: req.file.size, type: req.file.mimetype },
+  });
 });
 
 app.get('/api/uploads', (req, res) => {
-  const files = fs.readdirSync(UPLOADS_DIR).map(name => ({ name, url: `/uploads/${name}` }));
+  const files = fs.readdirSync(UPLOADS_DIR).map((name) => ({ name, url: `/uploads/${name}` }));
   res.json({ files });
 });
 
@@ -399,7 +450,11 @@ app.post('/api/push/image', memUpload.single('file'), (req, res) => {
       url = `/uploads/${filename}`;
     } else {
       const id = crypto.randomUUID();
-      ephemeralStore.set(id, { buffer: req.file.buffer, contentType: req.file.mimetype, createdAt: Date.now() });
+      ephemeralStore.set(id, {
+        buffer: req.file.buffer,
+        contentType: req.file.mimetype,
+        createdAt: Date.now(),
+      });
       url = `/ephemeral/${id}`;
     }
   }
@@ -420,7 +475,11 @@ app.post('/api/push/video', memUpload.single('file'), (req, res) => {
       url = `/uploads/${filename}`;
     } else {
       const id = crypto.randomUUID();
-      ephemeralStore.set(id, { buffer: req.file.buffer, contentType: req.file.mimetype, createdAt: Date.now() });
+      ephemeralStore.set(id, {
+        buffer: req.file.buffer,
+        contentType: req.file.mimetype,
+        createdAt: Date.now(),
+      });
       url = `/ephemeral/${id}`;
     }
   }
@@ -438,7 +497,8 @@ app.get('/api/playlist', (req, res) => {
 app.put('/api/playlist', (req, res) => {
   const body = req.body || {};
   const items = Array.isArray(body.items) ? body.items : state.playlist.items;
-  const delayMs = body.delayMs !== undefined ? clampDelay(body.delayMs) : clampDelay(state.playlist.delayMs);
+  const delayMs =
+    body.delayMs !== undefined ? clampDelay(body.delayMs) : clampDelay(state.playlist.delayMs);
   // Validate all items
   for (const it of items) {
     const v = validatePlaylistItem(it);
@@ -469,7 +529,11 @@ app.post('/api/playlist/items', (req, res) => {
   }
   state.playlist.items.push({ id: String(item.id), data: item.data || {} });
   saveState();
-  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: state.playlist.items, active: state.playlist.items.length > 0 });
+  io.emit('playlist:update', {
+    delayMs: clampDelay(state.playlist.delayMs),
+    items: state.playlist.items,
+    active: state.playlist.items.length > 0,
+  });
   if (state.playlist.items.length === 1 && !overrideActive) {
     playlistIndex = 0;
     startPlaylistIfActive();
@@ -485,19 +549,27 @@ app.delete('/api/playlist/items/:index', (req, res) => {
   state.playlist.items.splice(idx, 1);
   if (playlistIndex >= state.playlist.items.length) playlistIndex = 0;
   saveState();
-  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: state.playlist.items, active: state.playlist.items.length > 0 });
+  io.emit('playlist:update', {
+    delayMs: clampDelay(state.playlist.delayMs),
+    items: state.playlist.items,
+    active: state.playlist.items.length > 0,
+  });
   if (state.playlist.items.length === 0) stopPlaylist();
   res.json({ ok: true });
 });
 
 app.delete('/api/playlist/items/by-id/:id', (req, res) => {
   const id = String(req.params.id || '');
-  const idx = state.playlist.items.findIndex(it => String(it.id) === id);
+  const idx = state.playlist.items.findIndex((it) => String(it.id) === id);
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   state.playlist.items.splice(idx, 1);
   if (playlistIndex >= state.playlist.items.length) playlistIndex = 0;
   saveState();
-  io.emit('playlist:update', { delayMs: clampDelay(state.playlist.delayMs), items: state.playlist.items, active: state.playlist.items.length > 0 });
+  io.emit('playlist:update', {
+    delayMs: clampDelay(state.playlist.delayMs),
+    items: state.playlist.items,
+    active: state.playlist.items.length > 0,
+  });
   if (state.playlist.items.length === 0) stopPlaylist();
   res.json({ ok: true, removedIndex: idx });
 });
@@ -507,7 +579,11 @@ app.post('/api/playlist/delay', (req, res) => {
   const v = clampDelay(delayMs);
   state.playlist.delayMs = v;
   saveState();
-  io.emit('playlist:update', { delayMs: v, items: state.playlist.items, active: state.playlist.items.length > 0 });
+  io.emit('playlist:update', {
+    delayMs: v,
+    items: state.playlist.items,
+    active: state.playlist.items.length > 0,
+  });
   // Restart timers if rotating
   if (!overrideActive && state.playlist.items.length > 1) {
     scheduleNextRotation();
@@ -527,29 +603,43 @@ io.on('connection', (socket) => {
 if (require.main === module) {
   // Lazy-require bonjour to avoid import issues in tests
   const BonjourModule = require('bonjour-service');
-  const Bonjour = (BonjourModule && (BonjourModule.default || BonjourModule.Bonjour)) || BonjourModule;
+  const Bonjour =
+    (BonjourModule && (BonjourModule.default || BonjourModule.Bonjour)) || BonjourModule;
   const bonjour = new Bonjour();
   let bonjourService;
 
   server.listen(PORT, () => {
     console.log(`[hdisplay] server listening on :${PORT}`);
     try {
-      bonjourService = bonjour.publish({ name: `hdisplay@${require('os').hostname()}`, type: 'hdisplay', port: Number(PORT), txt: { version: '0.1.0' } });
+      bonjourService = bonjour.publish({
+        name: `hdisplay@${require('os').hostname()}`,
+        type: 'hdisplay',
+        port: Number(PORT),
+        txt: { version: '0.1.0' },
+      });
       bonjourService.start();
       console.log('[hdisplay] mDNS service published: _hdisplay._tcp');
     } catch (e) {
       console.warn('[hdisplay] mDNS publish failed:', e.message);
     }
-  // Start playlist if present
-  try { startPlaylistIfActive(); } catch {}
+    // Start playlist if present
+    try {
+      startPlaylistIfActive();
+    } catch {}
   });
 
   function shutdown() {
     console.log('\n[hdisplay] shutting down...');
-    if (bonjourService) { try { bonjourService.stop(); } catch {} }
-    try { bonjour.destroy(); } catch {}
-    server.close(()=> process.exit(0));
-    setTimeout(()=> process.exit(0), 1000).unref();
+    if (bonjourService) {
+      try {
+        bonjourService.stop();
+      } catch {}
+    }
+    try {
+      bonjour.destroy();
+    } catch {}
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 1000).unref();
   }
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);

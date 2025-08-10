@@ -1,46 +1,56 @@
-<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;width:100%;height:100%;font-family:monospace;">
-  <div id="sc-time" style="font-size:120px;line-height:1;"></div>
-  <div id="sc-date" style="font-size:32px;opacity:0.6;"></div>
+<div
+  style="
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    font-family: monospace;
+  "
+>
+  <div id="sc-time" style="font-size: 120px; line-height: 1"></div>
+  <div id="sc-date" style="font-size: 32px; opacity: 0.6"></div>
 </div>
 <script>
-(function(){
-  const timeEl = document.getElementById('sc-time');
-  const dateEl = document.getElementById('sc-date');
+  (function () {
+    const timeEl = document.getElementById('sc-time');
+    const dateEl = document.getElementById('sc-date');
 
-  const rawTime = String.raw`{{ time }}`.trim();
-  const rawDate = String.raw`{{ date }}`.trim();
-  const useMachineRaw = String.raw`{{ useMachine }}`.trim();
+    const rawTime = String.raw`{{ time }}`.trim();
+    const rawDate = String.raw`{{ date }}`.trim();
+    const useMachineRaw = String.raw`{{ useMachine }}`.trim();
 
-  let useMachine = (useMachineRaw === 'true');
-  // Default to machine time when no explicit time/date provided
-  if (!useMachine && (!rawTime || !rawDate)) {
-    useMachine = true;
-  }
-
-  function formatNow(){
-    const now = new Date();
-    const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-    const wd = now.toLocaleDateString(undefined, { weekday: 'short' });
-    const mo = now.toLocaleDateString(undefined, { month: 'short' });
-    const day = now.toLocaleDateString(undefined, { day: '2-digit' });
-    const date = `${wd} ${mo} ${day}`;
-    return { time, date };
-  }
-
-  function render(){
-    if (useMachine) {
-      const { time, date } = formatNow();
-      timeEl.textContent = time;
-      dateEl.textContent = date;
-    } else {
-      timeEl.textContent = rawTime || '';
-      dateEl.textContent = rawDate || '';
+    let useMachine = useMachineRaw === 'true';
+    // Default to machine time when no explicit time/date provided
+    if (!useMachine && (!rawTime || !rawDate)) {
+      useMachine = true;
     }
-  }
 
-  render();
-  if (useMachine) {
-    setInterval(render, 1000);
-  }
-})();
+    function formatNow() {
+      const now = new Date();
+      const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      const wd = now.toLocaleDateString(undefined, { weekday: 'short' });
+      const mo = now.toLocaleDateString(undefined, { month: 'short' });
+      const day = now.toLocaleDateString(undefined, { day: '2-digit' });
+      const date = `${wd} ${mo} ${day}`;
+      return { time, date };
+    }
+
+    function render() {
+      if (useMachine) {
+        const { time, date } = formatNow();
+        timeEl.textContent = time;
+        dateEl.textContent = date;
+      } else {
+        timeEl.textContent = rawTime || '';
+        dateEl.textContent = rawDate || '';
+      }
+    }
+
+    render();
+    if (useMachine) {
+      setInterval(render, 1000);
+    }
+  })();
 </script>

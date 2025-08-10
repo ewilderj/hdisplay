@@ -111,7 +111,7 @@ class VisualDetector {
 
   async executeStrategy(page, config, timeout) {
     const strategy = config.strategy;
-    
+
     switch (strategy) {
       case 'animation':
         await this.detectAnimation(page, config, timeout);
@@ -137,15 +137,17 @@ class VisualDetector {
         this.log(`Unknown strategy: ${strategy}, falling back to simple wait`);
         await page.waitForTimeout(2000);
     }
-    
+
     this.log(`Strategy ${strategy} completed`);
   }
 
   async detectAnimation(page, config, timeout = 5000) {
     const animationThreshold = config.animation_threshold || 0.05;
     const stableFrames = config.stable_frames || 3;
-    
-    this.log(`Detecting animation with threshold ${animationThreshold}, stable frames: ${stableFrames}`);
+
+    this.log(
+      `Detecting animation with threshold ${animationThreshold}, stable frames: ${stableFrames}`
+    );
 
     const startTime = Date.now();
     let stableCount = 0;
@@ -153,10 +155,10 @@ class VisualDetector {
 
     while (Date.now() - startTime < timeout) {
       const screenshot = await page.screenshot({ type: 'png' });
-      
+
       if (lastScreenshot) {
         const diff = await this.compareScreenshots(lastScreenshot, screenshot);
-        
+
         if (diff > animationThreshold) {
           stableCount = 0;
           this.log(`Animation detected (diff: ${diff.toFixed(3)})`);
@@ -168,7 +170,7 @@ class VisualDetector {
           }
         }
       }
-      
+
       lastScreenshot = screenshot;
       await page.waitForTimeout(100);
     }
@@ -185,7 +187,7 @@ class VisualDetector {
     for (let retry = 0; retry < maxRetries; retry++) {
       const screenshot = await page.screenshot({ type: 'png' });
       const coverage = await this.calculateCoverage(screenshot);
-      
+
       this.log(`Attempt ${retry + 1}: coverage ${coverage.toFixed(3)}`);
 
       if (coverage >= minCoverage) {
@@ -204,18 +206,18 @@ class VisualDetector {
       const image = sharp(screenshotBuffer);
       const { width, height } = await image.metadata();
       const totalPixels = width * height;
-      
+
       const { data } = await image.greyscale().raw().toBuffer({ resolveWithObject: true });
-      
+
       let nonBlackPixels = 0;
       const threshold = 10;
-      
+
       for (let i = 0; i < data.length; i++) {
         if (data[i] > threshold) {
           nonBlackPixels++;
         }
       }
-      
+
       return nonBlackPixels / totalPixels;
     } catch (error) {
       this.log('Error calculating coverage:', error.message);
@@ -226,8 +228,10 @@ class VisualDetector {
   async detectVisualStability(page, config, timeout = 5000) {
     const stabilityThreshold = config.stability_threshold || 0.01;
     const stableDuration = config.stable_duration || 1000;
-    
-    this.log(`Detecting visual stability, threshold: ${stabilityThreshold}, duration: ${stableDuration}ms`);
+
+    this.log(
+      `Detecting visual stability, threshold: ${stabilityThreshold}, duration: ${stableDuration}ms`
+    );
 
     let lastScreenshot = await page.screenshot({ type: 'png' });
     let stableStart = null;
@@ -235,10 +239,10 @@ class VisualDetector {
 
     while (Date.now() - startTime < timeout) {
       await page.waitForTimeout(200);
-      
+
       const currentScreenshot = await page.screenshot({ type: 'png' });
       const diff = await this.compareScreenshots(lastScreenshot, currentScreenshot);
-      
+
       if (diff <= stabilityThreshold) {
         if (!stableStart) {
           stableStart = Date.now();
@@ -251,7 +255,7 @@ class VisualDetector {
         stableStart = null;
         this.log(`Visual change detected (diff: ${diff.toFixed(3)})`);
       }
-      
+
       lastScreenshot = currentScreenshot;
     }
 
@@ -262,21 +266,18 @@ class VisualDetector {
     try {
       const img1 = sharp(buf1).greyscale().raw();
       const img2 = sharp(buf2).greyscale().raw();
-      
-      const [data1, data2] = await Promise.all([
-        img1.toBuffer(),
-        img2.toBuffer()
-      ]);
-      
+
+      const [data1, data2] = await Promise.all([img1.toBuffer(), img2.toBuffer()]);
+
       if (data1.length !== data2.length) {
         return 1.0;
       }
-      
+
       let totalDiff = 0;
       for (let i = 0; i < data1.length; i++) {
         totalDiff += Math.abs(data1[i] - data2[i]);
       }
-      
+
       return totalDiff / (data1.length * 255);
     } catch (error) {
       this.log('Error comparing screenshots:', error.message);
@@ -287,7 +288,7 @@ class VisualDetector {
   async detectTextContent(page, config, timeout = 3000) {
     const waitForText = config.wait_for_text !== false;
     const minContentLength = config.min_content_length || 1;
-    
+
     if (!waitForText) {
       this.log('Text detection disabled, skipping');
       return;
@@ -296,16 +297,16 @@ class VisualDetector {
     this.log(`Detecting text content, min length: ${minContentLength}`);
 
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeout) {
       try {
         const textContent = await page.evaluate(() => {
           return document.body.innerText || '';
         });
-        
+
         const contentLength = textContent.trim().length;
         this.log(`Text content length: ${contentLength}`);
-        
+
         if (contentLength >= minContentLength) {
           this.log('Sufficient text content detected');
           return;
@@ -313,7 +314,7 @@ class VisualDetector {
       } catch (error) {
         this.log('Error checking text content:', error.message);
       }
-      
+
       await page.waitForTimeout(200);
     }
 
@@ -323,7 +324,7 @@ class VisualDetector {
   async detectMediaLoaded(page, config, timeout = 10000) {
     const waitForImages = config.wait_for_images !== false;
     const waitForVideos = config.wait_for_videos !== false;
-    
+
     this.log(`Detecting media loading - images: ${waitForImages}, videos: ${waitForVideos}`);
 
     try {
@@ -331,23 +332,23 @@ class VisualDetector {
         ({ waitForImages, waitForVideos }) => {
           const images = Array.from(document.images);
           const videos = Array.from(document.querySelectorAll('video'));
-          
+
           let allLoaded = true;
-          
+
           if (waitForImages && images.length > 0) {
-            allLoaded = allLoaded && images.every(img => img.complete && img.naturalWidth > 0);
+            allLoaded = allLoaded && images.every((img) => img.complete && img.naturalWidth > 0);
           }
-          
+
           if (waitForVideos && videos.length > 0) {
-            allLoaded = allLoaded && videos.every(video => video.readyState >= 3);
+            allLoaded = allLoaded && videos.every((video) => video.readyState >= 3);
           }
-          
+
           return allLoaded;
         },
         { waitForImages, waitForVideos },
         { timeout }
       );
-      
+
       this.log('All media loaded successfully');
     } catch (error) {
       this.log('Media loading detection timed out or failed:', error.message);

@@ -1,8 +1,8 @@
-(()=>{
+(() => {
   const root = document.getElementById('root');
   const notificationEl = document.getElementById('notification');
   // Expose helpers asap (before connecting socket)
-  function afterFontsReady(cb){
+  function afterFontsReady(cb) {
     const run = () => requestAnimationFrame(cb);
     try {
       if (document.fonts && document.fonts.ready) {
@@ -10,27 +10,38 @@
       } else {
         run();
       }
-    } catch { run(); }
+    } catch {
+      run();
+    }
   }
   window.hdisplay = window.hdisplay || {};
   window.hdisplay.afterFontsReady = afterFontsReady;
-  window.hdisplay.hiddenUntilReady = function(el, initFn){
+  window.hdisplay.hiddenUntilReady = function (el, initFn) {
     if (!el) return;
-    try { el.style.visibility = 'hidden'; } catch {}
+    try {
+      el.style.visibility = 'hidden';
+    } catch {}
     requestAnimationFrame(() => {
-      try { if (typeof initFn === 'function') initFn(); } catch {}
-      requestAnimationFrame(() => { try { el.style.visibility = 'visible'; } catch {} });
+      try {
+        if (typeof initFn === 'function') initFn();
+      } catch {}
+      requestAnimationFrame(() => {
+        try {
+          el.style.visibility = 'visible';
+        } catch {}
+      });
     });
   };
 
   const socket = io({ path: '/socket.io' });
 
-  function executeScripts(container){
+  function executeScripts(container) {
     const scripts = container.querySelectorAll('script');
-    scripts.forEach(oldScript => {
+    scripts.forEach((oldScript) => {
       const newScript = document.createElement('script');
       // copy attributes
-      for (const { name, value } of Array.from(oldScript.attributes)) newScript.setAttribute(name, value);
+      for (const { name, value } of Array.from(oldScript.attributes))
+        newScript.setAttribute(name, value);
       newScript.text = oldScript.textContent;
       oldScript.replaceWith(newScript);
     });
@@ -47,7 +58,7 @@
 
   // (helper defined above)
 
-  function setContent(html){
+  function setContent(html) {
     const incoming = a.classList.contains('visible') ? b : a;
     const outgoing = a.classList.contains('visible') ? a : b;
     const myVersion = ++contentVersion;
@@ -76,30 +87,30 @@
       }, 520);
     });
   }
-  function showNotification(data){
+  function showNotification(data) {
     notificationEl.textContent = data.message;
     notificationEl.dataset.level = data.level || 'info';
     notificationEl.className = '';
     notificationEl.classList.add(data.level || 'info');
     if (data.duration) {
-      setTimeout(()=>{
+      setTimeout(() => {
         notificationEl.classList.add('hidden');
       }, data.duration);
     }
   }
-  socket.on('connect', ()=>{
+  socket.on('connect', () => {
     console.log('[hdisplay] connected');
   });
-  socket.on('content:update', payload => {
+  socket.on('content:update', (payload) => {
     setContent(payload.content || '');
     if (payload.template) {
       document.title = `hdisplay - ${payload.template.id}`;
     }
   });
-  socket.on('notification', payload => {
+  socket.on('notification', (payload) => {
     showNotification(payload);
   });
-  socket.on('notification:clear', ()=>{
+  socket.on('notification:clear', () => {
     notificationEl.classList.add('hidden');
   });
 })();
