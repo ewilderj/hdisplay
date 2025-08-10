@@ -308,7 +308,7 @@ https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4
 
 ### Weather (6-day forecast)
 
-Render a 6-day forecast using OpenWeatherMap One Call 3.0 (or Tomorrow.io) with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
+Render a 6-day forecast using Tomorrow.io (default) or OpenWeatherMap One Call 3.0 with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
 
 Examples
 
@@ -357,6 +357,7 @@ Notes
 - Up to 6 days are shown (Today + 5). This cap is applied regardless of provider.
 - If you see HTTP 401 from `/api/weather`, your API key is missing or invalid. 404 indicates the location couldn’t be geocoded.
 - Coordinates (`lat,lon`) skip geocoding and are most reliable.
+- When using Tomorrow.io, condition icons are based on `weatherCodeMax` for each day and mapped to OWM-style icon families for consistency.
 
 ## Playlists
 
@@ -573,13 +574,13 @@ Environment variables:
 
 Weather
 
-- `OPENWEATHERMAP_API_KEY` – Your OpenWeatherMap API key (required for the weather template)
-- `TOMORROW_API_KEY` – Your Tomorrow.io API key (when using the Tomorrow provider)
+- `OPENWEATHERMAP_API_KEY` – Your OpenWeatherMap API key (when using the OWM provider)
+- `TOMORROW_API_KEY` – Your Tomorrow.io API key (required by default)
 - Optional config file: Create `config.json` in the repo root (or set `HDS_CONFIG_PATH` to a JSON file) with:
 
 ```json
 {
-  "weather": { "provider": "openweathermap" },
+  "weather": { "provider": "tomorrowio" },
   "apiKeys": {
     "openweathermap": "<owm-key>",
     "tomorrowio": "<tomorrow-key>"
@@ -587,7 +588,7 @@ Weather
 }
 ```
 
-Provider selection: set `weather.provider` to `openweathermap` (default) or `tomorrowio`. The server looks for provider API keys in environment variables first, then in `config.json`.
+Provider selection: set `weather.provider` to `tomorrowio` (default) or `openweathermap`. The server looks for provider API keys in environment variables first, then in `config.json`.
 
 CLI config is stored at `~/.hdisplay.json` (set via `hdisplay config --server <url>` or discover `--set`).
 
