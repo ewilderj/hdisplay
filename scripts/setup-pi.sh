@@ -3,8 +3,8 @@ set -euo pipefail
 
 echo "[hdisplay] Raspberry Pi setup starting"
 
-# Select Node.js major via HDS_NODE_MAJOR (defaults to 18). Accepts values like 18, 20, 22, 24.
-NODE_MAJOR_DEFAULT=18
+# Select Node.js major via HDS_NODE_MAJOR (defaults to 22). Accepts values like 18, 20, 22, 24.
+NODE_MAJOR_DEFAULT=22
 NODE_MAJOR="${HDS_NODE_MAJOR:-$NODE_MAJOR_DEFAULT}"
 if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]]; then
   echo "[hdisplay] Invalid HDS_NODE_MAJOR='$NODE_MAJOR'; falling back to ${NODE_MAJOR_DEFAULT}"
