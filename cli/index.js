@@ -134,6 +134,95 @@ async function pushMedia(endpoint, { file, url, persist }) {
   throw new Error('file or url required');
 }
 
+// ---- Shared helpers: flag-based template data parsing ----
+const { EXCLUDED_DATA_FLAGS } = require('./flags');
+const kebabToCamel = (s) => s.replace(/-([a-zA-Z0-9])/g, (_, c) => c.toUpperCase());
+const toCamel = (s) => kebabToCamel(String(s).replace(/^[\s.-]+|[\s.-]+$/g, ''));
+function setDeep(obj, pathArr, value) {
+  let cur = obj;
+  for (let i = 0; i < pathArr.length - 1; i++) {
+    const k = pathArr[i];
+    if (typeof cur[k] !== 'object' || cur[k] === null || Array.isArray(cur[k])) cur[k] = {};
+    cur = cur[k];
+  }
+  const last = pathArr[pathArr.length - 1];
+  if (cur[last] === undefined) { cur[last] = value; return; }
+  if (Array.isArray(cur[last])) { cur[last].push(value); return; }
+  cur[last] = Array.isArray(value) ? value : [cur[last], value].flat();
+}
+function tryParseJSON(str) {
+  const s = String(str).trim();
+  if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))){
+    try { return JSON.parse(s); } catch { /* ignore */ }
+  }
+  return null;
+}
+function coerceValue(val) {
+  if (typeof val !== 'string') return val;
+  const lower = val.toLowerCase();
+  if (lower === 'true') return true;
+  if (lower === 'false') return false;
+  const asJson = tryParseJSON(val);
+  if (asJson !== null) return asJson;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : val;
+}
+function mergeDeep(base, override) {
+  if (typeof base !== 'object' || base === null) return override;
+  if (typeof override !== 'object' || override === null) return override;
+  const out = Array.isArray(base) ? base.slice() : { ...base };
+  for (const k of Object.keys(override)){
+    const bv = out[k]; const ov = override[k];
+    if (bv && typeof bv === 'object' && !Array.isArray(bv) && ov && typeof ov === 'object' && !Array.isArray(ov)){
+      out[k] = mergeDeep(bv, ov);
+    } else {
+      out[k] = ov;
+    }
+  }
+  return out;
+}
+function parseFlagDataForCommand(commandName, positionalCountAfterCommand = 1) {
+  const argv = process.argv.slice(2);
+  const idx = argv.findIndex(t => t === commandName);
+  if (idx === -1) return {};
+  // Slice off command token and its positional args
+  const tokens = argv.slice(idx + 1 + positionalCountAfterCommand);
+  const data = {};
+  for (let i = 0; i < tokens.length; i++){
+    let tok = tokens[i];
+    if (!tok.startsWith('--')) continue;
+    if (tok === '--') break;
+    let key, valueProvided = false, val;
+    const eqIdx = tok.indexOf('=');
+    if (eqIdx !== -1){
+      key = tok.slice(0, eqIdx);
+      val = tok.slice(eqIdx + 1);
+      valueProvided = true;
+    } else {
+      key = tok;
+    }
+    if (EXCLUDED_DATA_FLAGS.has(key)){
+      if (!valueProvided && i + 1 < tokens.length && !tokens[i+1].startsWith('--')) i++;
+      continue;
+    }
+    if (key.startsWith('--no-')){
+      const raw = key.slice(5);
+      const path = raw.split('.').map(toCamel);
+      setDeep(data, path, false);
+      continue;
+    }
+    const raw = key.slice(2);
+    const path = raw.split('.').map(toCamel);
+    if (valueProvided){
+      setDeep(data, path, coerceValue(val));
+    } else {
+      if (i + 1 < tokens.length && !tokens[i+1].startsWith('--')){ i++; setDeep(data, path, coerceValue(tokens[i])); }
+      else { setDeep(data, path, true); }
+    }
+  }
+  return data;
+}
+
 program.command('config')
   .description('Show or set config')
   .option('-s, --server <url>', 'Server base URL')
@@ -190,107 +279,7 @@ program.command('template <id> [args...]')
   .allowUnknownOption(true)
   .allowExcessArguments(true)
   .action(async (id, _rest, opts)=>{
-    let dataPayload = {};
-    // Helpers for flag-to-data parsing
-    const kebabToCamel = (s) => s.replace(/-([a-zA-Z0-9])/g, (_, c) => c.toUpperCase());
-    const toCamel = (s) => kebabToCamel(s.replace(/^[\s.-]+|[\s.-]+$/g, ''));
-    const setDeep = (obj, pathArr, value) => {
-      let cur = obj;
-      for (let i = 0; i < pathArr.length - 1; i++) {
-        const k = pathArr[i];
-        if (typeof cur[k] !== 'object' || cur[k] === null || Array.isArray(cur[k])) cur[k] = {};
-        cur = cur[k];
-      }
-      const last = pathArr[pathArr.length - 1];
-      if (cur[last] === undefined) { cur[last] = value; return; }
-      // If existing and new are arrays/scalars, handle repeats -> array
-      if (Array.isArray(cur[last])) { cur[last].push(value); return; }
-      cur[last] = cur[last] === undefined ? value : (cur[last] !== undefined ? (Array.isArray(value) ? value : [cur[last], value]).flat() : value);
-    };
-    const parseMaybeJSON = (str) => {
-      const s = String(str).trim();
-      if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))){
-        try { return JSON.parse(s); } catch { /* fallthrough */ }
-      }
-      return null;
-    };
-    const coerce = (val, explicitBoolean = false) => {
-      if (explicitBoolean) return !!val;
-      if (typeof val !== 'string') return val;
-      const lower = val.toLowerCase();
-      if (lower === 'true') return true;
-      if (lower === 'false') return false;
-      const asJson = parseMaybeJSON(val);
-      if (asJson !== null) return asJson;
-      const n = Number(val);
-      return Number.isFinite(n) ? n : val;
-    };
-    const mergeDeep = (base, override) => {
-      if (typeof base !== 'object' || base === null) return override;
-      if (typeof override !== 'object' || override === null) return override;
-      const out = Array.isArray(base) ? base.slice() : { ...base };
-      for (const k of Object.keys(override)){
-        const bv = out[k]; const ov = override[k];
-        if (bv && typeof bv === 'object' && !Array.isArray(bv) && ov && typeof ov === 'object' && !Array.isArray(ov)){
-          out[k] = mergeDeep(bv, ov);
-        } else {
-          out[k] = ov;
-        }
-      }
-      return out;
-    };
-    const parseFlagData = () => {
-      // Collect flags appearing after `template <id>`
-      const argv = process.argv.slice(2); // drop node and script
-      const idx = argv.findIndex(t => t === 'template');
-      if (idx === -1 || idx + 1 >= argv.length) return {};
-      // Tokens after id
-      const tokens = argv.slice(idx + 2);
-      const excluded = new Set(['--data', '--data-file', '--server', '--timeout', '--quiet', '--help', '-h']);
-      const data = {};
-      for (let i = 0; i < tokens.length; i++){
-        let tok = tokens[i];
-        if (!tok.startsWith('--')) continue;
-        if (tok === '--') break; // end of options
-        // handle --key=value
-        let key, valueProvided = false, val;
-        const eqIdx = tok.indexOf('=');
-        if (eqIdx !== -1){
-          key = tok.slice(0, eqIdx);
-          val = tok.slice(eqIdx + 1);
-          valueProvided = true;
-        } else {
-          key = tok;
-        }
-        if (excluded.has(key)) {
-          // skip and consume value if present as next token and not valueProvided
-          if (!valueProvided && i + 1 < tokens.length && !tokens[i+1].startsWith('--')) i++;
-          continue;
-        }
-        // Negated boolean --no-foo
-        if (key.startsWith('--no-')){
-          const raw = key.slice(5);
-          const path = raw.split('.').map(toCamel);
-          setDeep(data, path, false);
-          continue;
-        }
-        // Normal flag
-        const raw = key.slice(2);
-        const path = raw.split('.').map(toCamel);
-        if (valueProvided){
-          setDeep(data, path, coerce(val));
-        } else {
-          // If next token is a value (doesn't start with --), consume it, else boolean true
-          if (i + 1 < tokens.length && !tokens[i+1].startsWith('--')){
-            i++;
-            setDeep(data, path, coerce(tokens[i]));
-          } else {
-            setDeep(data, path, true);
-          }
-        }
-      }
-      return data;
-    };
+  let dataPayload = {};
     try {
       if (opts.dataFile) {
         const raw = fs.readFileSync(String(opts.dataFile), 'utf8');
@@ -305,8 +294,8 @@ program.command('template <id> [args...]')
       console.error(chalk.red('Error: Invalid JSON for --data/--data-file/stdin'));
       process.exitCode = 1; return;
     }
-    // Parse additional flag-based data and merge (flags take precedence)
-    const flagData = parseFlagData();
+  // Parse additional flag-based data and merge (flags take precedence)
+  const flagData = parseFlagDataForCommand('template', 1);
     const finalData = Object.keys(flagData).length ? mergeDeep(dataPayload, flagData) : dataPayload;
     try {
   await api(`/api/template/${id}`, 'post', { data: finalData });
@@ -417,94 +406,7 @@ program.command('playlist:add <id> [args...]')
   .allowUnknownOption(true)
   .allowExcessArguments(true)
   .action(async (id, _rest, opts)=>{
-    let dataPayload = {};
-    // Reuse minimal helpers from template command
-    const kebabToCamel = (s) => s.replace(/-([a-zA-Z0-9])/g, (_, c) => c.toUpperCase());
-    const toCamel = (s) => kebabToCamel(s.replace(/^[\s.-]+|[\s.-]+$/g, ''));
-    const setDeep = (obj, pathArr, value) => {
-      let cur = obj;
-      for (let i = 0; i < pathArr.length - 1; i++) {
-        const k = pathArr[i];
-        if (typeof cur[k] !== 'object' || cur[k] === null || Array.isArray(cur[k])) cur[k] = {};
-        cur = cur[k];
-      }
-      const last = pathArr[pathArr.length - 1];
-      if (cur[last] === undefined) { cur[last] = value; return; }
-      if (Array.isArray(cur[last])) { cur[last].push(value); return; }
-      cur[last] = cur[last] === undefined ? value : (cur[last] !== undefined ? (Array.isArray(value) ? value : [cur[last], value]).flat() : value);
-    };
-    const parseMaybeJSON = (str) => {
-      const s = String(str).trim();
-      if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))){
-        try { return JSON.parse(s); } catch { /* ignore */ }
-      }
-      return null;
-    };
-    const coerce = (val) => {
-      if (typeof val !== 'string') return val;
-      const lower = val.toLowerCase();
-      if (lower === 'true') return true;
-      if (lower === 'false') return false;
-      const asJson = parseMaybeJSON(val);
-      if (asJson !== null) return asJson;
-      const n = Number(val);
-      return Number.isFinite(n) ? n : val;
-    };
-    const mergeDeep = (base, override) => {
-      if (typeof base !== 'object' || base === null) return override;
-      if (typeof override !== 'object' || override === null) return override;
-      const out = Array.isArray(base) ? base.slice() : { ...base };
-      for (const k of Object.keys(override)){
-        const bv = out[k]; const ov = override[k];
-        if (bv && typeof bv === 'object' && !Array.isArray(bv) && ov && typeof ov === 'object' && !Array.isArray(ov)){
-          out[k] = mergeDeep(bv, ov);
-        } else {
-          out[k] = ov;
-        }
-      }
-      return out;
-    };
-    const parseFlagData = () => {
-      const argv = process.argv.slice(2);
-      const idx = argv.findIndex(t => t === 'playlist:add');
-      if (idx === -1 || idx + 1 >= argv.length) return {};
-      const tokens = argv.slice(idx + 2); // after id
-      const excluded = new Set(['--data', '--data-file', '--server', '--timeout', '--quiet', '--help', '-h']);
-      const data = {};
-      for (let i = 0; i < tokens.length; i++){
-        let tok = tokens[i];
-        if (!tok.startsWith('--')) continue;
-        if (tok === '--') break;
-        let key, valueProvided = false, val;
-        const eqIdx = tok.indexOf('=');
-        if (eqIdx !== -1){
-          key = tok.slice(0, eqIdx);
-          val = tok.slice(eqIdx + 1);
-          valueProvided = true;
-        } else {
-          key = tok;
-        }
-        if (excluded.has(key)){
-          if (!valueProvided && i + 1 < tokens.length && !tokens[i+1].startsWith('--')) i++;
-          continue;
-        }
-        if (key.startsWith('--no-')){
-          const raw = key.slice(5);
-          const path = raw.split('.').map(toCamel);
-          setDeep(data, path, false);
-          continue;
-        }
-        const raw = key.slice(2);
-        const path = raw.split('.').map(toCamel);
-        if (valueProvided){
-          setDeep(data, path, coerce(val));
-        } else {
-          if (i + 1 < tokens.length && !tokens[i+1].startsWith('--')){ i++; setDeep(data, path, coerce(tokens[i])); }
-          else { setDeep(data, path, true); }
-        }
-      }
-      return data;
-    };
+  let dataPayload = {};
     try {
       if (opts.dataFile) {
         const raw = fs.readFileSync(String(opts.dataFile), 'utf8');
@@ -519,7 +421,7 @@ program.command('playlist:add <id> [args...]')
       console.error(chalk.red('Error: Invalid JSON for --data/--data-file/stdin'));
       process.exitCode = 1; return;
     }
-    const flagData = parseFlagData();
+  const flagData = parseFlagDataForCommand('playlist:add', 1);
     const finalData = Object.keys(flagData).length ? mergeDeep(dataPayload, flagData) : dataPayload;
     try {
       const res = await api('/api/playlist/items','post',{ id, data: finalData });

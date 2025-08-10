@@ -27,6 +27,13 @@ Rules at render time:
 Discovering placeholders:
 - `GET /api/templates` returns all templates and their root-level placeholder keys it detected by scanning the HTML. Nested paths are supported at render time, but the placeholder list only includes the root keys before the first dot.
 
+### Parameter name restrictions
+To keep the CLI consistent, avoid using placeholder names that collide with global CLI flags. The following names are reserved and must not be used as top-level placeholder keys (or as the top segment of a dotted path):
+
+- `server`, `timeout`, `quiet`, `help`, `h`, `data`, `data-file` (and `dataFile`)
+
+The test suite enforces this rule and will fail if a collision is detected.
+
 ## Applying a template
 
 - HTTP: `POST /api/template/<id>` with JSON body `{ "data": { ... } }`
