@@ -703,12 +703,13 @@ const weatherProviders = {
     },
     aggregate(data) {
       const daily = Array.isArray(data?.daily) ? data.daily : [];
-      const out = [];
-  for (let i = 0; i < daily.length && out.length < 6; i++) {
+  const out = [];
+  for (let i = 0; i < daily.length && out.length < 7; i++) {
         const d = daily[i];
         const dt = Number(d.dt) * 1000;
         const date = new Date(dt);
         const key = isFinite(dt) ? date.toISOString().substring(0, 10) : '';
+    const ts = isFinite(dt) ? date.toISOString() : null;
         const lo = Number(d.temp?.min);
         const hi = Number(d.temp?.max);
         let icon = null;
@@ -718,7 +719,7 @@ const weatherProviders = {
           description = d.weather[0].description || null;
         }
         if (Number.isFinite(lo) && Number.isFinite(hi)) {
-          out.push({ date: key, low: Math.round(lo), high: Math.round(hi), icon, description });
+          out.push({ date: key, ts, low: Math.round(lo), high: Math.round(hi), icon, description });
         }
       }
       return out;
@@ -763,9 +764,10 @@ const weatherProviders = {
         units: units === 'F' ? 'imperial' : 'metric',
   // Request daily code extrema; we will use weatherCodeMax
   fields: 'temperatureMin,temperatureMax,weatherCodeMax,weatherCodeMin',
-  // Explicit 6-day window; Tomorrow.io supports relative tokens like now/nowPlusXd
-  startTime: 'now',
-  endTime: 'nowPlus5d',
+  // Request window starting now; some providers align 1d buckets to next midnight.
+  // Aggregation caps the output days; we may request an extra day for alignment safety.
+  // startTime: 'now',
+  // endTime: 'nowPlus6d',
         apikey: apiKey,
       };
       const res = await axios.get(url, { params, timeout: 5000 });
@@ -830,12 +832,13 @@ const weatherProviders = {
         };
         return lut[c] || null;
       };
-      const out = [];
-  for (let i = 0; i < daily.length && out.length < 6; i++) {
+  const out = [];
+  for (let i = 0; i < daily.length && out.length < 7; i++) {
         const d = daily[i];
         const t = d.time || d.startTime;
         let dateStr = '';
-        try { dateStr = new Date(t).toISOString().substring(0, 10); } catch {}
+    let ts = null;
+    try { const dd = new Date(t); ts = dd.toISOString(); dateStr = dd.toISOString().substring(0, 10); } catch {}
   const v = d.values || {};
   const lo = Number(v.temperatureMin);
   const hi = Number(v.temperatureMax);
@@ -850,7 +853,7 @@ const weatherProviders = {
         const icon = mapCode(wcRaw);
         const description = codeDesc(wcRaw);
         if (Number.isFinite(lo) && Number.isFinite(hi)) {
-          out.push({ date: dateStr, low: Math.round(lo), high: Math.round(hi), icon, description });
+          out.push({ date: dateStr, ts, low: Math.round(lo), high: Math.round(hi), icon, description });
         }
       }
       return out;
@@ -904,7 +907,7 @@ app.get('/api/weather', async (req, res) => {
       }
       return res.status(502).json({ error: 'Weather API failed' });
     }
-    const days = provider.aggregate ? provider.aggregate(forecast) : [];
+  let days = provider.aggregate ? provider.aggregate(forecast) : [];
     if (process.env.NODE_ENV === 'test') {
       try {
         const dailyLen = Array.isArray(forecast && forecast.daily) ? forecast.daily.length : 0;

@@ -17,7 +17,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Message banner](#message-banner)
   - [Snake](#snake-auto-play)
   - [TimeLeft](#timeleft-meeting-countdown)
-  - [Weather](#weather-6-day-forecast)
+  - [Weather](#weather-7-day-forecast)
 - [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
@@ -44,7 +44,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - Message banner (title/subtitle)
   - Snake (auto-play, ambient)
   - TimeLeft (meeting minutes remaining)
-  - Weather (6-day forecast)
+  - Weather (7-day forecast)
 - Assets & media:
   - Upload/download/delete files under `/uploads`
   - Push image/video from file or URL and display immediately (ephemeral, no disk write unless requested)
@@ -297,9 +297,9 @@ Preview
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/timeleft.mp4)
 
-### Weather (6-day forecast)
+### Weather (7-day forecast)
 
-Render a 6-day forecast using Tomorrow.io (default) or OpenWeatherMap One Call 3.0 with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
+Render a 7-day forecast using Tomorrow.io (default) or OpenWeatherMap One Call 3.0 with server-side caching. Supports city/state/country, ZIP, or raw coordinates, dark or light mode, and optional theme overrides.
 
 Preview
 
@@ -349,7 +349,7 @@ Notes
 
 - Requires an OpenWeatherMap or Tomorrow.io API key (depending on provider). See Configuration below.
 - Data is fetched server-side and cached per `location+units` for `refreshInterval` minutes.
-- Up to 6 days are shown (Today + 5). This cap is applied regardless of provider.
+- Up to 7 days are shown. This cap is applied regardless of provider.
 - If you see HTTP 401 from `/api/weather`, your API key is missing or invalid. 404 indicates the location couldn’t be geocoded.
 - Coordinates (`lat,lon`) skip geocoding and are most reliable.
 - When using Tomorrow.io, condition icons are based on `weatherCodeMax` for each day and mapped to OWM-style icon families for consistency.
