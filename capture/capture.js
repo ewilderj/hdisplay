@@ -5,25 +5,16 @@ const fs = require('fs-extra');
 const yaml = require('js-yaml');
 const path = require('path');
 const { spawn } = require('child_process');
-// Load classes with resilient constructor resolution and safe fallbacks
-function pickCtor(mod, named) {
-  if (!mod) return null;
-  if (typeof mod === 'function') return mod;
-  if (mod && typeof mod.default === 'function') return mod.default;
-  if (named && typeof mod[named] === 'function') return mod[named];
-  return null;
-}
+// Load local classes (CJS); keep safe fallbacks if modules are unavailable
 let VisualDetectorCtor;
 let TemplateHeuristicsCtor;
 try {
-  const VisualDetectorModule = require('./visual-detector');
-  VisualDetectorCtor = pickCtor(VisualDetectorModule, 'VisualDetector');
+  VisualDetectorCtor = require('./visual-detector');
 } catch (e) {
   VisualDetectorCtor = null;
 }
 try {
-  const TemplateHeuristicsModule = require('./template-heuristics');
-  TemplateHeuristicsCtor = pickCtor(TemplateHeuristicsModule, 'TemplateHeuristics');
+  TemplateHeuristicsCtor = require('./template-heuristics');
 } catch (e) {
   TemplateHeuristicsCtor = null;
 }
