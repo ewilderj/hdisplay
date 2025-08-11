@@ -42,6 +42,13 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 - [ ] Add `playlist:add` examples using schema-aware flags (mirrors template examples)
 - [ ] Optional: CLI flag to skip post-capture clear during capture runs
 
+- [ ] Server ESM migration (phase 2 – full conversion, defer for later)
+  - [ ] Convert `server/index.js` implementation to ESM and keep a tiny CJS shim (`server/index.js` or `server/index.cjs`) that dynamically imports the ESM and re-exports `{ app, server, UPLOADS_DIR }` for Jest tests
+  - [ ] Flip `npm start` (and systemd/docker docs) to prefer `node server/index.mjs` once stable; ensure mDNS (bonjour-service) init remains lazy in direct-run path
+  - [ ] Verify tests that `require('../server/index')` continue passing via the shim; no behavior/API changes
+  - [ ] Update README notes on Node 20+ and dual-entry, if needed
+  - Acceptance: `npm test` green; `npm start` boots and `/healthz` ok; no regressions in playlist/weather/uploads APIs
+
 ## Optional quick wins
 
 _(add more here as they come up)_

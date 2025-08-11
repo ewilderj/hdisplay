@@ -4,7 +4,7 @@
   "description": "Display server for 1280x400 USB monitor",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
+  "start": "node server/index.js",
     "dev": "nodemon server/index.js & open http://localhost:3000?dev=true",
     "cli": "node cli/index.js",
     "setup": "npm install && npm link",
