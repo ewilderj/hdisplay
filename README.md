@@ -53,7 +53,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
 
 ## Requirements
 
-- Node.js >= 18
+- Node.js >= 20
 - macOS or Linux (Raspberry Pi OS/Debian supported)
 
 ## Quick start
@@ -666,7 +666,7 @@ Notes:
 
 - CLI chalk error (TypeError chalk.red is not a function): fixed by using normalized import; ensure `npm install`.
 - mDNS discovery issues: ensure same network, no firewall blocking multicast; server logs should print mDNS publish success.
-- Server won’t start: check Node version (>= 18) and port availability (`PORT` in use?)
+- Server won’t start: check Node version (>= 20) and port availability (`PORT` in use?)
 - mac-preview script: ensure Chrome app path or allow AppleScript for Safari.
 
 ## License

@@ -8,7 +8,7 @@ Thanks for your interest in contributing! This project aims to be easy to run, h
 
 ## Quick start
 
-- Node.js >= 18
+- Node.js >= 20
 - Install and run
   - `npm install`
   - `npm start` (server at http://localhost:3000)
