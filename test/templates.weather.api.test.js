@@ -3,12 +3,10 @@ const fs = require('fs');
 const os = require('os');
 const request = require('supertest');
 
-jest.mock('axios');
-const axios = require('axios');
-
 let app;
 let tmpDir;
 let nextDaily;
+let axios; // will be assigned to the mocked module returned inside isolateModules
 
 function setMockGeocode(name = 'San Francisco', lat = 37.7749, lon = -122.4194) {
   // no-op; geocode handled in global axios.get impl below using these defaults via closure
@@ -35,38 +33,60 @@ function clearEnvKey() {
 }
 
 describe('Weather API', () => {
+  function initServer() {
+    jest.isolateModules(() => {
+      jest.doMock('axios', () => {
+        const get = jest.fn((url, { params } = {}) => {
+          if (url.includes('/geo/1.0/direct')) {
+            return Promise.resolve({
+              data: [
+                { name: 'San Francisco', country: 'US', lat: 37.7749, lon: -122.4194 },
+              ],
+            });
+          }
+          if (url.includes('/data/3.0/onecall')) {
+            const daily = Array.isArray(nextDaily)
+              ? nextDaily
+              : [
+                  {
+                    dt: 1735689600,
+                    temp: { min: 10, max: 18 },
+                    weather: [{ icon: '01d', description: 'clear sky' }],
+                  },
+                  {
+                    dt: 1735776000,
+                    temp: { min: 11, max: 17 },
+                    weather: [{ icon: '02d', description: 'few clouds' }],
+                  },
+                  {
+                    dt: 1735862400,
+                    temp: { min: 9, max: 15 },
+                    weather: [{ icon: '10d', description: 'rain' }],
+                  },
+                ];
+            return Promise.resolve({ data: { daily } });
+          }
+          return Promise.reject(new Error('unexpected axios url ' + url));
+        });
+        return { get };
+      });
+      ({ app } = require('../server/index'));
+      axios = require('axios');
+    });
+  }
+
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hdisplay-weather-'));
     process.env.HDS_UPLOADS_DIR = tmpDir;
-  // Ensure server uses OpenWeatherMap provider explicitly for this suite
-  const cfgPath = path.join(tmpDir, 'config.json');
-  fs.writeFileSync(cfgPath, JSON.stringify({ weather: { provider: 'openweathermap' } }));
-  process.env.HDS_CONFIG_PATH = cfgPath;
+    // Ensure server uses OpenWeatherMap provider explicitly for this suite
+    const cfgPath = path.join(tmpDir, 'config.json');
+    fs.writeFileSync(cfgPath, JSON.stringify({ weather: { provider: 'openweathermap' } }));
+    process.env.HDS_CONFIG_PATH = cfgPath;
     setEnvKey();
     nextDaily = undefined;
-    // Provide a default axios.get implementation for both endpoints
-    axios.get.mockImplementation((url, { params } = {}) => {
-      // debug
-      // eslint-disable-next-line no-console
-      console.log('[axios-mock]', url);
-      if (url.includes('/geo/1.0/direct')) {
-        return Promise.resolve({ data: [{ name: 'San Francisco', country: 'US', lat: 37.7749, lon: -122.4194 }] });
-      }
-      if (url.includes('/data/3.0/onecall')) {
-        const daily = Array.isArray(nextDaily)
-          ? nextDaily
-          : [
-              { dt: 1735689600, temp: { min: 10, max: 18 }, weather: [{ icon: '01d', description: 'clear sky' }] },
-              { dt: 1735776000, temp: { min: 11, max: 17 }, weather: [{ icon: '02d', description: 'few clouds' }] },
-              { dt: 1735862400, temp: { min: 9, max: 15 }, weather: [{ icon: '10d', description: 'rain' }] },
-            ];
-        return Promise.resolve({ data: { daily } });
-      }
-      return Promise.reject(new Error('unexpected axios url ' + url));
-    });
-    ({ app } = require('../server/index'));
+    initServer();
   });
 
   afterEach(() => {
@@ -78,8 +98,7 @@ describe('Weather API', () => {
 
   test('400 when missing api key', async () => {
     clearEnvKey();
-  jest.resetModules();
-  ({ app } = require('../server/index'));
+  initServer();
     const res = await request(app).get('/api/weather').query({ location: 'Paris', units: 'C' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/api key/i);

@@ -326,18 +326,9 @@ function registerWeatherRoutes(app) {
           console.log('[weather-debug] tomorrowio map', JSON.stringify(diag));
         } catch {}
       }
-      // Preserve prior behavior: in tests, provide a small stub if aggregation was empty
-      let finalDays = days;
-      if ((!Array.isArray(finalDays) || finalDays.length === 0) && process.env.NODE_ENV === 'test') {
-        finalDays = [
-          { date: '2025-01-01', low: 10, high: 18, icon: '01d', description: 'clear sky' },
-          { date: '2025-01-02', low: 11, high: 17, icon: '02d', description: 'few clouds' },
-          { date: '2025-01-03', low: 9, high: 15, icon: '10d', description: 'rain' },
-        ];
-      }
       const payload = {
         location: { name: coords.name, country: coords.country, lat: coords.lat, lon: coords.lon },
-        days: finalDays,
+  days,
         units,
       };
       weatherCache.set(key, { data: payload, fetchedAt: now, ttlMs: refresh * 60 * 1000 });
