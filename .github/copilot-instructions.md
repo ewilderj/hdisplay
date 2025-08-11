@@ -35,8 +35,8 @@ Notes
 
 ## Repository structure
 
-- server/ – Express app entry at server/index.js, static client in server/public/
-- cli/ – CLI entry at cli/index.js and subcommands
+- server/ – Express app (CJS entry at server/index.js for tests; ESM entry at server/index.mjs), static client in server/public/
+- cli/ – CLI shim at cli/index.js (CJS) delegates to ESM cli/index.mjs; subcommands
 - templates/ – HTML templates; validators under templates/\_validators/
 - capture/ and capture-profiles/ – Black-box capture system
 - test/ – Jest tests; tests-e2e/ – Playwright tests
@@ -45,14 +45,17 @@ Notes
 ## Coding conventions and constraints
 
 - Language/style
-  - Use modern JS targeting Node 20+. No TypeScript here unless the repo adds it explicitly.
+  - Prefer ESM (import/export) for all new code; Node 20+ is the baseline.
+  - Use CJS only where compatibility requires it (e.g., Jest require() in tests, npm bin shims). In those cases, create a tiny CJS shim that dynamically imports the ESM module and delegates.
+  - No TypeScript unless the repo adds it explicitly.
   - Prefer small, widely used dependencies; pin versions and respect existing package.json patterns.
   - Keep changes minimal and localized; avoid broad refactors in feature PRs.
 - APIs and compatibility
   - Don’t break the public HTTP API or CLI flags without updating README and tests.
   - Playlist behavior is intentional: rotation, overrides, delay clamping, and persistence to data/state.json.
   - Keep crossfade behavior client-side intact (no server coupling to transitions).
-  - Assume Node 20+ is available; do not add back-compat shims or polyfills for older Node versions (e.g., ESM/CJS interop hacks, fetch/polyfill, chalk CJS fallbacks).
+  - Assume Node 20+ is available; do not add back-compat shims or polyfills for older Node versions (e.g., fetch/polyfill, chalk CJS fallbacks).
+  - ESM-first policy: prefer .mjs (or package-level type: module in the future); if CJS consumers need stability, provide a minimal CJS shim that imports and re-exports the ESM surface without duplicating logic.
 - Security and safety
   - Service is LAN-only by design. Do not add auth unless asked; do add minimal headers sensibly if working on hardening.
   - Never ship secrets in code; prefer env vars.
@@ -142,7 +145,7 @@ Add a new template
 
 Add a new CLI command
 
-- Implement in cli/index.js; keep global options compatible
+- Implement in ESM (cli/index.mjs or subcommand .mjs) and expose via the existing CJS shim in cli/index.js. Keep global options compatible.
 - Update README with usage and examples
 - Add a Jest test that exercises the command via the API
 
@@ -161,7 +164,14 @@ Uploads/media changes
 - zsh quoting for JSON: prefer single quotes around JSON, escape inner double-quotes
 - E2E baseURL: Playwright defaults to http://localhost:3100; set BASE_URL env var if needed
 - ffmpeg optional: WEBM produced; MP4 best-effort
-- mDNS: bonjour-service must not crash server when unavailable; errors are caught
+- mDNS: bonjour-service must not crash server when unavailable; errors are caught. Keep mDNS initialization inside direct-run paths for ESM entries so tests importing the app don’t attempt to publish services.
+
+## ESM-first guidance (current exceptions)
+
+- New modules: write ESM. Prefer importing ESM versions of internal code.
+- CLI: Primary implementation is ESM in cli/index.mjs; cli/index.js is a minimal CJS shim that dynamic-imports the ESM and forwards argv.
+- Server: ESM entry exists at server/index.mjs. Tests currently require('../server/index') (CJS). Until tests move to ESM, keep server/index.js exporting { app, server } and use server/index.mjs for direct runs and tooling.
+- Do not duplicate logic between ESM and CJS; shims must be thin wrappers only.
 
 Ergonomics discipline for config/env/CLI
 
