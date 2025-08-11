@@ -122,7 +122,7 @@ Quality gates when merging:
   - Acceptance: selecting among ≥2 services works and persists to config
 
 - Dockerfile + compose
-  - Node 18+/20 slim image, expose 3000, volumes for `uploads/` and `data/`
+  - Node 20+ slim image, expose 3000, volumes for `uploads/` and `data/`
   - .dockerignore added
 
 - Systemd unit example
