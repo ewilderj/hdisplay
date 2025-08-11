@@ -1,5 +1,5 @@
 template: weather
-description: '6-day weather forecast (Tomorrow.io by default)'
+description: '7-day weather forecast (Tomorrow.io by default)'
 
 readiness_detection:
   strategy: 'text_content'
