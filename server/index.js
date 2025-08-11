@@ -105,7 +105,7 @@ const memUpload = multer({
 });
 
 // Ephemeral store served from memory (no disk persistence)
-const crypto = require('crypto');
+const nodeCrypto = require('crypto');
 const EPHEMERAL_TTL_MS = Number(process.env.HDS_EPHEMERAL_TTL_MS || 10 * 60 * 1000);
 const ephemeralStore = new Map(); // id -> { buffer, contentType, createdAt }
 
@@ -450,7 +450,7 @@ app.post('/api/push/image', memUpload.single('file'), (req, res) => {
       fs.writeFileSync(full, req.file.buffer);
       url = `/uploads/${filename}`;
     } else {
-      const id = crypto.randomUUID();
+      const id = nodeCrypto.randomUUID();
       ephemeralStore.set(id, {
         buffer: req.file.buffer,
         contentType: req.file.mimetype,
@@ -475,7 +475,7 @@ app.post('/api/push/video', memUpload.single('file'), (req, res) => {
       fs.writeFileSync(full, req.file.buffer);
       url = `/uploads/${filename}`;
     } else {
-      const id = crypto.randomUUID();
+      const id = nodeCrypto.randomUUID();
       ephemeralStore.set(id, {
         buffer: req.file.buffer,
         contentType: req.file.mimetype,
