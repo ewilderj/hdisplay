@@ -8,7 +8,7 @@ Audience: Automated assistants and humans alike. Be concise, deterministic, and 
 
 ## Quick facts
 
-- Runtime: Node.js >= 18 (Docker uses Node 20 alpine)
+- Runtime: Node.js >= 20 (Docker uses Node 20 alpine)
 - Web: Express 4 + Socket.io 4 (server) + vanilla JS client
 - CLI: Commander.js, Axios, Chalk
 - Tests: Jest + Supertest (API/unit), Playwright (E2E, optional for captures)
@@ -45,13 +45,14 @@ Notes
 ## Coding conventions and constraints
 
 - Language/style
-  - Use modern JS (Node 18+). No TypeScript here unless the repo adds it explicitly.
+  - Use modern JS targeting Node 20+. No TypeScript here unless the repo adds it explicitly.
   - Prefer small, widely used dependencies; pin versions and respect existing package.json patterns.
   - Keep changes minimal and localized; avoid broad refactors in feature PRs.
 - APIs and compatibility
   - Don’t break the public HTTP API or CLI flags without updating README and tests.
   - Playlist behavior is intentional: rotation, overrides, delay clamping, and persistence to data/state.json.
   - Keep crossfade behavior client-side intact (no server coupling to transitions).
+  - Assume Node 20+ is available; do not add back-compat shims or polyfills for older Node versions (e.g., ESM/CJS interop hacks, fetch/polyfill, chalk CJS fallbacks).
 - Security and safety
   - Service is LAN-only by design. Do not add auth unless asked; do add minimal headers sensibly if working on hardening.
   - Never ship secrets in code; prefer env vars.

@@ -234,7 +234,7 @@ function triggerOverrideAndResume() {
       playCurrentPlaylistItem();
     }
   }, delay);
-  if (typeof overrideTimer.unref === 'function') overrideTimer.unref();
+  overrideTimer.unref();
 }
 
 function validatePlaylistItem(item) {
@@ -294,7 +294,7 @@ function scheduleNextRotation() {
       playCurrentPlaylistItem();
     }
   }, delay);
-  if (typeof rotationTimer.unref === 'function') rotationTimer.unref();
+  rotationTimer.unref();
 }
 
 function startPlaylistIfActive() {
