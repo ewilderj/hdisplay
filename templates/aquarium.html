@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aquarium</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #001f3f 0%, #0074D9 100%);
+    }
+
+    #aquarium {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="aquarium"></canvas>
+  <script>
+    // Feeding event with food flakes
+    let feedingActive = false;
+    let feedingTimer = 0;
+    let foodFlakes = [];
+    const FLAKE_COUNT = 8;
+    const FEED_SEP_RADIUS = 28;
+    const FEED_SEP_RADIUS2 = FEED_SEP_RADIUS * FEED_SEP_RADIUS;
+    function triggerFeeding() {
+      feedingActive = true;
+      feedingTimer = Date.now();
+      // Drop food flakes at random x near top (slower fall)
+      foodFlakes = Array.from({ length: FLAKE_COUNT }, () => ({
+        x: randomBetween(canvas.width * 0.2, canvas.width * 0.8),
+        y: randomBetween(10, 40),
+        vy: randomBetween(0.25, 0.5), // slower descent
+        drift: randomBetween(-0.2, 0.2),
+        alpha: 1,
+        size: randomBetween(7, 13),
+        color: randomBetween(0, 1) > 0.5 ? '#ffe066' : '#ffb347',
+        active: true,
+      }));
+      for (let f of fish) f.feeding = true;
+      setTimeout(() => {
+        feedingActive = false;
+        for (let f of fish) f.feeding = false;
+        // Do not clear flakes; let them settle and fade naturally
+      }, 8000);
+    }
+    setInterval(() => {
+      if (!feedingActive) triggerFeeding();
+    }, 30000);
+
+    function updateFish(f, idx) {
+      // Phase 2 LOD: stagger fish updates across frames for performance
+      if (fishUpdateStride > 1 && (idx % fishUpdateStride) !== (frameTick % fishUpdateStride)) {
+        return;
+      }
+      // Feeding event: move toward nearest food flake if active
+      if (f.feeding && feedingActive && foodFlakes.length > 0) {
+        // Find nearest active flake
+        let minDist = 1e9, target = null;
+        for (const flake of foodFlakes) {
+          if (!flake.active) continue;
+          const dx = flake.x - f.x;
+          const dy = flake.y - f.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < minDist) {
+            minDist = dist;
+            target = flake;
+          }
+        }
+        if (target) {
+          const eatRadius = Math.max(6, (target.size || 8) * 0.6);
+          if (minDist <= eatRadius) {
+            // Eat the flake
+            target.active = false;
+          } else {
+            // Swim toward the flake with a tiny wobble so fish don't stack
+            const t = Date.now() / 500 + f.phase;
+            const ox = Math.cos(t) * 4;
+            const oy = Math.sin(t) * 3;
+            const tx = (target.x + ox) - f.x;
+            const ty = (target.y + oy) - f.y;
+            f.x += tx * 0.03;
+            f.y += ty * 0.03;
+            // Face the flake while feeding
+            if (Math.abs(tx) > 0.5) f.dir = tx > 0 ? 1 : -1;
+            // Gentle separation from nearby feeding fish (jostling)
+            let sx = 0, sy = 0;
+            for (let j = 0; j < fish.length; ++j) {
+              if (j === idx) continue;
+              const nb = fish[j];
+              if (!(nb.feeding && feedingActive)) continue;
+              const dx = f.x - nb.x;
+              const dy = f.y - nb.y;
+              const d2 = dx*dx + dy*dy;
+              if (d2 > 1 && d2 < FEED_SEP_RADIUS2) {
+                const d = Math.sqrt(d2);
+                const repel = (FEED_SEP_RADIUS - d) / FEED_SEP_RADIUS;
+                sx += (dx / d) * repel;
+                sy += (dy / d) * repel;
+              }
+            }
+            // Apply separation softly and add a touch of jitter
+            f.x += sx * 1.0 + (Math.random() - 0.5) * 0.25;
+            f.y += sy * 1.0 + (Math.random() - 0.5) * 0.2;
+          }
+        }
+      } else {
+        // Sine-wave vertical movement
+        f.y += Math.sin(Date.now() / 600 + f.phase) * 0.3 * f.dir;
+        f.x += Math.abs(f.vx) * f.dir;
+        // Simple flocking for midwater fish (zone 1)
+        if (f.zone === 1) {
+          let cx = 0, cy = 0, count = 0;
+          // Phase 2: add lightweight separation to avoid overlap
+          let sepX = 0, sepY = 0;
+          const SEP_R2 = 40 * 40;
+          for (let j = 0; j < fish.length; ++j) {
+            if (j !== idx && fish[j].zone === 1) {
+              const dx = fish[j].x - f.x;
+              const dy = fish[j].y - f.y;
+              const manhattan = Math.abs(dx) + Math.abs(dy);
+              if (manhattan < 120) {
+                cx += fish[j].x;
+                cy += fish[j].y;
+                count++;
+              }
+              const d2 = dx*dx + dy*dy;
+              if (d2 > 1 && d2 < SEP_R2) {
+                const d = Math.sqrt(d2);
+                const repel = (40 - d) / 40; // stronger when closer
+                sepX -= (dx / d) * repel;
+                sepY -= (dy / d) * repel;
+              }
+            }
+          }
+          if (count > 0) {
+            cx /= count; cy /= count;
+            f.x += (cx - f.x) * 0.002;
+            f.y += (cy - f.y) * 0.002;
+          }
+          // Apply separation softly
+          f.x += sepX * 0.6;
+          f.y += sepY * 0.6;
+        }
+      }
+      // Bounce off edges and update direction to match travel
+      if (f.x < 0) {
+        f.dir = 1;
+        f.x = 0;
+        f.vx = Math.abs(f.vx);
+      }
+      if (f.x > canvas.width) {
+        f.dir = -1;
+        f.x = canvas.width;
+        f.vx = -Math.abs(f.vx);
+      }
+      // Always face direction of travel (except while feeding)
+      if (!(f.feeding && feedingActive)) {
+        if (f.vx > 0) f.dir = 1;
+        else if (f.vx < 0) f.dir = -1;
+      }
+      // Smoothly turn toward desired direction for rendering
+      if (typeof f.face !== 'number') f.face = f.dir;
+      f.face += (f.dir - f.face) * 0.15; // turn rate
+      // Clamp to depth zone
+      if (f.zone === 0 && f.y < canvas.height * 0.12) f.y = canvas.height * 0.12;
+      if (f.zone === 0 && f.y > canvas.height * 0.25) f.y = canvas.height * 0.25;
+      if (f.zone === 1 && f.y < canvas.height * 0.35) f.y = canvas.height * 0.35;
+      if (f.zone === 1 && f.y > canvas.height * 0.65) f.y = canvas.height * 0.65;
+      if (f.zone === 2 && f.y < canvas.height * 0.7) f.y = canvas.height * 0.7;
+      if (f.zone === 2 && f.y > canvas.height * 0.88) f.y = canvas.height * 0.88;
+    }
+
+    function drawFoodFlakes() {
+      for (const flake of foodFlakes) {
+        if (!flake.active) continue;
+        ctx.save();
+        ctx.globalAlpha = flake.alpha;
+        ctx.beginPath();
+        ctx.ellipse(flake.x, flake.y, flake.size, flake.size*0.5, Math.sin(flake.x)*0.5, 0, Math.PI*2);
+        ctx.fillStyle = flake.color;
+        ctx.shadowColor = '#fff6';
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function updateFoodFlakes() {
+      for (const flake of foodFlakes) {
+        if (!flake.active) continue;
+        flake.y += flake.vy;
+        flake.x += flake.drift;
+        // Fade out and deactivate if on sand
+        if (flake.y > sandSurfaceY(flake.x) - 6) {
+          flake.alpha -= 0.04;
+          if (flake.alpha <= 0) flake.active = false;
+        }
+      }
+      // Periodic cleanup to prevent buildup
+      if (foodFlakes.length > 0 && Math.random() < 0.1) {
+        foodFlakes = foodFlakes.filter(f => f.active);
+      }
+    }
+
+    // Phase 1: Pi-optimized MVP
+    const canvas = document.getElementById('aquarium');
+    const ctx = canvas.getContext('2d');
+
+    // Phase 2: adaptive quality and staggered updates for fish (LOD)
+    let lastFrameTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    let frameTimeAvg = 16; // ms
+    let fishUpdateStride = 1; // 1=all fish, 2=half per frame, 3=third per frame
+    let frameTick = 0;
+    function adaptQuality() {
+      if (frameTimeAvg > 50) {
+        fishUpdateStride = 3;
+      } else if (frameTimeAvg > 40) {
+        fishUpdateStride = 2;
+      } else {
+        fishUpdateStride = 1;
+      }
+    }
+
+    // Day/night cycle via CSS filter on the canvas (Phase 2)
+    function applyDayNight() {
+      const cycleMs = 10 * 60 * 1000; // 10 minutes
+      const t = Date.now() % cycleMs;
+      const phase = t / cycleMs; // 0..1
+      // Brightness varies between ~0.7 (night) and ~1.0 (day)
+      const brightness = 0.85 + 0.15 * Math.cos(2 * Math.PI * phase);
+      // Subtle saturation and hue drift for mood
+      const saturate = 0.95 + 0.08 * Math.cos(2 * Math.PI * (phase + 0.25));
+      const hue = 4 + 6 * Math.cos(2 * Math.PI * (phase + 0.5));
+      canvas.style.filter = `brightness(${brightness.toFixed(2)}) saturate(${saturate.toFixed(2)}) hue-rotate(${hue.toFixed(1)}deg)`;
+    }
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Fish species/colors
+    const FISH_COLORS = ['#FFDC00', '#7FDBFF', '#FF4136'];
+    const FISH_COUNT = 14; // Phase 2: slightly larger population (15-20 total with other creatures)
+    const FISH_SHAPES = [
+      // [bodyLength, bodyHeight, tailLength, tailHeight]
+      [60, 24, 18, 16],
+      [48, 18, 14, 12],
+      [54, 20, 16, 14]
+    ];
+
+    // Phase 2: Add jellyfish, turtle, crab, feeding event, improved flocking, depth-based behaviors
+    const JELLYFISH_COUNT = 2;
+    const TURTLE_COUNT = 1;
+    const CRAB_COUNT = 2; // Phase 2: 1-2 crabs
+
+    function randomBetween(a, b) {
+      return a + Math.random() * (b - a);
+    }
+
+    function makeFish(i) {
+      const species = i % FISH_SHAPES.length;
+      const vx = randomBetween(0.7, 1.2) * (Math.random() < 0.5 ? 1 : -1);
+      // Assign depth zone: 0=surface, 1=mid, 2=bottom
+      const zone = i < 4 ? 0 : (i < 7 ? 1 : 2);
+      let y;
+      if (zone === 0) y = randomBetween(canvas.height * 0.12, canvas.height * 0.25);
+      else if (zone === 1) y = randomBetween(canvas.height * 0.35, canvas.height * 0.65);
+      else y = randomBetween(canvas.height * 0.7, canvas.height * 0.88);
+      return {
+        x: randomBetween(0, canvas.width),
+        y,
+        vx,
+        vy: randomBetween(-0.2, 0.2),
+        color: FISH_COLORS[species],
+        shape: FISH_SHAPES[species],
+        dir: vx >= 0 ? 1 : -1,
+        face: vx >= 0 ? 1 : -1, // smooth facing for turn animation
+        phase: Math.random() * Math.PI * 2,
+        zone,
+        feeding: false
+      };
+    }
+
+    let fish = Array.from({length: FISH_COUNT}, (_, i) => makeFish(i));
+
+    // Jellyfish
+    function makeJelly(i) {
+      return {
+        x: randomBetween(canvas.width * 0.1, canvas.width * 0.9),
+        y: randomBetween(canvas.height * 0.15, canvas.height * 0.5),
+        phase: Math.random() * Math.PI * 2,
+        speed: randomBetween(0.1, 0.2),
+        size: randomBetween(28, 38),
+        color: 'rgba(127,219,255,0.25)'
+      };
+    }
+    let jellyfish = Array.from({length: JELLYFISH_COUNT}, (_, i) => makeJelly(i));
+
+    // Turtle
+    function makeTurtle() {
+      return {
+        x: randomBetween(-100, canvas.width * 0.2),
+        y: randomBetween(canvas.height * 0.3, canvas.height * 0.7),
+        vx: randomBetween(0.3, 0.5),
+        dir: 1,
+        size: 44
+      };
+    }
+    let turtles = Array.from({length: TURTLE_COUNT}, makeTurtle);
+
+    // Crab
+    function makeCrab() {
+      return {
+        x: randomBetween(0, canvas.width * 0.8),
+        y: canvas.height * 0.93,
+        vx: randomBetween(0.2, 0.4),
+        dir: Math.random() < 0.5 ? 1 : -1,
+        size: 22
+      };
+    }
+    let crabs = Array.from({length: CRAB_COUNT}, makeCrab);
+
+    function drawFish(f) {
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      // Depth-based size scaling (Phase 2): bottom dwellers slightly larger
+      const sizeScale = f.zone === 0 ? 0.95 : (f.zone === 1 ? 1.0 : 1.08);
+      // Smooth turning: render scale follows face with a minimum thickness during turn
+      const sx = Math.sign(f.face || f.dir) * Math.max(0.35, Math.abs(f.face || f.dir));
+      ctx.scale(sx * sizeScale, sizeScale);
+      // Use face to bias swim wiggle so it aligns with current facing
+      ctx.rotate(Math.sin(Date.now() / 800 + f.phase) * 0.08 * Math.sign(sx));
+      // Body gradient
+      const grad = ctx.createLinearGradient(-f.shape[0]/2, 0, f.shape[0]/2, 0);
+      grad.addColorStop(0, '#fff8');
+      grad.addColorStop(0.2, f.color);
+      grad.addColorStop(1, '#2228');
+      ctx.beginPath();
+      ctx.ellipse(0, 0, f.shape[0]/2, f.shape[1]/2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      // Top fin
+      ctx.beginPath();
+      ctx.moveTo(-f.shape[0]*0.1, -f.shape[1]/2);
+      ctx.lineTo(0, -f.shape[1]*0.9);
+      ctx.lineTo(f.shape[0]*0.1, -f.shape[1]/2);
+      ctx.closePath();
+      ctx.fillStyle = '#fff5';
+      ctx.globalAlpha = 0.7;
+      ctx.fill();
+      // Tail (with highlight)
+      ctx.beginPath();
+      ctx.moveTo(-f.shape[0]/2, 0);
+      ctx.lineTo(-f.shape[0]/2 - f.shape[2], -f.shape[3]/2);
+      ctx.lineTo(-f.shape[0]/2 - f.shape[2], f.shape[3]/2);
+      ctx.closePath();
+      const tailGrad = ctx.createLinearGradient(-f.shape[0]/2 - f.shape[2], 0, -f.shape[0]/2, 0);
+      tailGrad.addColorStop(0, '#fff7');
+      tailGrad.addColorStop(1, '#333b');
+      ctx.fillStyle = tailGrad;
+      ctx.globalAlpha = 0.8;
+      ctx.fill();
+      // Side fin
+      ctx.beginPath();
+      ctx.ellipse(-f.shape[0]*0.1, f.shape[1]*0.25, f.shape[0]*0.13, f.shape[1]*0.18, Math.PI/6, 0, Math.PI*2);
+      ctx.fillStyle = '#fff6';
+      ctx.globalAlpha = 0.5;
+      ctx.fill();
+      // Mouth (smile or frown for personality)
+      ctx.beginPath();
+      ctx.arc(f.shape[0]/3, f.shape[1]*0.13, 4, Math.PI*0.15, Math.PI*0.85, false);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#222a';
+      ctx.globalAlpha = 0.8;
+      ctx.stroke();
+      // Eye (with highlight)
+      ctx.beginPath();
+      ctx.arc(f.shape[0]/4, -f.shape[1]/6, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.globalAlpha = 1;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(f.shape[0]/4 + 1, -f.shape[1]/6 - 1, 1, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.7;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Sand and rocks at the bottom
+    const sandHeight = 38;
+    const rocks = [
+      { x: 0.18, w: 0.09, h: 0.04, color: '#888' },
+      { x: 0.32, w: 0.07, h: 0.03, color: '#aaa' },
+      { x: 0.5, w: 0.13, h: 0.06, color: '#666' },
+      { x: 0.7, w: 0.08, h: 0.04, color: '#bbb' },
+      { x: 0.82, w: 0.06, h: 0.03, color: '#999' }
+    ];
+
+    function sandSurfaceY(x) {
+      // Sand is a slightly wavy line
+      const base = canvas.height - sandHeight + Math.sin(x/90) * 4;
+      // Add rock bumps
+      for (const r of rocks) {
+        const rx = canvas.width * r.x;
+        const rw = canvas.width * r.w;
+        if (x > rx - rw/2 && x < rx + rw/2) {
+          const rel = (x - rx) / (rw/2);
+          return base - Math.sqrt(1 - rel*rel) * r.h * canvas.height * 0.7;
+        }
+      }
+      return base;
+    }
+
+    function drawSandAndRocks() {
+      // Sand
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height);
+      for (let x = 0; x <= canvas.width; x += 8) {
+        ctx.lineTo(x, sandSurfaceY(x));
+      }
+      ctx.lineTo(canvas.width, canvas.height);
+      ctx.closePath();
+      const sandGrad = ctx.createLinearGradient(0, canvas.height-sandHeight, 0, canvas.height);
+      sandGrad.addColorStop(0, '#ffeabf');
+      sandGrad.addColorStop(1, '#e2c48d');
+      ctx.fillStyle = sandGrad;
+      ctx.globalAlpha = 0.95;
+      ctx.fill();
+      // Rocks
+      for (const r of rocks) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(canvas.width*r.x, canvas.height-sandHeight*0.5, canvas.width*r.w/2, canvas.height*r.h/2, 0, 0, Math.PI*2);
+        ctx.fillStyle = r.color;
+        ctx.globalAlpha = 0.7;
+        ctx.shadowColor = '#2226';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    function drawCoral() {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#FF851B';
+      ctx.beginPath();
+      ctx.moveTo(canvas.width * 0.1, canvas.height);
+      ctx.bezierCurveTo(canvas.width * 0.12, canvas.height * 0.8, canvas.width * 0.15, canvas.height * 0.7, canvas.width * 0.13, canvas.height * 0.5);
+      ctx.lineTo(canvas.width * 0.14, canvas.height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(canvas.width * 0.2, canvas.height);
+      ctx.bezierCurveTo(canvas.width * 0.22, canvas.height * 0.85, canvas.width * 0.25, canvas.height * 0.8, canvas.width * 0.23, canvas.height * 0.6);
+      ctx.lineTo(canvas.width * 0.24, canvas.height);
+      ctx.closePath();
+      ctx.fill();
+      // Extra coral for phase 2
+      ctx.beginPath();
+      ctx.moveTo(canvas.width * 0.85, canvas.height);
+      ctx.bezierCurveTo(canvas.width * 0.87, canvas.height * 0.8, canvas.width * 0.9, canvas.height * 0.7, canvas.width * 0.88, canvas.height * 0.5);
+      ctx.lineTo(canvas.width * 0.89, canvas.height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // Draw jellyfish
+    function drawJelly(j) {
+      ctx.save();
+      ctx.translate(j.x, j.y);
+      // Bell with radial gradient
+      const bellGrad = ctx.createRadialGradient(0, 0, j.size*0.1, 0, 0, j.size*0.6);
+      bellGrad.addColorStop(0, '#fff9');
+      bellGrad.addColorStop(0.5, j.color);
+      bellGrad.addColorStop(1, '#7FDBFF22');
+      ctx.beginPath();
+      ctx.ellipse(0, 0, j.size * 0.6, j.size * 0.4 + Math.sin(Date.now()/700 + j.phase)*2, 0, Math.PI, 2*Math.PI);
+      ctx.fillStyle = bellGrad;
+      ctx.globalAlpha = 0.8;
+      ctx.fill();
+      // Bell highlight
+      ctx.beginPath();
+      ctx.ellipse(-j.size*0.15, -j.size*0.08, j.size*0.18, j.size*0.09, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#fff7';
+      ctx.globalAlpha = 0.5;
+      ctx.fill();
+      // Tentacles (wavy, more detail)
+      ctx.globalAlpha = 0.35;
+      for (let t = 0; t < 7; ++t) {
+        ctx.beginPath();
+        ctx.moveTo(Math.sin(t)*j.size*0.3, j.size*0.1);
+        ctx.bezierCurveTo(
+          Math.sin(t)*j.size*0.3 + Math.sin(Date.now()/500 + t + j.phase)*8,
+          j.size*0.3,
+          Math.sin(t)*j.size*0.3 + Math.cos(Date.now()/400 + t + j.phase)*8,
+          j.size*0.7,
+          Math.sin(t)*j.size*0.3,
+          j.size*0.9
+        );
+        ctx.strokeStyle = '#7FDBFF';
+        ctx.lineWidth = 1.5 - 0.15*t;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Draw turtle
+    function drawTurtle(t) {
+      ctx.save();
+      ctx.translate(t.x, t.y);
+      ctx.scale(t.dir, 1);
+      // Shell with pattern
+      const shellGrad = ctx.createRadialGradient(0, 0, t.size*0.2, 0, 0, t.size);
+      shellGrad.addColorStop(0, '#fff8');
+      shellGrad.addColorStop(0.5, '#3D9970');
+      shellGrad.addColorStop(1, '#155a3a');
+      ctx.beginPath();
+      ctx.ellipse(0, 0, t.size, t.size*0.6, 0, 0, Math.PI*2);
+      ctx.fillStyle = shellGrad;
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+      // Shell pattern spots
+      ctx.globalAlpha = 0.3;
+      for (let i = 0; i < 5; ++i) {
+        ctx.beginPath();
+        ctx.ellipse(Math.cos(i)*t.size*0.4, Math.sin(i)*t.size*0.2, t.size*0.18, t.size*0.09, 0, 0, Math.PI*2);
+        ctx.fillStyle = '#2ECC40';
+        ctx.fill();
+      }
+      // Head (with smile)
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.ellipse(t.size*0.9, 0, t.size*0.25, t.size*0.18, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#2ECC40';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(t.size*0.98, t.size*0.05, 5, Math.PI*0.15, Math.PI*0.85, false);
+      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = '#155a3a';
+      ctx.stroke();
+      // Eye
+      ctx.beginPath();
+      ctx.arc(t.size*1.05, -t.size*0.05, 2.5, 0, Math.PI*2);
+      ctx.fillStyle = '#222';
+      ctx.globalAlpha = 1;
+      ctx.fill();
+      // Flippers
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.ellipse(-t.size*0.5, t.size*0.4, t.size*0.18, t.size*0.08, 0, 0, Math.PI*2);
+      ctx.ellipse(t.size*0.5, t.size*0.4, t.size*0.18, t.size*0.08, 0, 0, Math.PI*2);
+      ctx.ellipse(-t.size*0.5, -t.size*0.4, t.size*0.18, t.size*0.08, 0, 0, Math.PI*2);
+      ctx.ellipse(t.size*0.5, -t.size*0.4, t.size*0.18, t.size*0.08, 0, 0, Math.PI*2);
+      ctx.fillStyle = '#2ECC40';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw crab (reworked for balance; solid filled mouth)
+    function drawCrab(c) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.scale(c.dir, 1);
+
+      // Dimensions
+      const bodyW = c.size * 0.9;
+      const bodyH = c.size * 0.55;
+
+      // Draw legs behind body
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#b92a22';
+      ctx.lineWidth = 2;
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 3; i++) {
+          const y = -2 + i * 4;
+          ctx.beginPath();
+          ctx.moveTo(side * bodyW * 0.5, y);
+          ctx.quadraticCurveTo(
+            side * bodyW * (0.9 + 0.14 * i),
+            y - 3,
+            side * bodyW * (1.2 + 0.16 * i),
+            y + 6
+          );
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      // Arms + claws
+      ctx.save();
+      ctx.strokeStyle = '#a31b14';
+      ctx.lineWidth = 2.5;
+      for (const side of [-1, 1]) {
+        const ax = side * bodyW * 0.6;
+        const ay = -bodyH * 0.05;
+        const hx = side * bodyW * 1.08;
+        const hy = -bodyH * 0.18;
+        // arm
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.quadraticCurveTo(side * bodyW * 0.9, ay - 6, hx, hy);
+        ctx.stroke();
+        // pincer (two filled lobes)
+        ctx.save();
+        ctx.translate(hx, hy);
+        ctx.rotate(side * 0.12);
+        ctx.fillStyle = '#e03a2f';
+        ctx.beginPath();
+        ctx.ellipse(-side * 6, -2, 7, 4, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(-side * 2, 3, 6, 3.5, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+
+      // Body (shell) with subtle radial gradient and outline
+      const shellGrad = ctx.createRadialGradient(0, -bodyH * 0.2, bodyW * 0.1, 0, 0, bodyW);
+      shellGrad.addColorStop(0, '#ff6b5a');
+      shellGrad.addColorStop(0.5, '#ff3b2f');
+      shellGrad.addColorStop(1, '#b0120d');
+      ctx.fillStyle = shellGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, bodyW, bodyH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#7a0f0f';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Mouth: filled smile (not transparent)
+      ctx.fillStyle = '#7a0f0f';
+      const r = Math.max(5, c.size * 0.27 * 0.5);
+      const my = bodyH * 0.15;
+      ctx.beginPath();
+      ctx.arc(0, my, r, Math.PI * 0.15, Math.PI * 0.85, false);
+      // give thickness by offset curve
+      const endX = r * Math.cos(Math.PI * 0.85);
+      const startX = r * Math.cos(Math.PI * 0.15);
+      ctx.lineTo(endX, my + 2);
+      ctx.arc(0, my + 2, r - 1.5, Math.PI * 0.85, Math.PI * 0.15, true);
+      ctx.lineTo(startX, my);
+      ctx.closePath();
+      ctx.fill();
+
+      // Eye stalks and eyes
+      for (const side of [-1, 1]) {
+        const ex = side * bodyW * 0.25;
+        const eyTop = -bodyH * 0.35;
+        ctx.strokeStyle = '#7a0f0f';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(ex, -bodyH * 0.12);
+        ctx.lineTo(ex, eyTop + 2);
+        ctx.stroke();
+        // eye
+        ctx.beginPath();
+        ctx.arc(ex, eyTop, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#111';
+        ctx.fill();
+        // highlight
+        ctx.beginPath();
+        ctx.arc(ex + 1, eyTop - 1, 1, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawBubbles() {
+      // Simple static bubbles for MVP
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 8; ++i) {
+        ctx.beginPath();
+        ctx.arc(canvas.width * 0.15 + Math.sin(Date.now()/1000 + i)*8, canvas.height * 0.7 - i*30 - (Date.now()/30)%canvas.height*0.01, 6-i*0.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function updateJelly(j) {
+      j.y += Math.sin(Date.now()/1200 + j.phase) * 0.15;
+      j.x += Math.sin(Date.now()/1800 + j.phase) * 0.08;
+      if (j.y < canvas.height * 0.1) j.y = canvas.height * 0.1;
+      if (j.y > canvas.height * 0.7) j.y = canvas.height * 0.7;
+    }
+
+    function updateTurtle(t, idx) {
+      if (idx % 5 !== (Math.floor(Date.now()/1000)%5)) return; // update every 5th frame
+      t.x += t.vx * t.dir;
+      if (t.x > canvas.width + 100) {
+        t.x = -100;
+        t.y = randomBetween(canvas.height * 0.3, canvas.height * 0.7);
+      }
+    }
+
+    function updateCrab(c) {
+      c.x += c.vx * c.dir;
+      if (c.x < 0) { c.dir = 1; c.x = 0; }
+      if (c.x > canvas.width - 20) { c.dir = -1; c.x = canvas.width - 20; }
+      // Make crab crawl over sand/rocks
+      const ySurf = sandSurfaceY(c.x);
+      // Add a little bobble for legs
+      c.y = ySurf - 2 + Math.sin(Date.now()/300 + c.x/40)*2;
+    }
+
+    function loop() {
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      const dt = now - lastFrameTime;
+      lastFrameTime = now;
+      frameTimeAvg = frameTimeAvg * 0.9 + dt * 0.1;
+      adaptQuality();
+      frameTick++;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      applyDayNight(); // Phase 2: update day/night filter
+      drawSandAndRocks();
+      drawCoral();
+      drawBubbles();
+      // Phase 2 creatures
+      for (let i = 0; i < jellyfish.length; ++i) {
+        updateJelly(jellyfish[i]);
+        drawJelly(jellyfish[i]);
+      }
+      for (let i = 0; i < turtles.length; ++i) {
+        updateTurtle(turtles[i], i);
+        drawTurtle(turtles[i]);
+      }
+      for (let i = 0; i < crabs.length; ++i) {
+        updateCrab(crabs[i]);
+        drawCrab(crabs[i]);
+      }
+      // Fish
+      for (let i = 0; i < fish.length; ++i) {
+        updateFish(fish[i], i);
+        drawFish(fish[i]);
+      }
+      // Feeding event visual: food flakes
+      if (feedingActive || foodFlakes.length > 0) {
+        updateFoodFlakes();
+        drawFoodFlakes();
+      }
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>
