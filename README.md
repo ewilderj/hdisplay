@@ -18,6 +18,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Snake](#snake-auto-play)
   - [TimeLeft](#timeleft-meeting-countdown)
   - [Weather](#weather-7-day-forecast)
+  - [Aquarium](#aquarium-ambient-simulation)
 - [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
@@ -45,6 +46,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - Snake (auto-play, ambient)
   - TimeLeft (meeting minutes remaining)
   - Weather (7-day forecast)
+  - Aquarium (ambient canvas simulation)
 - Assets & media:
   - Upload/download/delete files under `/uploads`
   - Push image/video from file or URL and display immediately (ephemeral, no disk write unless requested)
@@ -353,6 +355,28 @@ Notes
 - If you see HTTP 401 from `/api/weather`, your API key is missing or invalid. 404 indicates the location couldn’t be geocoded.
 - Coordinates (`lat,lon`) skip geocoding and are most reliable.
 - When using Tomorrow.io, condition icons are based on `weatherCodeMax` for each day and mapped to OWM-style icon families for consistency.
+
+### Aquarium (ambient simulation)
+
+A self-contained canvas aquarium with fish, jellyfish, a turtle, and crabs. Includes a gentle day/night cycle, periodic feeding with food flakes (about every 2.5 minutes), simple flocking, and adaptive quality for Raspberry Pi.
+
+```bash
+# No data required
+hdisplay template aquarium
+```
+
+Preview
+
+![aquarium preview](captures/screenshots/aquarium.png)
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/aquarium.mp4)
+
+Notes
+
+- Creatures: mixed fish across depth zones, 2 jellyfish, 1 turtle, and 2 crabs
+- Behaviors: nearest-flake feeding with “jostling” separation, smooth turning, lightweight flocking for midwater fish
+- Atmosphere: sand, rocks/coral, bubbles; subtle day/night filter
+- Performance: adaptive LOD staggers fish updates based on frame time
 
 ## Playlists
 
