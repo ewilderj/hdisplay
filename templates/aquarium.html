@@ -296,18 +296,32 @@
       if (zone === 0) y = randomBetween(canvas.height * 0.12, canvas.height * 0.25);
       else if (zone === 1) y = randomBetween(canvas.height * 0.35, canvas.height * 0.65);
       else y = randomBetween(canvas.height * 0.7, canvas.height * 0.88);
+
+      // Species kind selection (weighted): standard > puffer/angel/striped
+      const r = Math.random();
+      const kind = r < 0.55 ? 'standard' : r < 0.7 ? 'puffer' : r < 0.85 ? 'angelfish' : 'striped';
+      const PALETTES = {
+        standard: FISH_COLORS,
+        puffer: ['#F5C542', '#E67E22', '#2ECC71', '#E74C3C'],
+        angelfish: ['#F1C40F', '#ECF0F1', '#2C3E50', '#34495E'],
+        striped: ['#00D1FF', '#00FFA3', '#00B7FF', '#92FE9D'],
+      };
+      const palette = PALETTES[kind] || FISH_COLORS;
+      const color = palette[(Math.random() * palette.length) | 0];
+
       return {
         x: randomBetween(0, canvas.width),
         y,
         vx,
         vy: randomBetween(-0.2, 0.2),
-        color: FISH_COLORS[species],
+        color,
         shape: FISH_SHAPES[species],
         dir: vx >= 0 ? 1 : -1,
         face: vx >= 0 ? 1 : -1, // smooth facing for turn animation
         phase: Math.random() * Math.PI * 2,
         zone,
-        feeding: false
+        feeding: false,
+        kind,
       };
     }
 
@@ -350,17 +364,20 @@
     }
     let crabs = Array.from({length: CRAB_COUNT}, makeCrab);
 
-    function drawFish(f) {
+    // Shared transform for fish rendering (scale/rotation based on facing and zone)
+    function renderFishTransformed(f, drawBody) {
       ctx.save();
       ctx.translate(f.x, f.y);
-      // Depth-based size scaling (Phase 2): bottom dwellers slightly larger
       const sizeScale = f.zone === 0 ? 0.95 : (f.zone === 1 ? 1.0 : 1.08);
-      // Smooth turning: render scale follows face with a minimum thickness during turn
       const sx = Math.sign(f.face || f.dir) * Math.max(0.35, Math.abs(f.face || f.dir));
       ctx.scale(sx * sizeScale, sizeScale);
-      // Use face to bias swim wiggle so it aligns with current facing
       ctx.rotate(Math.sin(Date.now() / 800 + f.phase) * 0.08 * Math.sign(sx));
-      // Body gradient
+      drawBody();
+      ctx.restore();
+    }
+
+    function drawBodyStandard(f) {
+      // Body
       const grad = ctx.createLinearGradient(-f.shape[0]/2, 0, f.shape[0]/2, 0);
       grad.addColorStop(0, '#fff8');
       grad.addColorStop(0.2, f.color);
@@ -379,7 +396,7 @@
       ctx.fillStyle = '#fff5';
       ctx.globalAlpha = 0.7;
       ctx.fill();
-      // Tail (with highlight)
+      // Tail
       ctx.beginPath();
       ctx.moveTo(-f.shape[0]/2, 0);
       ctx.lineTo(-f.shape[0]/2 - f.shape[2], -f.shape[3]/2);
@@ -397,14 +414,14 @@
       ctx.fillStyle = '#fff6';
       ctx.globalAlpha = 0.5;
       ctx.fill();
-      // Mouth (smile or frown for personality)
+      // Mouth
       ctx.beginPath();
       ctx.arc(f.shape[0]/3, f.shape[1]*0.13, 4, Math.PI*0.15, Math.PI*0.85, false);
       ctx.lineWidth = 1.2;
       ctx.strokeStyle = '#222a';
       ctx.globalAlpha = 0.8;
       ctx.stroke();
-      // Eye (with highlight)
+      // Eye
       ctx.beginPath();
       ctx.arc(f.shape[0]/4, -f.shape[1]/6, 3, 0, Math.PI * 2);
       ctx.fillStyle = '#222';
@@ -415,7 +432,175 @@
       ctx.fillStyle = '#fff';
       ctx.globalAlpha = 0.7;
       ctx.fill();
+    }
+
+    function drawBodyPuffer(f) {
+      const base = 18;
+      const pulse = 1 + 0.05 * Math.sin(Date.now() / 600 + f.phase);
+      const R = base * pulse;
+      // Spikes
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = '#c03a2b88';
+      ctx.lineWidth = 2;
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+        const x1 = Math.cos(a) * (R + 0);
+        const y1 = Math.sin(a) * (R + 0);
+        const x2 = Math.cos(a) * (R + 6);
+        const y2 = Math.sin(a) * (R + 6);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
       ctx.restore();
+      // Body
+      const g = ctx.createRadialGradient(-R*0.2, -R*0.2, R*0.2, 0, 0, R);
+      g.addColorStop(0, '#fff8');
+      g.addColorStop(0.4, f.color);
+      g.addColorStop(1, '#3338');
+      ctx.beginPath();
+      ctx.ellipse(0, 0, R * 1.05, R, 0, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.globalAlpha = 0.95;
+      ctx.fill();
+      // Fins
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.ellipse(-R * 0.4, R * 0.2, R * 0.35, R * 0.18, Math.PI / 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff6';
+      ctx.fill();
+      // Mouth (small circle)
+      ctx.beginPath();
+      ctx.arc(R * 0.7, 0, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#222a';
+      ctx.globalAlpha = 0.8;
+      ctx.fill();
+      // Eye
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(R * 0.45, -R * 0.25, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(R * 0.45 + 1, -R * 0.25 - 1, 1, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.7;
+      ctx.fill();
+    }
+
+    function drawBodyAngelfish(f) {
+      const L = 52; // length
+      const H = 34; // height
+      // Body (diamond)
+      const g = ctx.createLinearGradient(-L*0.5, 0, L*0.5, 0);
+      g.addColorStop(0, '#fff7');
+      g.addColorStop(0.25, f.color);
+      g.addColorStop(1, '#2228');
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.35, 0);
+      ctx.lineTo(0, -H * 0.65);
+      ctx.lineTo(L * 0.5, 0);
+      ctx.lineTo(0, H * 0.65);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      // Tall dorsal fin
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.1, -H * 0.65);
+      ctx.lineTo(L * 0.2, -H * 1.3);
+      ctx.lineTo(L * 0.35, -H * 0.35);
+      ctx.closePath();
+      ctx.fillStyle = '#fff5';
+      ctx.globalAlpha = 0.6;
+      ctx.fill();
+      // Ventral fin
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.05, H * 0.65);
+      ctx.lineTo(L * 0.22, H * 1.2);
+      ctx.lineTo(L * 0.34, H * 0.35);
+      ctx.closePath();
+      ctx.fillStyle = '#fff5';
+      ctx.globalAlpha = 0.6;
+      ctx.fill();
+      // Tail
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.5, 0);
+      ctx.lineTo(-L * 0.78, -H * 0.28);
+      ctx.lineTo(-L * 0.78, H * 0.28);
+      ctx.closePath();
+      ctx.fillStyle = '#3338';
+      ctx.globalAlpha = 0.8;
+      ctx.fill();
+      // Eye & mouth
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(L * 0.28, -H * 0.18, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(L * 0.35, H * 0.1, 3, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.strokeStyle = '#222a';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    function drawBodyStriped(f) {
+      const L = 56;
+      const H = 18;
+      // Body
+      const g = ctx.createLinearGradient(-L/2, 0, L/2, 0);
+      g.addColorStop(0, '#fff8');
+      g.addColorStop(0.2, f.color);
+      g.addColorStop(1, '#2228');
+      ctx.beginPath();
+      ctx.ellipse(0, 0, L/2, H/2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.globalAlpha = 0.94;
+      ctx.fill();
+      // Vertical stripes (3 light bands)
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = '#ffffff';
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        const x = (i * L) / 6;
+        ctx.ellipse(x, 0, L * 0.06, H * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Tail
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-L/2, 0);
+      ctx.lineTo(-L/2 - 14, -H/2);
+      ctx.lineTo(-L/2 - 14, H/2);
+      ctx.closePath();
+      ctx.fillStyle = '#3339';
+      ctx.fill();
+      // Fin
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.ellipse(-L * 0.1, H * 0.5, L * 0.12, H * 0.5, Math.PI / 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff6';
+      ctx.fill();
+      // Eye
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(L * 0.25, -H * 0.35, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#222';
+      ctx.fill();
+    }
+
+    function drawFish(f) {
+      if (f.kind === 'puffer') {
+        renderFishTransformed(f, () => drawBodyPuffer(f));
+      } else if (f.kind === 'angelfish') {
+        renderFishTransformed(f, () => drawBodyAngelfish(f));
+      } else if (f.kind === 'striped') {
+        renderFishTransformed(f, () => drawBodyStriped(f));
+      } else {
+        renderFishTransformed(f, () => drawBodyStandard(f));
+      }
     }
 
     // Sand and rocks at the bottom

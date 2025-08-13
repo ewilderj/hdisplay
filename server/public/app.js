@@ -38,11 +38,22 @@
   function executeScripts(container) {
     const scripts = container.querySelectorAll('script');
     scripts.forEach((oldScript) => {
+      const src = oldScript.getAttribute('src');
+      const type = (oldScript.getAttribute('type') || 'text/javascript').toLowerCase();
+      if (src) {
+        // For external scripts, recreate the element to trigger loading
+        const newScript = document.createElement('script');
+        for (const { name, value } of Array.from(oldScript.attributes))
+          newScript.setAttribute(name, value);
+        oldScript.replaceWith(newScript);
+        return;
+      }
+      // Inline script: wrap in an IIFE to avoid global redeclaration on swaps
+      const code = oldScript.textContent || '';
+      const wrapped = `(function(){\n${code}\n})();\n//# sourceURL=hdisplay-template-inline.js`;
       const newScript = document.createElement('script');
-      // copy attributes
-      for (const { name, value } of Array.from(oldScript.attributes))
-        newScript.setAttribute(name, value);
-      newScript.text = oldScript.textContent;
+      newScript.type = type;
+      newScript.text = wrapped;
       oldScript.replaceWith(newScript);
     });
   }
