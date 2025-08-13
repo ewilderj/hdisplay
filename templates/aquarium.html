@@ -31,6 +31,19 @@
     const FLAKE_COUNT = 8;
     const FEED_SEP_RADIUS = 28;
     const FEED_SEP_RADIUS2 = FEED_SEP_RADIUS * FEED_SEP_RADIUS;
+    const FEED_PERIOD_MS = 30000; // desired cadence (feed+gap total)
+    const FEED_ACTIVE_MS = 8000;  // how long fish actively feed
+    const FEED_JITTER_MS = 1500;  // small randomness to avoid lockstep
+    let feedTimeoutId = null;
+
+    function scheduleNextFeed(delayMs) {
+      try { if (feedTimeoutId) clearTimeout(feedTimeoutId); } catch {}
+      const jitter = Math.random() * FEED_JITTER_MS;
+      feedTimeoutId = setTimeout(() => {
+        if (!feedingActive) triggerFeeding();
+      }, Math.max(0, delayMs) + jitter);
+    }
+
     function triggerFeeding() {
       feedingActive = true;
       feedingTimer = Date.now();
@@ -46,15 +59,18 @@
         active: true,
       }));
       for (let f of fish) f.feeding = true;
+      // End feeding after active window, then schedule next feed after gap
       setTimeout(() => {
         feedingActive = false;
         for (let f of fish) f.feeding = false;
         // Do not clear flakes; let them settle and fade naturally
-      }, 8000);
+        const gap = Math.max(0, FEED_PERIOD_MS - FEED_ACTIVE_MS);
+        scheduleNextFeed(gap);
+      }, FEED_ACTIVE_MS);
     }
-    setInterval(() => {
-      if (!feedingActive) triggerFeeding();
-    }, 30000);
+
+    // Kick off first feed with a small initial delay
+    scheduleNextFeed(randomBetween(3000, 6000));
 
     function updateFish(f, idx) {
       // Phase 2 LOD: stagger fish updates across frames for performance
