@@ -358,11 +358,20 @@ Notes
 
 ### Aquarium (ambient simulation)
 
-A self-contained canvas aquarium with fish, jellyfish, a turtle, and crabs. Includes a gentle day/night cycle, periodic feeding with food flakes (about every 2.5 minutes), simple flocking, and adaptive quality for Raspberry Pi.
+A self-contained canvas aquarium with fish, jellyfish, a turtle, and crabs. Includes a gentle day/night cycle (configurable), periodic feeding with food flakes (about every 2.5 minutes), simple flocking, and adaptive quality for Raspberry Pi.
 
 ```bash
-# No data required
+# No data required (day/night OFF by default)
 hdisplay template aquarium
+
+# Enable day/night with default 10-minute cycle
+hdisplay template aquarium --dayNight true
+
+# Or nested form and custom cycle (milliseconds)
+hdisplay template aquarium --dayNight.enabled true --dayNight.cycleMs 600000
+
+# Using JSON
+hdisplay template aquarium --data '{"dayNight": {"enabled": true, "cycleMs": 600000}}'
 ```
 
 Preview
@@ -375,7 +384,7 @@ Notes
 
 - Creatures: mixed fish across depth zones, 2 jellyfish, 1 turtle, and 2 crabs
 - Behaviors: nearest-flake feeding with “jostling” separation, smooth turning, lightweight flocking for midwater fish
-- Atmosphere: sand, rocks/coral, bubbles; subtle day/night filter
+- Atmosphere: sand, rocks/coral, bubbles; optional day/night filter (off by default; when enabled, default cycle ~10 minutes)
 - Performance: adaptive LOD staggers fish updates based on frame time
 
 ## Playlists
