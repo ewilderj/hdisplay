@@ -691,3 +691,273 @@ Success Criteria
 - Supports both Celsius and Fahrenheit units
 - Works with city names, zip codes, and coordinates
 - Respects OpenWeatherMap rate limits through caching
+
+### Aquarium Template Specification
+
+An autonomous aquarium simulation featuring a variety of marine life with smooth, natural movement patterns. The template creates a serene underwater environment with realistic behaviors while maintaining visual appeal through clean, modern aesthetics.
+
+Visual Design
+
+Style: Elegant and refined, avoiding cartoon-like elements
+Color palette: Deep ocean blues (#001f3f to #0074D9) with subtle gradients
+Lighting: Caustic light patterns on the sea floor, gentle ambient glow
+Particles: Occasional bubbles rising to surface, subtle floating particulates for depth
+Marine Life Varieties
+
+Fish Types (minimum 5 species)
+
+School fish (e.g., neon tetras) - move in coordinated groups of 8-15
+Angelfish - solo or pairs, graceful vertical swimming patterns
+Bottom feeders (e.g., catfish) - stay near bottom, occasional darting
+Predator fish (e.g., barracuda) - patrol territory, faster movement
+Jellyfish - gentle pulsing motion, semi-transparent with glow effect
+
+Other Creatures
+
+Sea turtle - slow, majestic movement across entire screen
+Octopus - color-changing camouflage, tentacle animation
+Starfish - static on rocks/coral with subtle movement
+Crab - sideways scuttling along bottom
+Seahorse - vertical orientation, tail-wrapping behavior near plants
+
+Behavioral Systems
+
+Movement Patterns
+* Flocking algorithm for school fish (cohesion, alignment, separation)
+* Territorial zones for certain species
+* Depth preferences (surface, mid-water, bottom dwellers)
+* Speed variation based on species and context
+* Smooth bezier curves for direction changes, no abrupt turns
+
+Interactions
+* Avoidance: Smaller fish flee from predators within proximity
+* Schooling: Fish dynamically join/leave schools
+* Feeding: Occasional food particles trigger gathering behavior
+* Resting: Some fish pause near coral/rocks periodically
+
+Environment Elements
+
+Background Layers
+* Far background: Dark gradient suggesting ocean depth
+* Mid-ground: Coral reef silhouettes, rock formations
+* Foreground: Detailed coral, swaying seaweed (subtle animation)
+Dynamic Elements
+* Light rays: Animated caustic patterns from surface
+* Bubbles: Rise from random points, accelerate near surface
+* Current simulation: Gentle horizontal drift affecting all creatures
+* Day/night cycle: Optional ambient light shifting over time
+
+Template parameters
+```javascript
+{
+  // Population control
+  fishCount: 30,           // Total creatures (distributed by species)
+  schoolSize: 12,          // Fish per school
+  diversity: 0.8,          // Species variety (0-1)
+  
+  // Behavior tuning  
+  speed: 1.0,              // Global speed multiplier
+  interactionRadius: 100,  // Pixel radius for creature awareness
+  schoolingStrength: 0.7,  // Cohesion factor for schools
+  
+  // Visual settings
+  bubbles: true,           // Enable bubble particles
+  caustics: true,          // Enable light patterns
+  dayNight: false,         // Enable day/night cycle
+  cycleMinutes: 10,        // Day/night cycle duration
+  
+  // Color overrides
+  colors: {
+    water: '#001f3f',      // Base water color
+    waterGradient: '#0074D9', // Gradient end color
+    coral: '#FF851B',      // Coral/rock accent
+    light: '#7FDBFF'       // Caustic light color
+  },
+  
+  // Performance
+  quality: 'high',         // 'low', 'medium', 'high' (affects particles, shadows)
+  targetFPS: 30            // Frame rate target for older devices
+}
+```
+
+Technical Implementation Notes
+
+Rendering
+* Canvas-based with requestAnimationFrame
+* Layered rendering for depth (background → creatures → foreground → effects)
+* Sprite-based creatures with CSS transforms for rotation
+* GPU acceleration via CSS will-change for smooth movement
+
+Performance Optimization
+* Spatial partitioning for collision/interaction checks
+* LOD system: Reduce detail for distant/numerous creatures
+* Batch rendering: Group similar sprites
+* Adaptive quality: Auto-adjust particle count based on frame rate
+
+Autonomous Behaviors
+* No user interaction required - fully self-running
+* Emergent behaviors from simple rules create variety
+* Periodic events (feeding time, turtle appearance) for interest
+* Memory efficient - creature states use minimal properties
+
+Accessibility Considerations
+* Reduced motion mode: Slower, gentler movements
+* High contrast option: Stronger silhouettes for visibility
+* No flashing/strobing effects
+* Smooth transitions prevent motion sickness
+
+Example Usage
+
+`hdisplay set aquarium --fishCount 40 --diversity 0.9 --bubbles --dayNight --cycleMinutes 5`
+
+#### Aquarium Template Phased Implementation Plan
+Phase 1: Pi-Optimized MVP
+Goal: Functional aquarium with smooth performance on Raspberry Pi
+
+Implementation
+
+Canvas 2D rendering only (no WebGL/GPU features)
+8-12 fish with simple shapes (ellipses for bodies, triangles for tails)
+3 species with distinct behaviors:
+* School fish (5-6) with basic flocking
+* Solo swimmer with sine-wave pattern
+* Bottom feeder with horizontal movement
+Static gradient background with 2-3 coral silhouettes
+Fixed 20-25 FPS target with frame skipping
+Simple spatial grid (4x3) for neighbor checks
+5-10 bubble particles with pooling
+
+Performance Targets
+* CPU usage < 25% on Pi 4
+* Smooth animation at 1280x400
+* No memory leaks over 24h runtime
+
+Data Schema (MVP)
+
+
+```javascript
+{
+  fishCount: 10,         // Conservative default
+  schoolSize: 5,         // Small schools
+  bubbles: true,         // Limited count
+  quality: 'low',        // Pi default
+  renderMode: 'canvas2d'
+}
+```
+Phase 2: Enhanced Ecosystem
+
+
+Goal: Richer variety and interactions without breaking Pi performance
+
+Features
+Additional creatures (15-20 total):
+* Jellyfish with pulsing animation (2-3)
+* Sea turtle (1, updates every 5th frame)
+* Crab (1-2, bottom only)
+
+Depth-based behaviors:
+* Surface, mid-water, bottom zones
+* Size scaling for depth perception
+
+Simple day/night cycle (CSS filter on canvas)
+Feeding event every 2-3 minutes (fish converge)
+Improved flocking with collision avoidance
+
+Optimizations
+* LOD system: Distant fish update less frequently
+* Staggered updates: Spread creature processing across frames
+* Event queue: Handle interactions over multiple frames
+* Auto-quality adjustment based on frame timing:
+
+```javascript
+// ...existing code...
+let frameTime = 0;
+const qualityLevels = {
+  low: { fishCount: 10, bubbles: 5, updateRate: 1 },
+  medium: { fishCount: 15, bubbles: 10, updateRate: 0.8 },
+  high: { fishCount: 20, bubbles: 15, updateRate: 0.6 }
+};
+
+function adaptQuality() {
+  if (frameTime > 50) { // Below 20 FPS
+    currentQuality = 'low';
+  } else if (frameTime < 35 && currentQuality !== 'high') { // Above 28 FPS
+    currentQuality = 'medium';
+  }
+  applyQualitySettings(qualityLevels[currentQuality]);
+}
+```
+
+Phase 3: Optional GPU Features (Progressive Enhancement)
+Goal: Enhanced visuals when hardware permits, graceful degradation on Pi
+
+Detection & Fallback
+
+```javascript
+// ...existing code...
+const gpuAvailable = 'WebGLRenderingContext' in window && 
+                    !navigator.userAgent.includes('Raspbian');
+const features = {
+  caustics: gpuAvailable,
+  smoothPaths: gpuAvailable,
+  glowEffects: gpuAvailable,
+  maxFish: gpuAvailable ? 30 : 15,
+  maxBubbles: gpuAvailable ? 50 : 10
+};
+```
+Optional Features (auto-disabled on Pi)
+
+
+Caustic light patterns (WebGL shader or CSS animation)
+Smooth bezier paths for all fish movement
+Glow effects on jellyfish (CSS filter)
+Water distortion (subtle CSS transform)
+Enhanced particles (50+ bubbles with size variation)
+Shadow layers for depth
+
+Performance Safeguards
+
+Features test individually and disable if frame rate drops
+Settings persist in localStorage with hardware fingerprint
+Fallback always available (Phase 1 rendering)
+
+Platform Defaults
+
+```javascript
+module.exports = function validate(data = {}) {
+  const isPi = detectRaspberryPi(); // Via user agent or server flag
+  
+  const defaults = isPi ? {
+    // Pi-optimized settings
+    fishCount: 10,
+    schoolSize: 5,
+    diversity: 0.5,
+    bubbles: true,
+    caustics: false,
+    dayNight: true,
+    quality: 'low',
+    targetFPS: 20
+  } : {
+    // Desktop/modern browser settings
+    fishCount: 25,
+    schoolSize: 10,
+    diversity: 0.8,
+    bubbles: true,
+    caustics: true,
+    dayNight: true,
+    quality: 'auto',
+    targetFPS: 30
+  };
+  
+  return { ok: true, data: { ...defaults, ...data } };
+};
+```
+
+Testing Matrix
+```
+Phase	Pi Zero W	Pi 3B+	Pi 4	Desktop
+1 (MVP)	15 FPS	25 FPS	25 FPS	60 FPS
+2 (Enhanced)	12 FPS	20 FPS	22 FPS	60 FPS
+3 (GPU)	Disabled	Disabled	18 FPS*	60 FPS
+```
+

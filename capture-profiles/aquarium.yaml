@@ -1,0 +1,17 @@
+template: aquarium
+description: 'Canvas aquarium with fish, jellyfish, turtle, and crabs; includes day/night cycle'
+
+readiness_detection:
+  strategy: 'animation'
+  animation_threshold: 0.02  # subtle canvas motion
+  stable_frames: 3            # confirm ongoing movement
+  timeout: 7000
+
+screenshot:
+  after_detection: 1500       # let scene stabilize a bit
+
+video:
+  duration: 12000             # show swimming and ambient motion
+  trim_ms: 150
+
+sample_data: {}
