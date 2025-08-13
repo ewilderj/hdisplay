@@ -230,12 +230,30 @@
       }
     }
 
+    // Config: day/night toggle (default off) and optional cycleMs
+    const DAY_NIGHT_ENABLED = (() => {
+      const rawTop = String.raw`{{ dayNight }}`.trim();
+      const rawNested = String.raw`{{ dayNight.enabled }}`.trim();
+      const raw = rawTop || rawNested || '';
+      return /^(true|1|yes|on)$/i.test(raw);
+    })();
+    const DAY_NIGHT_CYCLE_MS = (() => {
+      const r1 = Number(String.raw`{{ dayNightCycleMs }}`);
+      const r2 = Number(String.raw`{{ dayNight.cycleMs }}`);
+      const v = Number.isFinite(r1) && r1 > 0 ? r1 : Number.isFinite(r2) && r2 > 0 ? r2 : 10 * 60 * 1000;
+      return v;
+    })();
+
     // Day/night cycle via CSS filter on the canvas (Phase 2)
     function applyDayNight() {
-      const cycleMs = 10 * 60 * 1000; // 10 minutes
+      if (!DAY_NIGHT_ENABLED) {
+        canvas.style.filter = 'none';
+        return;
+      }
+      const cycleMs = DAY_NIGHT_CYCLE_MS; // when enabled; default 10 min
       const t = Date.now() % cycleMs;
       const phase = t / cycleMs; // 0..1
-      // Brightness varies between ~0.7 (night) and ~1.0 (day)
+      // Brightness varies between ~0.85 (night) and ~1.0 (day)
       const brightness = 0.85 + 0.15 * Math.cos(2 * Math.PI * phase);
       // Subtle saturation and hue drift for mood
       const saturate = 0.95 + 0.08 * Math.cos(2 * Math.PI * (phase + 0.25));
