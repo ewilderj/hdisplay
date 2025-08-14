@@ -636,19 +636,31 @@
       { x: 0.82, w: 0.06, h: 0.03, color: '#999' }
     ];
 
-    function sandSurfaceY(x) {
-      // Sand is a slightly wavy line
-      const base = canvas.height - sandHeight + Math.sin(x/90) * 4;
-      // Add rock bumps
-      for (const r of rocks) {
-        const rx = canvas.width * r.x;
-        const rw = canvas.width * r.w;
-        if (x > rx - rw/2 && x < rx + rw/2) {
-          const rel = (x - rx) / (rw/2);
-          return base - Math.sqrt(1 - rel*rel) * r.h * canvas.height * 0.7;
+    function drawSeaweed() {
+      const t = Date.now();
+      ctx.save();
+      ctx.lineCap = 'round';
+      for (const c of seaweedClusters) {
+        const baseX = canvas.width * c.x;
+        const baseY = sandSurfaceY(baseX) - 2;
+        for (let i = 0; i < c.blades; i++) {
+          const k = (i - (c.blades - 1) / 2) / ((c.blades - 1) / 2 || 1);
+          const x = baseX + k * 10;
+          const h = canvas.height * c.h * (0.8 + 0.3 * (1 - Math.abs(k)));
+          const sway = Math.sin((t + i * 300) / (c.swayMs || 2400)) * (8 + 6 * (1 - Math.abs(k)));
+          ctx.beginPath();
+          ctx.moveTo(x, baseY);
+          ctx.bezierCurveTo(
+            x - 6, baseY - h * 0.35,
+            x + sway, baseY - h * 0.7,
+            x + sway * 0.6, baseY - h
+          );
+          ctx.strokeStyle = 'rgba(34, 139, 34, 0.7)'; // forest green
+          ctx.lineWidth = 3 - Math.abs(k);
+          ctx.stroke();
         }
       }
-      return base;
+      ctx.restore();
     }
 
     function drawSandAndRocks() {
@@ -1000,6 +1012,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       applyDayNight(); // Phase 2: update day/night filter
       drawSandAndRocks();
+      drawDecorations();
       drawCoral();
       drawBubbles();
       // Phase 2 creatures
