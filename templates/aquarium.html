@@ -345,13 +345,18 @@
 
     // Jellyfish
     function makeJelly(i) {
+      const pinks = [
+        'rgba(255, 105, 180, 0.28)', // hot pink
+        'rgba(255, 140, 180, 0.25)', // softer pink
+        'rgba(255, 182, 193, 0.25)'  // light pink
+      ];
       return {
         x: randomBetween(canvas.width * 0.1, canvas.width * 0.9),
         y: randomBetween(canvas.height * 0.15, canvas.height * 0.5),
         phase: Math.random() * Math.PI * 2,
         speed: randomBetween(0.1, 0.2),
         size: randomBetween(28, 38),
-        color: 'rgba(127,219,255,0.25)'
+        color: pinks[(Math.random() * pinks.length) | 0]
       };
     }
     let jellyfish = Array.from({length: JELLYFISH_COUNT}, (_, i) => makeJelly(i));
@@ -377,7 +382,7 @@
         y: canvas.height * 0.93,
         vx: randomBetween(0.2, 0.4),
         dir: Math.random() < 0.5 ? 1 : -1,
-        size: 22
+        size: 33 // 50% larger
       };
     }
     let crabs = Array.from({length: CRAB_COUNT}, makeCrab);
@@ -706,37 +711,41 @@
     function drawJelly(j) {
       ctx.save();
       ctx.translate(j.x, j.y);
-      // Bell with radial gradient
-      const bellGrad = ctx.createRadialGradient(0, 0, j.size*0.1, 0, 0, j.size*0.6);
-      bellGrad.addColorStop(0, '#fff9');
+      const tNow = Date.now();
+      // Bell with pink radial gradient
+      const bellGrad = ctx.createRadialGradient(0, 0, j.size*0.12, 0, 0, j.size*0.65);
+      bellGrad.addColorStop(0, 'rgba(255,255,255,0.75)');
       bellGrad.addColorStop(0.5, j.color);
-      bellGrad.addColorStop(1, '#7FDBFF22');
+      bellGrad.addColorStop(1, 'rgba(255, 182, 193, 0.15)');
       ctx.beginPath();
-      ctx.ellipse(0, 0, j.size * 0.6, j.size * 0.4 + Math.sin(Date.now()/700 + j.phase)*2, 0, Math.PI, 2*Math.PI);
+      ctx.ellipse(0, 0, j.size * 0.62, j.size * (0.42 + Math.sin(tNow/700 + j.phase)*0.06), 0, Math.PI, 2*Math.PI);
       ctx.fillStyle = bellGrad;
-      ctx.globalAlpha = 0.8;
+      ctx.globalAlpha = 0.9;
       ctx.fill();
       // Bell highlight
       ctx.beginPath();
       ctx.ellipse(-j.size*0.15, -j.size*0.08, j.size*0.18, j.size*0.09, 0, 0, Math.PI*2);
-      ctx.fillStyle = '#fff7';
-      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.globalAlpha = 1;
       ctx.fill();
-      // Tentacles (wavy, more detail)
-      ctx.globalAlpha = 0.35;
-      for (let t = 0; t < 7; ++t) {
+      // Tentacles: longer, wavier pink streamers
+      const N = 10;
+      for (let i = 0; i < N; i++) {
+        const k = (i - (N-1)/2) / ((N-1)/2);
+        const x0 = k * j.size * 0.35;
+        const len = j.size * (1.1 + 0.25 * (1 - Math.abs(k)));
+        const w1 = Math.sin(tNow/480 + i + j.phase) * 10;
+        const w2 = Math.cos(tNow/420 + i*1.3 + j.phase) * 12;
         ctx.beginPath();
-        ctx.moveTo(Math.sin(t)*j.size*0.3, j.size*0.1);
+        ctx.moveTo(x0, j.size*0.08);
         ctx.bezierCurveTo(
-          Math.sin(t)*j.size*0.3 + Math.sin(Date.now()/500 + t + j.phase)*8,
-          j.size*0.3,
-          Math.sin(t)*j.size*0.3 + Math.cos(Date.now()/400 + t + j.phase)*8,
-          j.size*0.7,
-          Math.sin(t)*j.size*0.3,
-          j.size*0.9
+          x0 + w1, j.size*0.35,
+          x0 + w2, len * 0.75,
+          x0 + Math.sin(tNow/640 + i + j.phase)*6, len
         );
-        ctx.strokeStyle = '#7FDBFF';
-        ctx.lineWidth = 1.5 - 0.15*t;
+        ctx.strokeStyle = 'rgba(255, 105, 180, 0.6)';
+        ctx.lineWidth = 1.4 - 0.08 * Math.abs(k) * 10;
+        ctx.globalAlpha = 0.6;
         ctx.stroke();
       }
       ctx.restore();
@@ -824,7 +833,7 @@
       ctx.restore();
     }
 
-    // Draw crab (reworked for balance; solid filled mouth)
+    // Draw crab (larger with more prominent claws; solid filled mouth)
     function drawCrab(c) {
       ctx.save();
       ctx.translate(c.x, c.y);
@@ -840,7 +849,7 @@
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#b92a22';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.2;
       for (const side of [-1, 1]) {
         for (let i = 0; i < 3; i++) {
           const y = -2 + i * 4;
@@ -860,12 +869,12 @@
       // Arms + claws
       ctx.save();
       ctx.strokeStyle = '#a31b14';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 3.2;
       for (const side of [-1, 1]) {
         const ax = side * bodyW * 0.6;
         const ay = -bodyH * 0.05;
-        const hx = side * bodyW * 1.08;
-        const hy = -bodyH * 0.18;
+        const hx = side * bodyW * 1.18;
+        const hy = -bodyH * 0.22;
         // arm
         ctx.beginPath();
         ctx.moveTo(ax, ay);
@@ -875,12 +884,16 @@
         ctx.save();
         ctx.translate(hx, hy);
         ctx.rotate(side * 0.12);
-        ctx.fillStyle = '#e03a2f';
+        ctx.fillStyle = '#e2463a';
         ctx.beginPath();
-        ctx.ellipse(-side * 6, -2, 7, 4, 0.2, 0, Math.PI * 2);
-        ctx.ellipse(-side * 2, 3, 6, 3.5, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(-side * 9, -3, 11, 7, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(-side * 3, 4, 9, 6, -0.2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
+        // outline to pop claws
+        ctx.strokeStyle = '#7a0f0f';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+         ctx.restore();
       }
       ctx.restore();
 
