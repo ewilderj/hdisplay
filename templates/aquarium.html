@@ -231,6 +231,22 @@
     const canvas = document.getElementById('aquarium');
     const ctx = canvas.getContext('2d');
 
+    // Define sandSurfaceY early to avoid any temporal binding issues
+    function sandSurfaceY(x) {
+      // Sand is a slightly wavy line
+      const base = canvas.height - sandHeight + Math.sin(x/90) * 4;
+      // Add rock bumps
+      for (const r of rocks) {
+        const rx = canvas.width * r.x;
+        const rw = canvas.width * r.w;
+        if (x > rx - rw/2 && x < rx + rw/2) {
+          const rel = (x - rx) / (rw/2);
+          return base - Math.sqrt(1 - rel*rel) * r.h * canvas.height * 0.7;
+        }
+      }
+      return base;
+    }
+
     // Phase 2: adaptive quality and staggered updates for fish (LOD)
     let lastFrameTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     let frameTimeAvg = 16; // ms
@@ -636,6 +652,19 @@
       { x: 0.82, w: 0.06, h: 0.03, color: '#999' }
     ];
 
+    // Seaweed clusters along the sand
+    const seaweedClusters = [
+      { x: 0.08, h: 0.22, blades: 7, swayMs: 2400 },
+      { x: 0.16, h: 0.2, blades: 6, swayMs: 2200 },
+      { x: 0.24, h: 0.24, blades: 8, swayMs: 2600 },
+      { x: 0.34, h: 0.18, blades: 6, swayMs: 2100 },
+      { x: 0.48, h: 0.21, blades: 7, swayMs: 2300 },
+      { x: 0.62, h: 0.19, blades: 6, swayMs: 2250 },
+      { x: 0.72, h: 0.23, blades: 8, swayMs: 2550 },
+      { x: 0.84, h: 0.2, blades: 6, swayMs: 2150 },
+      { x: 0.92, h: 0.17, blades: 5, swayMs: 2050 },
+    ];
+
     function drawSeaweed() {
       const t = Date.now();
       ctx.save();
@@ -999,6 +1028,11 @@
       const ySurf = sandSurfaceY(c.x);
       // Add a little bobble for legs
       c.y = ySurf - 2 + Math.sin(Date.now()/300 + c.x/40)*2;
+    }
+
+    // Minimal decorations hook (currently seaweed only)
+    function drawDecorations() {
+      drawSeaweed();
     }
 
     function loop() {
