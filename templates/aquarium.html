@@ -57,6 +57,9 @@
         size: randomBetween(7, 13),
         color: randomBetween(0, 1) > 0.5 ? '#ffe066' : '#ffb347',
         active: true,
+        // Z-axis for flakes
+        z: randomBetween(0.2, 0.9),
+        vz: randomBetween(-0.0006, 0.0006),
       }));
       for (let f of fish) f.feeding = true;
       // End feeding after active window, then schedule next feed after gap
@@ -79,21 +82,28 @@
       }
       // Feeding event: move toward nearest food flake if active
       if (f.feeding && feedingActive && foodFlakes.length > 0) {
-        // Find nearest active flake
-        let minDist = 1e9, target = null;
+        // Find nearest active flake in 3D
+        let minDist2 = 1e12, target = null;
+        const kz = depthDistancePx();
         for (const flake of foodFlakes) {
           if (!flake.active) continue;
           const dx = flake.x - f.x;
           const dy = flake.y - f.y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < minDist) {
-            minDist = dist;
+          const dz = (flake.z ?? 0.5) - (f.z ?? 0.5);
+          const d2 = dx*dx + dy*dy + (kz*dz) * (kz*dz);
+          if (d2 < minDist2) {
+            minDist2 = d2;
             target = flake;
           }
         }
         if (target) {
           const eatRadius = Math.max(6, (target.size || 8) * 0.6);
-          if (minDist <= eatRadius) {
+          const dx = target.x - f.x;
+          const dy = target.y - f.y;
+          const kz = depthDistancePx();
+          const dz = (target.z ?? 0.5) - (f.z ?? 0.5);
+          const d3 = Math.sqrt(dx*dx + dy*dy + (kz*dz)*(kz*dz));
+          if (d3 <= eatRadius) {
             // Eat the flake
             target.active = false;
           } else {
@@ -105,6 +115,10 @@
             const ty = (target.y + oy) - f.y;
             f.x += tx * 0.03;
             f.y += ty * 0.03;
+            // Adjust z toward target flake
+            if (typeof target.z === 'number') {
+              f.z += (target.z - (f.z ?? 0.5)) * 0.03;
+            }
             // Face the flake while feeding
             if (Math.abs(tx) > 0.5) f.dir = tx > 0 ? 1 : -1;
             // Gentle separation from nearby feeding fish (jostling)
@@ -113,14 +127,14 @@
               if (j === idx) continue;
               const nb = fish[j];
               if (!(nb.feeding && feedingActive)) continue;
-              const dx = f.x - nb.x;
-              const dy = f.y - nb.y;
-              const d2 = dx*dx + dy*dy;
+              const dx2 = f.x - nb.x;
+              const dy2 = f.y - nb.y;
+              const d2 = dx2*dx2 + dy2*dy2;
               if (d2 > 1 && d2 < FEED_SEP_RADIUS2) {
                 const d = Math.sqrt(d2);
                 const repel = (FEED_SEP_RADIUS - d) / FEED_SEP_RADIUS;
-                sx += (dx / d) * repel;
-                sy += (dy / d) * repel;
+                sx += (dx2 / d) * repel;
+                sy += (dy2 / d) * repel;
               }
             }
             // Apply separation softly and add a touch of jitter
@@ -132,6 +146,8 @@
         // Sine-wave vertical movement
         f.y += Math.sin(Date.now() / 600 + f.phase) * 0.3 * f.dir;
         f.x += Math.abs(f.vx) * f.dir;
+        // Light z wander
+        f.z = clamp((f.z ?? 0.5) + Math.sin(Date.now() / 3000 + (f.zPhase || 0)) * 0.002, 0, 1);
         // Simple flocking for midwater fish (zone 1)
         if (f.zone === 1) {
           let cx = 0, cy = 0, count = 0;
@@ -186,13 +202,15 @@
       // Smoothly turn toward desired direction for rendering
       if (typeof f.face !== 'number') f.face = f.dir;
       f.face += (f.dir - f.face) * 0.15; // turn rate
-      // Clamp to depth zone
+      // Clamp to depth zone (y)
       if (f.zone === 0 && f.y < canvas.height * 0.12) f.y = canvas.height * 0.12;
       if (f.zone === 0 && f.y > canvas.height * 0.25) f.y = canvas.height * 0.25;
       if (f.zone === 1 && f.y < canvas.height * 0.35) f.y = canvas.height * 0.35;
       if (f.zone === 1 && f.y > canvas.height * 0.65) f.y = canvas.height * 0.65;
       if (f.zone === 2 && f.y < canvas.height * 0.7) f.y = canvas.height * 0.7;
       if (f.zone === 2 && f.y > canvas.height * 0.88) f.y = canvas.height * 0.88;
+      // Clamp z range
+      f.z = clamp(f.z ?? 0.5, 0, 1);
     }
 
     function drawFoodFlakes() {
@@ -200,8 +218,9 @@
         if (!flake.active) continue;
         ctx.save();
         ctx.globalAlpha = flake.alpha;
+        const s = depthScale(flake.z ?? 0.5);
         ctx.beginPath();
-        ctx.ellipse(flake.x, flake.y, flake.size, flake.size*0.5, Math.sin(flake.x)*0.5, 0, Math.PI*2);
+        ctx.ellipse(flake.x, flake.y, flake.size * s, flake.size*0.5 * s, Math.sin(flake.x)*0.5, 0, Math.PI*2);
         ctx.fillStyle = flake.color;
         ctx.shadowColor = '#fff6';
         ctx.shadowBlur = 6;
@@ -215,6 +234,12 @@
         if (!flake.active) continue;
         flake.y += flake.vy;
         flake.x += flake.drift;
+        // Z drift and clamp
+        if (typeof flake.z === 'number') {
+          flake.z += flake.vz || 0;
+          if (flake.z < 0) { flake.z = 0; flake.vz = Math.abs(flake.vz || 0); }
+          if (flake.z > 1) { flake.z = 1; flake.vz = -Math.abs(flake.vz || 0); }
+        }
         // Fade out and deactivate if on sand
         if (flake.y > sandSurfaceY(flake.x) - 6) {
           flake.alpha -= 0.04;
@@ -318,6 +343,15 @@
     function randomBetween(a, b) {
       return a + Math.random() * (b - a);
     }
+    // Z-axis helpers
+    const DEPTH_MIN_SCALE = 0.75;
+    const DEPTH_MAX_SCALE = 1.25;
+    function depthDistancePx() { return Math.min(canvas.width, canvas.height) * 0.6; }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function depthScale(z) {
+      const zz = clamp((z ?? 0.5), 0, 1);
+      return DEPTH_MIN_SCALE + (DEPTH_MAX_SCALE - DEPTH_MIN_SCALE) * (1 - zz);
+    }
 
     function makeFish(i) {
       const species = i % FISH_SHAPES.length;
@@ -354,6 +388,9 @@
         zone,
         feeding: false,
         kind,
+        // Z-axis
+        z: randomBetween(0.15, 0.95),
+        zPhase: Math.random() * Math.PI * 2,
       };
     }
 
@@ -403,13 +440,14 @@
     }
     let crabs = Array.from({length: CRAB_COUNT}, makeCrab);
 
-    // Shared transform for fish rendering (scale/rotation based on facing and zone)
+    // Shared transform for fish rendering (scale/rotation based on facing and zone + depth)
     function renderFishTransformed(f, drawBody) {
       ctx.save();
       ctx.translate(f.x, f.y);
       const sizeScale = f.zone === 0 ? 0.95 : (f.zone === 1 ? 1.0 : 1.08);
+      const zScale = depthScale(f.z);
       const sx = Math.sign(f.face || f.dir) * Math.max(0.35, Math.abs(f.face || f.dir));
-      ctx.scale(sx * sizeScale, sizeScale);
+      ctx.scale(sx * sizeScale * zScale, sizeScale * zScale);
       ctx.rotate(Math.sin(Date.now() / 800 + f.phase) * 0.08 * Math.sign(sx));
       drawBody();
       ctx.restore();
@@ -1062,16 +1100,39 @@
         updateCrab(crabs[i]);
         drawCrab(crabs[i]);
       }
-      // Fish
+      // Fish update
       for (let i = 0; i < fish.length; ++i) {
         updateFish(fish[i], i);
-        drawFish(fish[i]);
       }
-      // Feeding event visual: food flakes
+      // Build render queue for fish + flakes (sorted by depth)
+      const renderables = [];
+      for (let i = 0; i < fish.length; ++i) {
+        const fi = fish[i];
+        renderables.push({ z: fi.z ?? 0.5, y: fi.y, draw: () => drawFish(fi) });
+      }
       if (feedingActive || foodFlakes.length > 0) {
         updateFoodFlakes();
-        drawFoodFlakes();
+        for (const flake of foodFlakes) {
+          if (!flake.active) continue;
+          const ff = flake;
+          renderables.push({ z: ff.z ?? 0.5, y: ff.y, draw: () => {
+            // draw single flake with depth scale
+            ctx.save();
+            ctx.globalAlpha = ff.alpha;
+            const s = depthScale(ff.z ?? 0.5);
+            ctx.beginPath();
+            ctx.ellipse(ff.x, ff.y, ff.size * s, ff.size*0.5 * s, Math.sin(ff.x)*0.5, 0, Math.PI*2);
+            ctx.fillStyle = ff.color;
+            ctx.shadowColor = '#fff6';
+            ctx.shadowBlur = 6;
+            ctx.fill();
+            ctx.restore();
+          }});
+        }
       }
+      renderables.sort((a, b) => ((b.z - a.z) || ((a.y ?? 0) - (b.y ?? 0)))); // far first, stable by y
+      for (const r of renderables) r.draw();
+
       requestAnimationFrame(loop);
     }
     loop();
