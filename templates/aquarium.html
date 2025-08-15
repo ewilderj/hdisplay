@@ -285,6 +285,10 @@
       } else {
         fishUpdateStride = 1;
       }
+      // When fast mode is enabled, keep stride at least 3
+      if (typeof PERF_FAST !== 'undefined' && PERF_FAST) {
+        fishUpdateStride = Math.max(fishUpdateStride, 3);
+      }
     }
 
     // Config: day/night toggle (default off) and optional cycleMs
@@ -327,7 +331,21 @@
 
     // Fish species/colors
     const FISH_COLORS = ['#FFDC00', '#7FDBFF', '#FF4136'];
-    const FISH_COUNT = 14; // Phase 2: slightly larger population (15-20 total with other creatures)
+    const BASE_COUNTS = { fish: 14, jelly: 2, turtle: 1, crab: 2 };
+    const CREATURES_SCALE = (() => {
+      const raw = String.raw`{{ creatures.scale }}`.trim();
+      const n = raw && /^-?\d*\.?\d+$/.test(raw) ? Number(raw) : NaN;
+      const val = Number.isFinite(n) ? n : 1.0; // default to 1.0 when missing/invalid
+      return clamp(val, 0.1, 2.0);
+    })();
+    const PERF_FAST = (() => {
+      const raw = String.raw`{{ perf.fast }}`.trim();
+      return /^(true|1|yes|on)$/i.test(raw);
+    })();
+    const FISH_COUNT = Math.max(4, Math.round(BASE_COUNTS.fish * CREATURES_SCALE));
+    const JELLYFISH_COUNT = Math.max(0, Math.round(BASE_COUNTS.jelly * CREATURES_SCALE));
+    const TURTLE_COUNT = Math.max(0, Math.round(BASE_COUNTS.turtle * CREATURES_SCALE));
+    const CRAB_COUNT = Math.max(0, Math.round(BASE_COUNTS.crab * CREATURES_SCALE));
     const FISH_SHAPES = [
       // [bodyLength, bodyHeight, tailLength, tailHeight]
       [60, 24, 18, 16],
@@ -336,9 +354,6 @@
     ];
 
     // Phase 2: Add jellyfish, turtle, crab, feeding event, improved flocking, depth-based behaviors
-    const JELLYFISH_COUNT = 2;
-    const TURTLE_COUNT = 1;
-    const CRAB_COUNT = 2; // Phase 2: 1-2 crabs
 
     function randomBetween(a, b) {
       return a + Math.random() * (b - a);
@@ -711,6 +726,7 @@
         const baseX = canvas.width * c.x;
         const baseY = sandSurfaceY(baseX) - 2;
         for (let i = 0; i < c.blades; i++) {
+          if (PERF_FAST && (i % 2 === 1)) continue; // half the blades in fast mode
           const k = (i - (c.blades - 1) / 2) / ((c.blades - 1) / 2 || 1);
           const x = baseX + k * 10;
           const h = canvas.height * c.h * (0.8 + 0.3 * (1 - Math.abs(k)));
@@ -807,8 +823,8 @@
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.globalAlpha = 1;
       ctx.fill();
-      // Tentacles: longer, wavier pink streamers
-      const N = 10;
+      // Tentacles
+      const N = PERF_FAST ? 6 : 10;
       for (let i = 0; i < N; i++) {
         const k = (i - (N-1)/2) / ((N-1)/2);
         const x0 = k * j.size * 0.35;
@@ -1123,14 +1139,16 @@
             ctx.beginPath();
             ctx.ellipse(ff.x, ff.y, ff.size * s, ff.size*0.5 * s, Math.sin(ff.x)*0.5, 0, Math.PI*2);
             ctx.fillStyle = ff.color;
-            ctx.shadowColor = '#fff6';
-            ctx.shadowBlur = 6;
+            if (!PERF_FAST) {
+              ctx.shadowColor = '#fff6';
+              ctx.shadowBlur = 6;
+            }
             ctx.fill();
             ctx.restore();
           }});
         }
       }
-      renderables.sort((a, b) => ((b.z - a.z) || ((a.y ?? 0) - (b.y ?? 0)))); // far first, stable by y
+      renderables.sort((a, b) => ((b.z - a.z) || ((a.y ?? 0) - (b.y ?? 0))));
       for (const r of renderables) r.draw();
 
       requestAnimationFrame(loop);
