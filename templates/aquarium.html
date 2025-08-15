@@ -24,6 +24,20 @@
 <body>
   <canvas id="aquarium"></canvas>
   <script>
+    // Early init: canvas/context and static terrain (needed by resize/rebuildSandPath)
+    const canvas = document.getElementById('aquarium');
+    const ctx = canvas.getContext('2d');
+
+    // Sand and rocks at the bottom (moved up)
+    const sandHeight = 38;
+    const rocks = [
+      { x: 0.18, w: 0.09, h: 0.04, color: '#888' },
+      { x: 0.32, w: 0.07, h: 0.03, color: '#aaa' },
+      { x: 0.5,  w: 0.13, h: 0.06, color: '#666' },
+      { x: 0.7,  w: 0.08, h: 0.04, color: '#bbb' },
+      { x: 0.82, w: 0.06, h: 0.03, color: '#999' }
+    ];
+
     // Feeding event with food flakes
     let feedingActive = false;
     let feedingTimer = 0;
@@ -75,7 +89,71 @@
     // Kick off first feed with a small initial delay
     scheduleNextFeed(randomBetween(3000, 6000));
 
-    function updateFish(f, idx) {
+    // Phase 2: adaptive quality and staggered updates for fish (LOD)
+    let lastFrameTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    let frameTimeAvg = 16; // ms
+    let fishUpdateStride = 1; // 1=all fish, 2=half per frame, 3=third per frame
+    let frameTick = 0;
+    function adaptQuality() {
+      if (frameTimeAvg > 50) {
+        fishUpdateStride = 3;
+      } else if (frameTimeAvg > 40) {
+        fishUpdateStride = 2;
+      } else {
+        fishUpdateStride = 1;
+      }
+      // In perf.fast, only enforce higher stride when frame time is high
+      if (typeof PERF_FAST !== 'undefined' && PERF_FAST) {
+        if (frameTimeAvg > 55) {
+          fishUpdateStride = Math.max(fishUpdateStride, 4);
+        } else if (frameTimeAvg > 40) {
+          fishUpdateStride = Math.max(fishUpdateStride, 3);
+        } // else keep computed stride (likely 1 on fast CPUs)
+      }
+    }
+
+    // Cache sand path per resize to avoid rebuilding every frame
+    let sandPath = null;
+    function rebuildSandPath() {
+      const p = new Path2D();
+      p.moveTo(0, canvas.height);
+      for (let x = 0; x <= canvas.width; x += 8) {
+        p.lineTo(x, sandSurfaceY(x));
+      }
+      p.lineTo(canvas.width, canvas.height);
+      p.closePath();
+      sandPath = p;
+    }
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      rebuildSandPath();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Reusable render queue (no per-item closures)
+    const TYPE_FISH = 1;
+    const TYPE_FLAKE = 2;
+    let renderables = [];
+    function drawOneFlake(ff) {
+      // draw single flake with depth scale
+      ctx.save();
+      ctx.globalAlpha = ff.alpha;
+      const s = depthScale(ff.z ?? 0.5);
+      ctx.beginPath();
+      ctx.ellipse(ff.x, ff.y, ff.size * s, ff.size * 0.5 * s, Math.sin(ff.x) * 0.5, 0, Math.PI * 2);
+      ctx.fillStyle = ff.color;
+      if (!PERF_FAST) {
+        ctx.shadowColor = '#fff6';
+        ctx.shadowBlur = 6;
+      }
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function updateFish(f, idx, tNow, dtScale) {
       // Phase 2 LOD: stagger fish updates across frames for performance
       if (fishUpdateStride > 1 && (idx % fishUpdateStride) !== (frameTick % fishUpdateStride)) {
         return;
@@ -100,24 +178,24 @@
           const eatRadius = Math.max(6, (target.size || 8) * 0.6);
           const dx = target.x - f.x;
           const dy = target.y - f.y;
-          const kz = depthDistancePx();
+          const kz2 = depthDistancePx();
           const dz = (target.z ?? 0.5) - (f.z ?? 0.5);
-          const d3 = Math.sqrt(dx*dx + dy*dy + (kz*dz)*(kz*dz));
+          const d3 = Math.sqrt(dx*dx + dy*dy + (kz2*dz)*(kz2*dz));
           if (d3 <= eatRadius) {
             // Eat the flake
             target.active = false;
           } else {
             // Swim toward the flake with a tiny wobble so fish don't stack
-            const t = Date.now() / 500 + f.phase;
-            const ox = Math.cos(t) * 4;
-            const oy = Math.sin(t) * 3;
+            const wob = tNow / 500 + f.phase;
+            const ox = Math.cos(wob) * 4;
+            const oy = Math.sin(wob) * 3;
             const tx = (target.x + ox) - f.x;
             const ty = (target.y + oy) - f.y;
-            f.x += tx * 0.03;
-            f.y += ty * 0.03;
+            f.x += tx * 0.03 * dtScale;
+            f.y += ty * 0.03 * dtScale;
             // Adjust z toward target flake
             if (typeof target.z === 'number') {
-              f.z += (target.z - (f.z ?? 0.5)) * 0.03;
+              f.z += (target.z - (f.z ?? 0.5)) * 0.03 * dtScale;
             }
             // Face the flake while feeding
             if (Math.abs(tx) > 0.5) f.dir = tx > 0 ? 1 : -1;
@@ -138,16 +216,17 @@
               }
             }
             // Apply separation softly and add a touch of jitter
-            f.x += sx * 1.0 + (Math.random() - 0.5) * 0.25;
-            f.y += sy * 1.0 + (Math.random() - 0.5) * 0.2;
+            f.x += sx * 1.0 * dtScale + (Math.random() - 0.5) * 0.25 * dtScale;
+            f.y += sy * 1.0 * dtScale + (Math.random() - 0.5) * 0.2 * dtScale;
           }
         }
       } else {
-        // Sine-wave vertical movement
-        f.y += Math.sin(Date.now() / 600 + f.phase) * 0.3 * f.dir;
-        f.x += Math.abs(f.vx) * f.dir;
-        // Light z wander
-        f.z = clamp((f.z ?? 0.5) + Math.sin(Date.now() / 3000 + (f.zPhase || 0)) * 0.002, 0, 1);
+        // Sine-wave vertical movement (do not scale amplitude by dt)
+        f.y += Math.sin(tNow / 600 + f.phase) * 0.3 * f.dir;
+        // Linear swim uses dt scaling
+        f.x += Math.abs(f.vx) * f.dir * dtScale;
+        // Light z wander (time-based; no dt scaling on amplitude)
+        f.z = clamp((f.z ?? 0.5) + Math.sin(tNow / 3000 + (f.zPhase || 0)) * 0.002, 0, 1);
         // Simple flocking for midwater fish (zone 1)
         if (f.zone === 1) {
           let cx = 0, cy = 0, count = 0;
@@ -175,12 +254,12 @@
           }
           if (count > 0) {
             cx /= count; cy /= count;
-            f.x += (cx - f.x) * 0.002;
-            f.y += (cy - f.y) * 0.002;
+            f.x += (cx - f.x) * 0.002 * dtScale;
+            f.y += (cy - f.y) * 0.002 * dtScale;
           }
           // Apply separation softly
-          f.x += sepX * 0.6;
-          f.y += sepY * 0.6;
+          f.x += sepX * 0.6 * dtScale;
+          f.y += sepY * 0.6 * dtScale;
         }
       }
       // Bounce off edges and update direction to match travel
@@ -199,9 +278,9 @@
         if (f.vx > 0) f.dir = 1;
         else if (f.vx < 0) f.dir = -1;
       }
-      // Smoothly turn toward desired direction for rendering
+      // Smoothly turn toward desired direction for rendering (constant smoothing)
       if (typeof f.face !== 'number') f.face = f.dir;
-      f.face += (f.dir - f.face) * 0.15; // turn rate
+      f.face += (f.dir - f.face) * 0.15;
       // Clamp to depth zone (y)
       if (f.zone === 0 && f.y < canvas.height * 0.12) f.y = canvas.height * 0.12;
       if (f.zone === 0 && f.y > canvas.height * 0.25) f.y = canvas.height * 0.25;
@@ -229,20 +308,20 @@
       }
     }
 
-    function updateFoodFlakes() {
+    function updateFoodFlakes(dtScale) {
       for (const flake of foodFlakes) {
         if (!flake.active) continue;
-        flake.y += flake.vy;
-        flake.x += flake.drift;
+        flake.y += flake.vy * dtScale;
+        flake.x += flake.drift * dtScale;
         // Z drift and clamp
         if (typeof flake.z === 'number') {
-          flake.z += flake.vz || 0;
+          flake.z += (flake.vz || 0) * dtScale;
           if (flake.z < 0) { flake.z = 0; flake.vz = Math.abs(flake.vz || 0); }
           if (flake.z > 1) { flake.z = 1; flake.vz = -Math.abs(flake.vz || 0); }
         }
         // Fade out and deactivate if on sand
         if (flake.y > sandSurfaceY(flake.x) - 6) {
-          flake.alpha -= 0.04;
+          flake.alpha -= 0.04 * dtScale;
           if (flake.alpha <= 0) flake.active = false;
         }
       }
@@ -253,8 +332,8 @@
     }
 
     // Phase 1: Pi-optimized MVP
-    const canvas = document.getElementById('aquarium');
-    const ctx = canvas.getContext('2d');
+    // const canvas = document.getElementById('aquarium');
+    // const ctx = canvas.getContext('2d');
 
     // Define sandSurfaceY early to avoid any temporal binding issues
     function sandSurfaceY(x) {
@@ -272,43 +351,53 @@
       return base;
     }
 
-    // Phase 2: adaptive quality and staggered updates for fish (LOD)
-    let lastFrameTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    let frameTimeAvg = 16; // ms
-    let fishUpdateStride = 1; // 1=all fish, 2=half per frame, 3=third per frame
-    let frameTick = 0;
-    function adaptQuality() {
-      if (frameTimeAvg > 50) {
-        fishUpdateStride = 3;
-      } else if (frameTimeAvg > 40) {
-        fishUpdateStride = 2;
-      } else {
-        fishUpdateStride = 1;
+    function drawSandAndRocks() {
+      // Sand using cached Path2D
+      ctx.save();
+      const sandGrad = ctx.createLinearGradient(0, canvas.height - sandHeight, 0, canvas.height);
+      sandGrad.addColorStop(0, '#ffeabf');
+      sandGrad.addColorStop(1, '#e2c48d');
+      ctx.fillStyle = sandGrad;
+      ctx.globalAlpha = 0.95;
+      if (!sandPath) rebuildSandPath();
+      ctx.fill(sandPath);
+      // Rocks
+      for (const r of rocks) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(canvas.width * r.x, canvas.height - sandHeight * 0.5, canvas.width * r.w / 2, canvas.height * r.h / 2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = r.color;
+        ctx.globalAlpha = 0.7;
+        ctx.shadowColor = '#2226';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.restore();
       }
-      // In perf.fast, only enforce higher stride when frame time is high
-      if (typeof PERF_FAST !== 'undefined' && PERF_FAST) {
-        if (frameTimeAvg > 55) {
-          fishUpdateStride = Math.max(fishUpdateStride, 4);
-        } else if (frameTimeAvg > 40) {
-          fishUpdateStride = Math.max(fishUpdateStride, 3);
-        } // else keep computed stride (likely 1 on fast CPUs)
-      }
+      ctx.restore();
     }
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    resize();
-    window.addEventListener('resize', resize);
+    // Phase 2: Add jellyfish, turtle, crab, feeding event, improved flocking, depth-based behaviors
 
-    // Fish species/colors
+    function randomBetween(a, b) {
+      return a + Math.random() * (b - a);
+    }
+    // Z-axis helpers
+    const DEPTH_MIN_SCALE = 0.75;
+    const DEPTH_MAX_SCALE = 1.25;
+    function depthDistancePx() { return Math.min(canvas.width, canvas.height) * 0.6; }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function depthScale(z) {
+      const zz = clamp((z ?? 0.5), 0, 1);
+      return DEPTH_MIN_SCALE + (DEPTH_MAX_SCALE - DEPTH_MIN_SCALE) * (1 - zz);
+    }
+
+    // Template/options and creature counts (must be defined before creating creatures)
     const FISH_COLORS = ['#FFDC00', '#7FDBFF', '#FF4136'];
     const BASE_COUNTS = { fish: 14, jelly: 2, turtle: 1, crab: 2 };
     const CREATURES_SCALE = (() => {
       const raw = String.raw`{{ creatures.scale }}`.trim();
       const n = raw && /^-?\d*\.?\d+$/.test(raw) ? Number(raw) : NaN;
-      const val = Number.isFinite(n) ? n : 1.0; // default to 1.0 when missing/invalid
+      const val = Number.isFinite(n) ? n : 1.0; // default to 1.0
       return clamp(val, 0.1, 2.0);
     })();
     const PERF_FAST = (() => {
@@ -325,21 +414,6 @@
       [48, 18, 14, 12],
       [54, 20, 16, 14]
     ];
-
-    // Phase 2: Add jellyfish, turtle, crab, feeding event, improved flocking, depth-based behaviors
-
-    function randomBetween(a, b) {
-      return a + Math.random() * (b - a);
-    }
-    // Z-axis helpers
-    const DEPTH_MIN_SCALE = 0.75;
-    const DEPTH_MAX_SCALE = 1.25;
-    function depthDistancePx() { return Math.min(canvas.width, canvas.height) * 0.6; }
-    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-    function depthScale(z) {
-      const zz = clamp((z ?? 0.5), 0, 1);
-      return DEPTH_MIN_SCALE + (DEPTH_MAX_SCALE - DEPTH_MIN_SCALE) * (1 - zz);
-    }
 
     function makeFish(i) {
       const species = i % FISH_SHAPES.length;
@@ -668,16 +742,6 @@
       }
     }
 
-    // Sand and rocks at the bottom
-    const sandHeight = 38;
-    const rocks = [
-      { x: 0.18, w: 0.09, h: 0.04, color: '#888' },
-      { x: 0.32, w: 0.07, h: 0.03, color: '#aaa' },
-      { x: 0.5, w: 0.13, h: 0.06, color: '#666' },
-      { x: 0.7, w: 0.08, h: 0.04, color: '#bbb' },
-      { x: 0.82, w: 0.06, h: 0.03, color: '#999' }
-    ];
-
     // Seaweed clusters along the sand
     const seaweedClusters = [
       { x: 0.08, h: 0.22, blades: 7, swayMs: 2400 },
@@ -715,37 +779,6 @@
           ctx.lineWidth = 3 - Math.abs(k);
           ctx.stroke();
         }
-      }
-      ctx.restore();
-    }
-
-    function drawSandAndRocks() {
-      // Sand
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(0, canvas.height);
-      for (let x = 0; x <= canvas.width; x += 8) {
-        ctx.lineTo(x, sandSurfaceY(x));
-      }
-      ctx.lineTo(canvas.width, canvas.height);
-      ctx.closePath();
-      const sandGrad = ctx.createLinearGradient(0, canvas.height-sandHeight, 0, canvas.height);
-      sandGrad.addColorStop(0, '#ffeabf');
-      sandGrad.addColorStop(1, '#e2c48d');
-      ctx.fillStyle = sandGrad;
-      ctx.globalAlpha = 0.95;
-      ctx.fill();
-      // Rocks
-      for (const r of rocks) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.ellipse(canvas.width*r.x, canvas.height-sandHeight*0.5, canvas.width*r.w/2, canvas.height*r.h/2, 0, 0, Math.PI*2);
-        ctx.fillStyle = r.color;
-        ctx.globalAlpha = 0.7;
-        ctx.shadowColor = '#2226';
-        ctx.shadowBlur = 8;
-        ctx.fill();
-        ctx.restore();
       }
       ctx.restore();
     }
@@ -1031,30 +1064,33 @@
       ctx.restore();
     }
 
-    function updateJelly(j) {
-      j.y += Math.sin(Date.now()/1200 + j.phase) * 0.15;
-      j.x += Math.sin(Date.now()/1800 + j.phase) * 0.08;
+    function updateJelly(j, tNow, dtScale) {
+      // Time-based oscillation (no dt scaling on amplitude)
+      j.y += Math.sin(tNow / 1200 + j.phase) * 0.15;
+      j.x += Math.sin(tNow / 1800 + j.phase) * 0.08;
       if (j.y < canvas.height * 0.1) j.y = canvas.height * 0.1;
       if (j.y > canvas.height * 0.7) j.y = canvas.height * 0.7;
     }
 
-    function updateTurtle(t, idx) {
-      if (idx % 5 !== (Math.floor(Date.now()/1000)%5)) return; // update every 5th frame
-      t.x += t.vx * t.dir;
+    function updateTurtle(t, idx, dtScale) {
+      // Adapt staggering: only stagger on slower frames
+      const shouldStagger = (frameTimeAvg > 40);
+      if (shouldStagger && (frameTick % 5) !== (idx % 5)) return;
+      t.x += t.vx * t.dir * dtScale;
       if (t.x > canvas.width + 100) {
         t.x = -100;
         t.y = randomBetween(canvas.height * 0.3, canvas.height * 0.7);
       }
     }
 
-    function updateCrab(c) {
-      c.x += c.vx * c.dir;
+    function updateCrab(c, tNow, dtScale) {
+      c.x += c.vx * c.dir * dtScale;
       if (c.x < 0) { c.dir = 1; c.x = 0; }
       if (c.x > canvas.width - 20) { c.dir = -1; c.x = canvas.width - 20; }
       // Make crab crawl over sand/rocks
       const ySurf = sandSurfaceY(c.x);
-      // Add a little bobble for legs
-      c.y = ySurf - 2 + Math.sin(Date.now()/300 + c.x/40)*2;
+      // Add a little bobble for legs (absolute wobble)
+      c.y = ySurf - 2 + Math.sin(tNow / 300 + c.x / 40) * 2;
     }
 
     // Minimal decorations hook (currently seaweed only)
@@ -1069,6 +1105,12 @@
       frameTimeAvg = frameTimeAvg * 0.9 + dt * 0.1;
       adaptQuality();
       frameTick++;
+      const tNow = Date.now();
+      // Smooth dtScale to reduce micro-stutter
+      const rawDtScale = Math.max(0.25, Math.min(4, dt / 16.6667));
+      window.__dtSmooth = window.__dtSmooth ?? 1;
+      window.__dtSmooth = Math.max(0.5, Math.min(2, window.__dtSmooth * 0.85 + rawDtScale * 0.15));
+      const dtScale = window.__dtSmooth;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawSandAndRocks();
@@ -1077,51 +1119,44 @@
       drawBubbles();
       // Phase 2 creatures
       for (let i = 0; i < jellyfish.length; ++i) {
-        updateJelly(jellyfish[i]);
+        updateJelly(jellyfish[i], tNow, dtScale);
         drawJelly(jellyfish[i]);
       }
       for (let i = 0; i < turtles.length; ++i) {
-        updateTurtle(turtles[i], i);
+        updateTurtle(turtles[i], i, dtScale);
         drawTurtle(turtles[i]);
       }
       for (let i = 0; i < crabs.length; ++i) {
-        updateCrab(crabs[i]);
+        updateCrab(crabs[i], tNow, dtScale);
         drawCrab(crabs[i]);
       }
       // Fish update
       for (let i = 0; i < fish.length; ++i) {
-        updateFish(fish[i], i);
+        updateFish(fish[i], i, tNow, dtScale);
       }
       // Build render queue for fish + flakes (sorted by depth)
-      const renderables = [];
+      renderables.length = 0;
       for (let i = 0; i < fish.length; ++i) {
         const fi = fish[i];
-        renderables.push({ z: fi.z ?? 0.5, y: fi.y, draw: () => drawFish(fi) });
+        renderables.push({ type: TYPE_FISH, idx: i, z: fi.z ?? 0.5, y: fi.y });
       }
       if (feedingActive || foodFlakes.length > 0) {
-        updateFoodFlakes();
-        for (const flake of foodFlakes) {
-          if (!flake.active) continue;
-          const ff = flake;
-          renderables.push({ z: ff.z ?? 0.5, y: ff.y, draw: () => {
-            // draw single flake with depth scale
-            ctx.save();
-            ctx.globalAlpha = ff.alpha;
-            const s = depthScale(ff.z ?? 0.5);
-            ctx.beginPath();
-            ctx.ellipse(ff.x, ff.y, ff.size * s, ff.size*0.5 * s, Math.sin(ff.x)*0.5, 0, Math.PI*2);
-            ctx.fillStyle = ff.color;
-            if (!PERF_FAST) {
-              ctx.shadowColor = '#fff6';
-              ctx.shadowBlur = 6;
-            }
-            ctx.fill();
-            ctx.restore();
-          }});
+        updateFoodFlakes(dtScale);
+        for (let k = 0; k < foodFlakes.length; ++k) {
+          const ff = foodFlakes[k];
+          if (!ff.active) continue;
+          renderables.push({ type: TYPE_FLAKE, ref: ff, z: ff.z ?? 0.5, y: ff.y });
         }
       }
       renderables.sort((a, b) => ((b.z - a.z) || ((a.y ?? 0) - (b.y ?? 0))));
-      for (const r of renderables) r.draw();
+      for (let i = 0; i < renderables.length; ++i) {
+        const r = renderables[i];
+        if (r.type === TYPE_FISH) {
+          drawFish(fish[r.idx]);
+        } else if (r.type === TYPE_FLAKE) {
+          drawOneFlake(r.ref);
+        }
+      }
 
       requestAnimationFrame(loop);
     }
