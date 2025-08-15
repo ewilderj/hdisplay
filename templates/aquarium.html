@@ -285,9 +285,13 @@
       } else {
         fishUpdateStride = 1;
       }
-      // When fast mode is enabled, keep stride at least 3
+      // In perf.fast, only enforce higher stride when frame time is high
       if (typeof PERF_FAST !== 'undefined' && PERF_FAST) {
-        fishUpdateStride = Math.max(fishUpdateStride, 3);
+        if (frameTimeAvg > 55) {
+          fishUpdateStride = Math.max(fishUpdateStride, 4);
+        } else if (frameTimeAvg > 40) {
+          fishUpdateStride = Math.max(fishUpdateStride, 3);
+        } // else keep computed stride (likely 1 on fast CPUs)
       }
     }
 
