@@ -106,6 +106,9 @@
           if (d3 <= eatRadius) {
             // Eat the flake
             target.active = false;
+            // damp any residual approach velocity so fish settle smoothly
+            f.feedVx = (f.feedVx || 0) * 0.2;
+            f.feedVy = (f.feedVy || 0) * 0.2;
           } else {
             // Swim toward the flake with a tiny wobble so fish don't stack
             const t = Date.now() / 500 + f.phase;
@@ -113,8 +116,15 @@
             const oy = Math.sin(t) * 3;
             const tx = (target.x + ox) - f.x;
             const ty = (target.y + oy) - f.y;
-            f.x += tx * 0.03;
-            f.y += ty * 0.03;
+            // Compute desired incremental move (kept similar to previous behavior)
+            const desiredFx = tx * 0.03;
+            const desiredFy = ty * 0.03;
+            // Smooth the approach by maintaining a small approach velocity (prevents teleport/jump)
+            f.feedVx = (f.feedVx || 0) + (desiredFx - (f.feedVx || 0)) * 0.18;
+            f.feedVy = (f.feedVy || 0) + (desiredFy - (f.feedVy || 0)) * 0.18;
+            // Apply the smoothed approach velocity to position
+            f.x += f.feedVx;
+            f.y += f.feedVy;
             // Adjust z toward target flake
             if (typeof target.z === 'number') {
               f.z += (target.z - (f.z ?? 0.5)) * 0.03;
@@ -143,6 +153,9 @@
           }
         }
       } else {
+        // when not feeding, gently decay any residual feed velocity to zero
+        f.feedVx = (f.feedVx || 0) * 0.92;
+        f.feedVy = (f.feedVy || 0) * 0.92;
         // Sine-wave vertical movement
         f.y += Math.sin(Date.now() / 600 + f.phase) * 0.3 * f.dir;
         f.x += Math.abs(f.vx) * f.dir;
@@ -362,6 +375,9 @@
         // Z-axis
         z: randomBetween(0.15, 0.95),
         zPhase: Math.random() * Math.PI * 2,
+        // approach velocity used only during feeding to smooth motion
+        feedVx: 0,
+        feedVy: 0,
       };
     }
 
