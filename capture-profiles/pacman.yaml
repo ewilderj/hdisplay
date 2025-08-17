@@ -1,0 +1,15 @@
+template: pacman
+description: 'Self-playing Pac-Man with random ghosts and BFS pellet-seeking'
+
+readiness_detection:
+  strategy: 'pixel_coverage'
+  min_coverage: 0.1   # game starts drawing immediately; low threshold is fine
+  timeout: 6000
+
+screenshot:
+  after_detection: 1500  # Let initial positions settle
+
+video:
+  duration: 12000        # 12s shows roaming + pellet eating
+
+sample_data: {}
