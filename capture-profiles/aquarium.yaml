@@ -1,5 +1,5 @@
 template: aquarium
-description: 'Canvas aquarium with fish, jellyfish, turtle, and crabs; includes day/night cycle'
+description: 'Canvas aquarium with fish, jellyfish, turtle, and crabs'
 
 readiness_detection:
   strategy: 'animation'
