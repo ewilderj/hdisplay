@@ -28,9 +28,16 @@
     const canvas = document.getElementById('pacman-canvas');
     const ctx = canvas.getContext('2d');
 
-    const GRID_WIDTH = 19;
+    const GRID_WIDTH = 67; // wider grid to better fill 1280px width
     const GRID_HEIGHT = 21;
-    let TILE_SIZE = Math.floor(Math.min(window.innerWidth / GRID_WIDTH, window.innerHeight / GRID_HEIGHT) * 0.9);
+            // Compute TILE_SIZE from available space minus border to avoid vertical clipping
+            const CANVAS_BORDER_PX = 2; // matches CSS border
+            function computeTileSize() {
+                const availW = Math.max(0, window.innerWidth - CANVAS_BORDER_PX * 2);
+                const availH = Math.max(0, window.innerHeight - CANVAS_BORDER_PX * 2);
+                return Math.floor(Math.min(availW / GRID_WIDTH, availH / GRID_HEIGHT));
+            }
+            let TILE_SIZE = computeTileSize();
 
     canvas.width = GRID_WIDTH * TILE_SIZE;
     canvas.height = GRID_HEIGHT * TILE_SIZE;
@@ -87,9 +94,9 @@
           }
       }
 
-      deadEnds.sort(() => Math.random() - 0.5);
-      // Open up about 30% of dead ends to create loops
-      for (let i = 0; i < deadEnds.length * 0.3; i++) {
+    deadEnds.sort(() => Math.random() - 0.5);
+    // Open up about 40% of dead ends to create loops for better connectivity on wider mazes
+    for (let i = 0; i < deadEnds.length * 0.4; i++) {
           const {x, y} = deadEnds[i];
           const possibleDirs = [];
           if (y > 1 && maze[y-1][x] === WALL && maze[y-2] && maze[y-2][x] === PELLET) possibleDirs.push([0, -1]);
@@ -492,12 +499,12 @@
         requestAnimationFrame(gameLoop);
     }
 
-    function resize() {
-        TILE_SIZE = Math.floor(Math.min(window.innerWidth / GRID_WIDTH, window.innerHeight / GRID_HEIGHT) * 0.9);
-        canvas.width = GRID_WIDTH * TILE_SIZE;
-        canvas.height = GRID_HEIGHT * TILE_SIZE;
-        draw();
-    }
+        function resize() {
+            TILE_SIZE = computeTileSize();
+                canvas.width = GRID_WIDTH * TILE_SIZE;
+                canvas.height = GRID_HEIGHT * TILE_SIZE;
+                draw();
+        }
 
     window.addEventListener('resize', resize);
 
