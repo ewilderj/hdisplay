@@ -961,3 +961,81 @@ Phase	Pi Zero W	Pi 3B+	Pi 4	Desktop
 3 (GPU)	Disabled	Disabled	18 FPS*	60 FPS
 ```
 
+
+## Self-Playing Pac-Man Template
+
+### Overview
+A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac-Man navigating a maze to collect pellets while avoiding ghosts.
+
+### Game Components
+
+#### Maze
+- **Size**: 19x21 grid
+- **Generation**: Randomly generated using recursive backtracking
+- **Symmetry**: Horizontally symmetric for visual balance
+- **Connectivity**: Must be fully traversable with multiple paths between any two points
+- **Loop Density**: At least 40% of potential connections should exist to create multiple routes and prevent trivial trapping
+- **Wall Appearance**: Blue walls on black background
+- **Border**: Solid walls around the entire perimeter
+
+#### Pac-Man
+- **Starting Position**: Center of the maze
+- **Movement Speed**: 2.5 tiles per second
+- **Behavior**: 
+  - Uses A* pathfinding to navigate to the nearest pellet
+  - Recalculates path when current target is consumed
+  - When a ghost is within 4 tiles, switches to escape mode
+  - In escape mode, evaluates all possible moves and chooses the one that maximizes distance from all nearby threats
+  - Returns to pellet-seeking mode when safe
+- **Appearance**: Yellow circle with animated mouth that opens/closes based on movement direction
+
+#### Ghosts
+- **Count**: 2 ghosts (Red "Blinky" and Pink "Pinky")
+- **Starting Positions**: Opposite corners of the maze (top-left and top-right)
+- **Movement Speed**: 2 tiles per second (slightly slower than Pac-Man)
+- **Behavior**:
+  - Move randomly through the maze
+  - Cannot reverse direction unless at a dead end
+  - 60% chance to continue straight when possible (for more natural movement)
+  - Each ghost operates independently
+- **Appearance**: Classic ghost shape with eyes that look in movement direction
+
+#### Pellets
+- **Distribution**: One pellet in every non-wall tile at game start
+- **Appearance**: Small yellow dots
+- **Collection**: Disappear when Pac-Man passes over them
+
+### Game Rules
+1. **Objective**: Pac-Man attempts to collect all pellets while avoiding ghosts
+2. **Collision**: Game resets when Pac-Man touches a ghost
+3. **Victory**: Game resets with a new maze when all pellets are collected
+4. **Continuous Play**: Game runs indefinitely, generating new mazes after each round
+
+### Technical Requirements
+- **Frame Rate**: 60 FPS target
+- **Responsive**: Scales to fit viewport while maintaining aspect ratio
+- **Self-Contained**: All logic in a single HTML file
+- **No External Dependencies**: Pure JavaScript, no libraries required
+
+### Movement Mechanics
+- **Grid Alignment**: Entities can only change direction when aligned with grid centers (within 0.1 units)
+- **Smooth Movement**: Entities move continuously between grid positions
+- **Wall Detection**: Check ahead to prevent moving into walls
+- **Corner Cutting**: Entities should handle corners smoothly without getting stuck
+
+### AI Implementation Details
+- **Pathfinding**: Use A* or BFS for optimal path calculation
+- **Decision Frequency**: AI decisions made only at grid intersections
+- **Ghost Randomness**: Use Math.random() with seed-independent behavior
+- **Collision Detection**: Check Manhattan distance < 0.5 tiles
+
+### Visual Specifications
+- **Background**: Pure black (#000000)
+- **Walls**: Blue (#0000FF)
+- **Pac-Man**: Yellow (#FFFF00)
+- **Pellets**: Yellow (#FFFF00)
+- **Blinky**: Red (#FF0000)
+- **Pinky**: Pink (#FFB8FF)
+- **Canvas Border**: 2px solid blue
+
+// ...existing code...

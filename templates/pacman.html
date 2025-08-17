@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Self-Playing Pac-Man</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      background-color: #000;
+      border: 2px solid #00f;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="pacman-canvas"></canvas>
+  <script>
+    const canvas = document.getElementById('pacman-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const GRID_WIDTH = 19;
+    const GRID_HEIGHT = 21;
+    let TILE_SIZE = Math.floor(Math.min(window.innerWidth / GRID_WIDTH, window.innerHeight / GRID_HEIGHT) * 0.9);
+
+    canvas.width = GRID_WIDTH * TILE_SIZE;
+    canvas.height = GRID_HEIGHT * TILE_SIZE;
+
+    const WALL = 1;
+    const PELLET = 0;
+    const EMPTY = 2;
+    
+    let maze = [];
+    let pacman = {};
+    let ghosts = [];
+
+    function generateMaze() {
+      // Initialize maze with walls
+      maze = Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(WALL));
+      const halfWidth = Math.ceil(GRID_WIDTH / 2);
+
+      function isInside(x, y) {
+        return y >= 1 && y < GRID_HEIGHT - 1 && x >= 1 && x < halfWidth;
+      }
+
+      function carve(x, y) {
+        maze[y][x] = PELLET;
+        const directions = [[0, 2], [0, -2], [2, 0], [-2, 0]];
+        directions.sort(() => Math.random() - 0.5);
+
+        for (const [dx, dy] of directions) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (isInside(nx, ny) && maze[ny][nx] === WALL) {
+            maze[ny][nx] = PELLET;
+            maze[y + dy / 2][x + dx / 2] = PELLET;
+            carve(nx, ny);
+          }
+        }
+      }
+
+      carve(1, 1);
+
+      // Add some random connections to create loops
+      let deadEnds = [];
+      for (let y = 1; y < GRID_HEIGHT - 1; y++) {
+          for (let x = 1; x < halfWidth; x++) {
+              if (maze[y][x] === PELLET) {
+                  let wallCount = 0;
+                  if (maze[y-1][x] === WALL) wallCount++;
+                  if (maze[y+1][x] === WALL) wallCount++;
+                  if (maze[y][x-1] === WALL) wallCount++;
+                  if (maze[y][x+1] === WALL) wallCount++;
+                  if (wallCount >= 3) {
+                      deadEnds.push({x, y});
+                  }
+              }
+          }
+      }
+
+      deadEnds.sort(() => Math.random() - 0.5);
+      // Open up about 30% of dead ends to create loops
+      for (let i = 0; i < deadEnds.length * 0.3; i++) {
+          const {x, y} = deadEnds[i];
+          const possibleDirs = [];
+          if (y > 1 && maze[y-1][x] === WALL && maze[y-2] && maze[y-2][x] === PELLET) possibleDirs.push([0, -1]);
+          if (y < GRID_HEIGHT - 2 && maze[y+1][x] === WALL && maze[y+2] && maze[y+2][x] === PELLET) possibleDirs.push([0, 1]);
+          if (x > 1 && maze[y][x-1] === WALL && maze[y][x-2] === PELLET) possibleDirs.push([-1, 0]);
+          if (x < halfWidth - 1 && maze[y][x+1] === WALL && maze[y][x+2] === PELLET) possibleDirs.push([1, 0]);
+          
+          if (possibleDirs.length > 0) {
+              const [dx, dy] = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
+              maze[y+dy][x+dx] = PELLET;
+          }
+      }
+
+      // Mirror the maze
+      for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < halfWidth; x++) {
+          maze[y][GRID_WIDTH - 1 - x] = maze[y][x];
+        }
+      }
+    }
+
+    function findFirstEmptyTile(startX, startY) {
+        for (let r = 0; r < Math.max(GRID_WIDTH, GRID_HEIGHT); r++) {
+            for (let y = Math.max(0, startY - r); y <= Math.min(GRID_HEIGHT - 1, startY + r); y++) {
+                for (let x = Math.max(0, startX - r); x <= Math.min(GRID_WIDTH - 1, startX + r); x++) {
+                    if (maze[y][x] !== WALL) {
+                        return { x, y };
+                    }
+                }
+            }
+        }
+        return { x: startX, y: startY }; // Fallback
+    }
+
+    function initEntities() {
+        const midX = Math.floor(GRID_WIDTH / 2);
+        const midY = Math.floor(GRID_HEIGHT / 2);
+
+        const pacmanStart = findFirstEmptyTile(midX, midY);
+        pacman = {
+            x: pacmanStart.x,
+            y: pacmanStart.y,
+            dx: 0,
+            dy: 0,
+            mouthOpen: 0.2,
+            mouthOpening: true,
+            speed: 0.125, // progress per frame across one tile [0..1]
+            path: [],
+            pathTarget: null,
+            avoidanceCounter: 0,
+            startX: pacmanStart.x,
+            startY: pacmanStart.y,
+            targetX: pacmanStart.x,
+            targetY: pacmanStart.y,
+            progress: 0
+        };
+
+        const ghost1Start = findFirstEmptyTile(1, 1);
+        const ghost2Start = findFirstEmptyTile(GRID_WIDTH - 2, 1);
+
+        ghosts = [
+            { x: ghost1Start.x, y: ghost1Start.y, color: '#FF0000', name: 'blinky', speed: 0.1, dx: 0, dy: 0, startX: ghost1Start.x, startY: ghost1Start.y, targetX: ghost1Start.x, targetY: ghost1Start.y, progress: 0 },
+            { x: ghost2Start.x, y: ghost2Start.y, color: '#FFB8FF', name: 'pinky',  speed: 0.1, dx: 0, dy: 0, startX: ghost2Start.x, startY: ghost2Start.y, targetX: ghost2Start.x, targetY: ghost2Start.y, progress: 0 }
+        ];
+        // Choose an initial valid direction for each ghost
+        for (const g of ghosts) {
+            const moves = validGhostMovesAt(Math.round(g.x), Math.round(g.y), 0, 0, true);
+            if (moves.length > 0) {
+                const {dx, dy} = chooseGhostDir(moves, 0, 0);
+                g.dx = dx; g.dy = dy;
+                g.startX = g.x; g.startY = g.y;
+                g.targetX = g.x + dx; g.targetY = g.y + dy;
+                g.progress = 0;
+            }
+        }
+    }
+
+    function isWall(x, y) {
+        const gridX = Math.floor(x);
+        const gridY = Math.floor(y);
+        if (gridX < 0 || gridX >= GRID_WIDTH || gridY < 0 || gridY >= GRID_HEIGHT) {
+            return true;
+        }
+        return maze[gridY][gridX] === WALL;
+    }
+
+    function isPathable(x, y) {
+        const gridX = Math.floor(x);
+        const gridY = Math.floor(y);
+        if (gridX < 0 || gridX >= GRID_WIDTH || gridY < 0 || gridY >= GRID_HEIGHT) {
+            return false;
+        }
+        const tile = maze[gridY][gridX];
+        return tile !== WALL;
+    }
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    // Return array of candidate moves at a grid cell
+    function validGhostMovesAt(gridX, gridY, prevDx, prevDy, allowReverse = false) {
+        const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
+        let candidates = dirs.filter(([dx, dy]) => isPathable(gridX + dx, gridY + dy));
+        if (!allowReverse && (prevDx !== 0 || prevDy !== 0)) {
+            const nonReverse = candidates.filter(([dx, dy]) => !(dx === -prevDx && dy === -prevDy));
+            if (nonReverse.length > 0) candidates = nonReverse;
+        }
+        return candidates.map(([dx, dy]) => ({dx, dy}));
+    }
+
+    function chooseGhostDir(moves, prevDx, prevDy) {
+        if (moves.length === 0) return {dx: 0, dy: 0};
+        const cont = moves.find(m => m.dx === prevDx && m.dy === prevDy);
+        if (cont && Math.random() < 0.7) return cont;
+        return moves[Math.floor(Math.random() * moves.length)];
+    }
+
+    function findPath(startX, startY, targetX, targetY) {
+        // If target is not pathable, find the nearest pathable tile to target
+        if (!isPathable(targetX, targetY)) {
+            let bestOption = null;
+            let minDistance = Infinity;
+            for(let y = Math.max(0, targetY - 2); y < Math.min(GRID_HEIGHT, targetY + 3); y++) {
+                for(let x = Math.max(0, targetX - 2); x < Math.min(GRID_WIDTH, targetX + 3); x++) {
+                    if (isPathable(x, y)) {
+                        const dist = Math.sqrt(Math.pow(targetX - x, 2) + Math.pow(targetY - y, 2));
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            bestOption = {x, y};
+                        }
+                    }
+                }
+            }
+            if (bestOption) {
+                targetX = bestOption.x;
+                targetY = bestOption.y;
+            } else {
+                return null; // No path possible
+            }
+        }
+
+        let queue = [[{x: startX, y: startY}, []]];
+        let visited = new Set([`${startX},${startY}`]);
+
+        while(queue.length > 0) {
+            let [{x, y}, path] = queue.shift();
+
+            if (x === targetX && y === targetY) {
+                return path;
+            }
+
+            const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            for(const [dx, dy] of directions) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (isPathable(nx, ny) && !visited.has(`${nx},${ny}`)) {
+                    visited.add(`${nx},${ny}`);
+                    let newPath = [...path, {x: dx, y: dy}];
+                    queue.push([{x: nx, y: ny}, newPath]);
+                }
+            }
+        }
+        return null; // No path found
+    }
+
+    function updatePacman() {
+        // If we're not currently traversing to the next tile, decide the next move at center
+        if (pacman.progress === 0) {
+            const gridX = Math.round(pacman.x);
+            const gridY = Math.round(pacman.y);
+            pacman.x = gridX; pacman.y = gridY; // snap to center
+
+            // Eat pellet at current tile
+            if (maze[gridY] && maze[gridY][gridX] === PELLET) {
+                maze[gridY][gridX] = EMPTY;
+                pacman.path = []; // Recalculate path after eating
+            }
+
+            // Check for nearby ghosts
+            const GHOST_DANGER_DISTANCE = 3;
+            let danger = false;
+            for (const ghost of ghosts) {
+                const dist = Math.hypot(gridX - Math.round(ghost.x), gridY - Math.round(ghost.y));
+                if (dist < GHOST_DANGER_DISTANCE) { danger = true; break; }
+            }
+
+            let chosen = null;
+            if (danger && pacman.avoidanceCounter <= 0) {
+                // Choose neighbor that maximizes minimum distance to ghosts
+                const candidates = validGhostMovesAt(gridX, gridY, 0, 0, true);
+                let best = null, bestScore = -Infinity;
+                for (const m of candidates) {
+                    const nx = gridX + m.dx, ny = gridY + m.dy;
+                    if (!isPathable(nx, ny)) continue;
+                    let minGhost = Infinity;
+                    for (const ghost of ghosts) {
+                        const gdx = nx - Math.round(ghost.x);
+                        const gdy = ny - Math.round(ghost.y);
+                        const d = Math.hypot(gdx, gdy);
+                        if (d < minGhost) minGhost = d;
+                    }
+                    if (minGhost > bestScore) { bestScore = minGhost; best = m; }
+                }
+                if (best) {
+                    chosen = best;
+                    pacman.path = []; // clear path when evading
+                    pacman.avoidanceCounter = 6; // short lock-in
+                }
+            } else if (danger) {
+                pacman.avoidanceCounter--;
+            }
+
+            // If not evading, follow or (re)compute path to nearest pellet
+            if (!chosen) {
+                if (pacman.path.length === 0 || !pacman.pathTarget || maze[pacman.pathTarget.y][pacman.pathTarget.x] !== PELLET) {
+                    let nearestPellet = null;
+                    let minDistance = Infinity;
+                    for (let y = 0; y < GRID_HEIGHT; y++) {
+                        for (let x = 0; x < GRID_WIDTH; x++) {
+                            if (maze[y][x] === PELLET) {
+                                const d = Math.hypot(gridX - x, gridY - y);
+                                if (d < minDistance) { minDistance = d; nearestPellet = {x, y}; }
+                            }
+                        }
+                    }
+                    if (nearestPellet) {
+                        const path = findPath(gridX, gridY, nearestPellet.x, nearestPellet.y);
+                        if (path && path.length > 0) {
+                            pacman.path = path;
+                            pacman.pathTarget = nearestPellet;
+                        }
+                    }
+                }
+                if (pacman.path.length > 0) {
+                    const step = pacman.path.shift();
+                    chosen = { dx: step.x, dy: step.y };
+                }
+            }
+
+            // Fallback: pick any pathable neighbor
+            if (!chosen) {
+                const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                for (const [dx, dy] of dirs) {
+                    if (isPathable(gridX + dx, gridY + dy)) { chosen = {dx, dy}; break; }
+                }
+            }
+
+            // Start moving to next tile if a choice exists
+            if (chosen) {
+                const tx = gridX + chosen.dx;
+                const ty = gridY + chosen.dy;
+                if (isPathable(tx, ty)) {
+                    pacman.dx = chosen.dx; pacman.dy = chosen.dy;
+                    pacman.startX = gridX; pacman.startY = gridY;
+                    pacman.targetX = tx; pacman.targetY = ty;
+                    pacman.progress = 0.000001; // begin movement
+                } else {
+                    // Shouldn't happen, but reset path if it does
+                    pacman.path = [];
+                }
+            }
+        }
+
+        // Continue moving toward target center
+        if (pacman.progress > 0) {
+            pacman.progress = Math.min(1, pacman.progress + pacman.speed);
+            pacman.x = lerp(pacman.startX, pacman.targetX, pacman.progress);
+            pacman.y = lerp(pacman.startY, pacman.targetY, pacman.progress);
+            if (pacman.progress >= 1) {
+                pacman.x = pacman.targetX;
+                pacman.y = pacman.targetY;
+                pacman.progress = 0;
+            }
+        }
+    }
+
+    function updateGhosts() {
+        ghosts.forEach((g) => {
+            // If not currently traversing a tile, choose next move based on current cell
+            if (g.progress === 0) {
+                const cellX = Math.round(g.x);
+                const cellY = Math.round(g.y);
+                g.x = cellX; g.y = cellY; // snap to center
+
+                const moves = validGhostMovesAt(cellX, cellY, g.dx, g.dy, false);
+                const choice = chooseGhostDir(moves, g.dx, g.dy);
+
+                // If no non-reverse moves (dead end), allow reverse
+                const finalChoice = (moves.length === 0) ? chooseGhostDir(validGhostMovesAt(cellX, cellY, g.dx, g.dy, true), g.dx, g.dy)
+                                                        : choice;
+                g.dx = finalChoice.dx;
+                g.dy = finalChoice.dy;
+                g.startX = g.x; g.startY = g.y;
+                g.targetX = g.x + g.dx; g.targetY = g.y + g.dy;
+                g.progress = 0.000001; // start movement
+            }
+
+            // Continue moving towards target center
+            if (g.progress > 0) {
+                g.progress = Math.min(1, g.progress + g.speed);
+                g.x = lerp(g.startX, g.targetX, g.progress);
+                g.y = lerp(g.startY, g.targetY, g.progress);
+                if (g.progress >= 1) {
+                    // Arrived at next cell
+                    g.x = g.targetX;
+                    g.y = g.targetY;
+                    g.progress = 0;
+                }
+            }
+
+            // Check collision with Pac-Man
+            if (Math.abs(pacman.x - g.x) < 0.5 && Math.abs(pacman.y - g.y) < 0.5) {
+                generateMaze();
+                initEntities();
+            }
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw maze and pellets
+        let pelletsLeft = false;
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+            for (let x = 0; x < GRID_WIDTH; x++) {
+                if (maze[y][x] === WALL) {
+                    ctx.fillStyle = '#0000FF';
+                    ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else if (maze[y][x] === PELLET) {
+                    pelletsLeft = true;
+                    ctx.fillStyle = '#FFFF00';
+                    ctx.beginPath();
+                    ctx.arc(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Draw Pac-Man
+        ctx.fillStyle = '#FFFF00';
+        ctx.beginPath();
+        let angle = Math.atan2(pacman.dy, pacman.dx);
+        if (pacman.dx === 0 && pacman.dy === 0) angle = 0;
+        ctx.arc(pacman.x * TILE_SIZE + TILE_SIZE / 2, pacman.y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 2 * 0.7, pacman.mouthOpen * Math.PI + angle, (2 - pacman.mouthOpen) * Math.PI + angle);
+        ctx.lineTo(pacman.x * TILE_SIZE + TILE_SIZE / 2, pacman.y * TILE_SIZE + TILE_SIZE / 2);
+        ctx.fill();
+
+        if (pacman.mouthOpening) {
+            pacman.mouthOpen += 0.05;
+            if (pacman.mouthOpen >= 0.4) pacman.mouthOpening = false;
+        } else {
+            pacman.mouthOpen -= 0.05;
+            if (pacman.mouthOpen <= 0.0) pacman.mouthOpening = true;
+        }
+
+        // Draw ghosts
+        ghosts.forEach(ghost => {
+            ctx.fillStyle = ghost.color;
+            const baseX = ghost.x * TILE_SIZE + TILE_SIZE / 2;
+            const baseY = ghost.y * TILE_SIZE + TILE_SIZE / 2;
+            const radius = TILE_SIZE / 2 * 0.7;
+            
+            ctx.beginPath();
+            ctx.arc(baseX, baseY, radius, Math.PI, 0);
+            ctx.lineTo(baseX + radius, baseY + radius);
+            for(let i = 0; i < 3; i++) {
+                ctx.lineTo(baseX + radius - (i * radius / 2), baseY + radius - (i % 2 === 0 ? 5 : 0));
+            }
+            ctx.lineTo(baseX - radius, baseY + radius);
+            ctx.closePath();
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = 'white';
+            const eyeXOffset = TILE_SIZE * 0.15;
+            const eyeYOffset = -TILE_SIZE * 0.1;
+            ctx.beginPath();
+            ctx.arc(baseX - eyeXOffset, baseY + eyeYOffset, TILE_SIZE * 0.1, 0, Math.PI * 2);
+            ctx.arc(baseX + eyeXOffset, baseY + eyeYOffset, TILE_SIZE * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'black';
+            const pupilX = ghost.dx * TILE_SIZE * 0.05;
+            const pupilY = ghost.dy * TILE_SIZE * 0.05;
+            ctx.beginPath();
+            ctx.arc(baseX - eyeXOffset + pupilX, baseY + eyeYOffset + pupilY, TILE_SIZE * 0.05, 0, Math.PI * 2);
+            ctx.arc(baseX + eyeXOffset + pupilX, baseY + eyeYOffset + pupilY, TILE_SIZE * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        if (!pelletsLeft) {
+            generateMaze();
+            initEntities();
+        }
+    }
+
+    function gameLoop() {
+        updatePacman();
+        updateGhosts();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function resize() {
+        TILE_SIZE = Math.floor(Math.min(window.innerWidth / GRID_WIDTH, window.innerHeight / GRID_HEIGHT) * 0.9);
+        canvas.width = GRID_WIDTH * TILE_SIZE;
+        canvas.height = GRID_HEIGHT * TILE_SIZE;
+        draw();
+    }
+
+    window.addEventListener('resize', resize);
+
+    generateMaze();
+    initEntities();
+    gameLoop();
+  </script>
+</body>
+</html>
