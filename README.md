@@ -20,6 +20,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Weather](#weather-6-day-forecast)
   - [Aquarium](#aquarium-ambient-simulation)
   - [Pac-Man](#pac-man-self-playing)
+  - [Mandelbrot Explorer](#mandelbrot-explorer-fractal-visualization)
 - [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
@@ -394,6 +395,70 @@ Preview
 ![pacman preview](captures/screenshots/pacman.png)
 
 [Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/pacman.mp4)
+
+### Mandelbrot Explorer (fractal visualization)
+
+An ambient visualization that smoothly crossfades between curated regions of the Mandelbrot set. Features progressive rendering, multiple color schemes, and smooth transitions optimized for both desktop and Raspberry Pi.
+
+```bash
+# Default tour (10 curated locations, ocean color scheme)
+hdisplay template mandelbrot
+
+# Faster cycling with rainbow colors
+hdisplay template mandelbrot --duration 5000 --colorScheme rainbow
+
+# High-quality deep zoom with longer transitions
+hdisplay template mandelbrot --maxIterations 200 --transitionMs 3000
+
+# Pi-optimized (lower quality for better performance)
+hdisplay template mandelbrot --maxIterations 50 --progressive false
+
+# Custom locations (JSON required for complex data)
+hdisplay template mandelbrot --data '{
+  "locations": "custom",
+  "customLocations": [
+    {"name": "Deep Spiral", "cx": -0.7269, "cy": 0.1889, "scale": 0.00001}
+  ],
+  "duration": 8000,
+  "colorScheme": "fire"
+}'
+```
+
+Preview
+
+![mandelbrot preview](captures/screenshots/mandelbrot.png)
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/mandelbrot.mp4)
+
+Options (data fields)
+
+- duration: milliseconds per location (default 10000)
+- transitionMs: crossfade duration in milliseconds (default 2000)
+- colorScheme: "ocean" (default), "fire", "forest", "mono", or "rainbow"
+- maxIterations: base iteration count, higher = more detail but slower (default 100)
+- progressive: enable progressive rendering passes (default true)
+- shuffle: randomize location order (default false)
+- locations: "default" (curated) or "custom"
+- customLocations: array of custom zoom locations (requires locations: "custom")
+
+Custom location format:
+```json
+{
+  "name": "Location Name",
+  "cx": -0.75,
+  "cy": 0.10,
+  "scale": 0.01
+}
+```
+
+Built-in locations include: Overview, Seahorse Valley, Elephant Valley, Triple Spiral, Mini Mandelbrot, Dendrite Forest, Spiral Galaxy, Lightning Branches, Jeweled Necklace, and Feather Tip.
+
+Notes
+
+- First location shows progressive rendering for visual feedback; subsequent locations render off-screen then crossfade
+- Performance automatically adapts on Raspberry Pi with lower iteration counts
+- Smooth coloring eliminates banding artifacts
+- Respects reduced motion preferences
 
 ## Playlists
 

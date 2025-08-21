@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mandelbrot Explorer</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+      background: #000; color: #fff; font-family: system-ui, sans-serif;
+    }
+    .stage { 
+      position: relative; 
+      width: 100vw; 
+      height: 100vh; 
+    }
+    canvas { 
+      position: absolute; 
+      inset: 0; 
+      width: 100%; 
+      height: 100%; 
+      display: block; 
+      image-rendering: crisp-edges;
+      transition: opacity var(--transition-ms, 2000ms) ease;
+    }
+    #canvasBack { z-index: 1; opacity: 0; }
+    #canvasFront { z-index: 2; opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="canvasBack"></canvas>
+    <canvas id="canvasFront"></canvas>
+  </div>
+  <script>
+  (function() {
+    // Parse template data with safe fallbacks
+    const parseNum = (str, def) => {
+      if (!str || str.trim() === '') return def;
+      const n = Number(str.trim());
+      return Number.isFinite(n) ? n : def;
+    };
+    const parseBool = (str) => /^(true|1|yes|on)$/i.test((str || '').trim());
+    const parseStr = (str, def) => (str || '').trim() || def;
+    
+    // Configuration from template placeholders
+    const duration = parseNum('{{ duration }}', 10000);
+    const transitionMs = parseNum('{{ transitionMs }}', 2000);
+    const shuffle = parseBool('{{ shuffle }}');
+    const colorScheme = parseStr('{{ colorScheme }}', 'ocean').toLowerCase();
+    const maxIterations = parseNum('{{ maxIterations }}', 100);
+    const progressive = parseBool('{{ progressive }}') !== false;
+    const reducedMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    
+    document.documentElement.style.setProperty('--transition-ms', transitionMs + 'ms');
+
+    // Canvas setup
+    let canvasFront = document.getElementById('canvasFront');
+    let canvasBack = document.getElementById('canvasBack');
+    let ctxFront = canvasFront.getContext('2d');
+    let ctxBack = canvasBack.getContext('2d');
+
+    function resizeCanvases() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cssW = window.innerWidth || 1280;
+      const cssH = window.innerHeight || 400;
+      const pixelW = Math.floor(cssW * dpr);
+      const pixelH = Math.floor(cssH * dpr);
+      
+      for (const canvas of [canvasFront, canvasBack]) {
+        canvas.width = pixelW;
+        canvas.height = pixelH;
+      }
+    }
+    resizeCanvases();
+    window.addEventListener('resize', resizeCanvases);
+
+    // Curated locations from PRD
+    const defaultLocations = [
+      { name: 'Overview', bounds: [-2.5, 1, -1, 1] },
+      { name: 'Seahorse', cx: -0.75, cy: 0.10, scale: 0.01 },
+      { name: 'Elephant', cx: 0.275, cy: 0.007, scale: 0.01 },
+      { name: 'Triple Spiral', cx: -0.088, cy: 0.654, scale: 0.005 },
+      { name: 'Mini', cx: -0.7533, cy: 0.1138, scale: 0.002 },
+      { name: 'Dendrite', cx: -0.7, cy: 0.27015, scale: 0.008 },
+      { name: 'Spiral', cx: -0.7269, cy: 0.1889, scale: 0.0005 },
+      { name: 'Lightning', cx: 0.432539, cy: 0.226118, scale: 0.004 },
+      { name: 'Necklace', cx: -1.25066, cy: 0.02012, scale: 0.006 },
+      { name: 'Feather', cx: -0.748, cy: 0.1, scale: 0.008 },
+    ];
+
+    let locations = [...defaultLocations];
+    if (shuffle) {
+      for (let i = locations.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [locations[i], locations[j]] = [locations[j], locations[i]];
+      }
+    }
+
+    // Color palette functions
+    function getColor(t, scheme) {
+      t = Math.max(0, Math.min(1, t));
+      
+      switch (scheme) {
+        case 'fire':
+          return [255, Math.round(64 + 160*t), Math.round(10 + 60*(1-t))];
+        case 'forest':
+          return [Math.round(20 + 20*t), Math.round(100 + 120*t), 80];
+        case 'mono':
+          const v = Math.round(50 + t*205);
+          return [v, v, v];
+        case 'rainbow':
+          return hsvToRgb(t, 0.85, 1);
+        case 'ocean':
+        default:
+          return [Math.round(10 + 30*t), Math.round(80 + 140*t), 200];
+      }
+    }
+    
+    function hsvToRgb(h, s, v) {
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+      const rgb = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i % 6];
+      return [Math.round(rgb[0]*255), Math.round(rgb[1]*255), Math.round(rgb[2]*255)];
+    }
+
+    // Mandelbrot renderer
+    function renderMandelbrot(ctx, location, onComplete) {
+      const W = ctx.canvas.width;
+      const H = ctx.canvas.height;
+      const imageData = ctx.createImageData(W, H);
+      const data = imageData.data;
+      
+      // Calculate bounds
+      let x0, x1, y0, y1;
+      if (location.bounds) {
+        [x0, x1, y0, y1] = location.bounds;
+      } else {
+        const aspect = H / W;
+        x0 = location.cx - location.scale;
+        x1 = location.cx + location.scale;
+        y0 = location.cy - location.scale * aspect;
+        y1 = location.cy + location.scale * aspect;
+      }
+      
+      const passes = progressive ? [0.25, 0.5, 1.0] : [1.0];
+      let passIndex = 0;
+      
+      function renderPass() {
+        if (passIndex >= passes.length) {
+          ctx.putImageData(imageData, 0, 0);
+          onComplete && onComplete();
+          return;
+        }
+        
+        const scale = passes[passIndex];
+        const step = Math.max(1, Math.round(1 / scale));
+        const iterCount = Math.round(maxIterations * (0.5 + 0.5 * scale));
+        
+        let y = 0;
+        
+        function renderRow() {
+          if (y >= H) {
+            passIndex++;
+            requestAnimationFrame(renderPass);
+            return;
+          }
+          
+          const cy = y0 + (y / (H - 1)) * (y1 - y0);
+          
+          for (let x = 0; x < W; x += step) {
+            const cx = x0 + (x / (W - 1)) * (x1 - x0);
+            
+            // Mandelbrot computation
+            let zx = 0, zy = 0, iterations = 0;
+            let zx2 = 0, zy2 = 0;
+            
+            while (zx2 + zy2 <= 4 && iterations < iterCount) {
+              zy = 2 * zx * zy + cy;
+              zx = zx2 - zy2 + cx;
+              zx2 = zx * zx;
+              zy2 = zy * zy;
+              iterations++;
+            }
+            
+            // Color calculation
+            let r, g, b;
+            if (iterations === iterCount) {
+              r = g = b = 0; // Point in set = black
+            } else {
+              // Smooth coloring
+              const smoothIter = iterations + 1 - Math.log2(Math.log2(zx2 + zy2));
+              const t = Math.max(0, Math.min(1, smoothIter / iterCount));
+              [r, g, b] = getColor(t, colorScheme);
+            }
+            
+            // Write pixel block
+            const endX = Math.min(W, x + step);
+            const endY = Math.min(H, y + step);
+            for (let py = y; py < endY; py++) {
+              for (let px = x; px < endX; px++) {
+                const idx = (py * W + px) * 4;
+                data[idx] = r;
+                data[idx + 1] = g;
+                data[idx + 2] = b;
+                data[idx + 3] = 255;
+              }
+            }
+          }
+          
+          y += step;
+          
+          // Update display periodically during first pass only
+          if (passIndex === 0 && (y & 15) === 0) {
+            ctx.putImageData(imageData, 0, 0);
+          }
+          
+          requestAnimationFrame(renderRow);
+        }
+        
+        renderRow();
+      }
+      
+      renderPass();
+    }
+
+    // Main display loop
+    let currentIndex = 0;
+    let isFirstRender = true;
+    
+    function showNextLocation() {
+      const location = locations[currentIndex % locations.length];
+      
+      if (isFirstRender) {
+        // First render goes directly to front canvas
+        renderMandelbrot(ctxFront, location, () => {
+          isFirstRender = false;
+          setTimeout(showNextLocation, duration);
+        });
+      } else {
+        // Subsequent renders go to back canvas, then crossfade
+        renderMandelbrot(ctxBack, location, () => {
+          // Trigger crossfade
+          canvasBack.style.opacity = '1';
+          canvasFront.style.opacity = '0';
+          
+          // After transition, swap canvases
+          setTimeout(() => {
+            const tempCanvas = canvasFront;
+            const tempCtx = ctxFront;
+            
+            // Swap references
+            canvasFront = canvasBack;
+            ctxFront = ctxBack;
+            canvasBack = tempCanvas;
+            ctxBack = tempCtx;
+            
+            // Reset z-index and opacity
+            canvasFront.style.zIndex = '2';
+            canvasFront.style.opacity = '1';
+            canvasBack.style.zIndex = '1';
+            canvasBack.style.opacity = '0';
+            
+            setTimeout(showNextLocation, duration);
+          }, reducedMotion ? 100 : transitionMs);
+        });
+      }
+      
+      currentIndex++;
+    }
+    
+    // Start the display
+    showNextLocation();
+  })();
+  </script>
+</body>
+</html>
