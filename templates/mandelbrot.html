@@ -212,8 +212,9 @@
           
           y += step;
           
-          // Update display periodically during first pass only
-          if (passIndex === 0 && (y & 15) === 0) {
+          // Update display periodically during the initial on-screen render
+          // Show refinement across all passes only for the first render
+          if (isFirstRender && (y & 7) === 0) {
             ctx.putImageData(imageData, 0, 0);
           }
           
