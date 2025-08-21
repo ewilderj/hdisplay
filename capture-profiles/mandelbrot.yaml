@@ -11,8 +11,8 @@ screenshot:
   after_detection: 15000          # give a moment after first pixels appear
 
 video:
-  duration: 15000                 # capture crossfade + a bit of next view
-  trim_ms: 0                 # effectively start around 22s from apply
+  duration: 20000                 # capture crossfade + a bit of next view
+  trim_ms: 29000                 # effectively start around 22s from apply
 
 sample_data:
   duration: 4000                 # dwell so first crossfade ≈ 15s + 7s ≈ 22s
