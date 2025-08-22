@@ -1317,3 +1317,196 @@ A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac
 - **Pinky**: Pink (#FFB8FF)
 - **Canvas Border**: 2px solid blue
 
+### Stock Ticker
+
+Goal: Display real-time stock market data for multiple symbols in a clean, glanceable format optimized for the 1280x400 display. Shows price, change, percentage change, and visual trend indicators with automatic updates.
+
+ID: stock-ticker
+
+Type: Template (HTML + CSS + JS, server-side API integration)
+
+Apply: `POST /api/template/stock-ticker` with JSON `data` payload
+
+Rendering and Layout
+
+- **Grid Layout**: 3-4 symbols displayed side-by-side in equal columns
+- **Scrolling Mode**: Optional horizontal scroll for 5+ symbols
+- **Each Symbol Panel**:
+  - Company name and ticker symbol
+  - Current price (large, prominent)
+  - Change amount and percentage
+  - Mini sparkline chart (24h or 5-day)
+  - Volume indicator (optional)
+  - Market status indicator (open/closed/pre/post)
+- **Responsive**: Adapts column count based on symbol count (1-6 symbols)
+- **Animation**: Smooth price updates with subtle pulse on change
+
+Data Schema (placeholders)
+
+```
+{
+  "symbols": ["MSFT", "AAPL", "GOOGL"],  // required; array of ticker symbols (default shown)
+  "apiKey": string,                       // optional; falls back to server config
+  "provider": "finnhub" | "alphavantage" | "yahoo",  // default "finnhub"
+  "refreshInterval": number,              // seconds between updates; default 30, min 10, max 300
+  "displayMode": "grid" | "scroll",       // default "grid" for ≤4 symbols, "scroll" for 5+
+  "showSparkline": boolean,               // default true; mini chart
+  "sparklinePeriod": "1d" | "5d" | "1m",  // default "1d"
+  "showVolume": boolean,                  // default false
+  "showMarketStatus": boolean,            // default true
+  "theme": {
+    "bg": string,                         // CSS color; default "#0a0a0a"
+    "text": string,                       // default "#ffffff"
+    "gain": string,                       // default "#00ff41" (bright green)
+    "loss": string,                       // default "#ff3366" (bright red)
+    "neutral": string,                    // default "#888888"
+    "divider": string,                    // default "rgba(255,255,255,0.1)"
+    "sparkline": string,                  // default matches gain/loss based on trend
+    "fontFamily": string                  // default "'SF Mono', 'Monaco', monospace"
+  },
+  "animation": {
+    "pulse": boolean,                     // default true; pulse on price change
+    "scrollSpeed": number                 // px/second for scroll mode; default 30
+  }
+}
+```
+
+Visual Design
+
+- **Typography**:
+  - Ticker symbols: Bold, uppercase, 20px
+  - Company names: Regular, 14px, slightly muted
+  - Prices: Bold, 48px, monospace for alignment
+  - Changes: Medium, 24px with +/- indicators
+  - Percentages: In parentheses, same size as changes
+
+- **Color Coding**:
+  - Green for gains (price up from previous close)
+  - Red for losses (price down)
+  - Gray for unchanged or market closed
+  - Subtle background tint matching gain/loss status
+
+- **Sparkline Charts**:
+  - 100px wide × 40px tall
+  - No axes or labels (pure visualization)
+  - Gradient fill under line
+  - Color matches gain/loss status
+  - Smooth bezier curves between points
+
+- **Market Status Indicators**:
+  - Small dot with label: "Open", "Closed", "Pre-Market", "After-Hours"
+  - Position: top-right of each panel
+  - Color: green (open), gray (closed), orange (extended hours)
+
+Layout Examples
+
+**3 Symbols (Grid)**:
+```
+┌─────────────────┬─────────────────┬─────────────────┐
+│  MSFT           │  AAPL           │  GOOGL          │
+│  Microsoft      │  Apple Inc.     │  Alphabet Inc.  │
+│                 │                 │                 │
+│  $432.15        │  $189.73        │  $142.58        │
+│  +2.45 (0.57%)  │  -1.12 (-0.59%) │  +0.82 (0.58%)  │
+│  [sparkline]    │  [sparkline]    │  [sparkline]    │
+└─────────────────┴─────────────────┴─────────────────┘
+```
+
+**5+ Symbols (Scroll)**:
+Continuous horizontal scroll with seamless loop
+
+Server Integration
+
+- **API Providers**:
+  - Finnhub (default): Free tier with 60 calls/minute
+  - Alpha Vantage: Free tier with 5 calls/minute
+  - Yahoo Finance: Via unofficial API (fallback)
+
+- **Caching Strategy**:
+  - Server caches quotes for minimum 10 seconds
+  - Batch requests when possible
+  - Store last successful response for offline fallback
+  - Rate limit aware with automatic backoff
+
+- **Data Points**:
+  - Current price (c)
+  - Previous close (pc)
+  - Change (c - pc)
+  - Percent change ((c - pc) / pc * 100)
+  - High/Low (optional)
+  - Volume (optional)
+  - Timestamp
+
+Error Handling
+
+- **Invalid Symbol**: Display "N/A" with error message
+- **API Failure**: Show cached data with "Delayed" indicator
+- **Rate Limit**: Increase refresh interval automatically
+- **Missing API Key**: Display setup instructions
+- **Market Closed**: Show last close price with "Closed" status
+
+Performance Optimization
+
+- **Batch Updates**: Single API call for all symbols when possible
+- **Differential Updates**: Only update changed values in DOM
+- **Debounced Animations**: Limit pulse effects to once per second
+- **Lazy Sparklines**: Render charts only when visible (scroll mode)
+- **Memory Management**: Limit historical data to latest 100 points
+
+Extended Features (Optional)
+
+- **Indices Support**: SPX, DJI, IXIC with special formatting
+- **Crypto Support**: BTC, ETH with 24/7 market status
+- **Currency Pairs**: EUR/USD format detection
+- **News Headlines**: Optional ticker-specific news feed
+- **Pre/Post Market**: Extended hours pricing when available
+
+Examples
+
+CLI:
+```bash
+# Default symbols (MSFT, AAPL, GOOGL)
+hdisplay template stock-ticker
+
+# Custom symbols
+hdisplay template stock-ticker --symbols TSLA --symbols NVDA --symbols AMD
+
+# With options
+hdisplay template stock-ticker --symbols MSFT --symbols AAPL --refreshInterval 60 --showVolume
+
+# Crypto and stocks mixed
+hdisplay template stock-ticker --symbols BTC-USD --symbols ETH-USD --symbols TSLA
+
+# Scrolling mode with many symbols
+hdisplay template stock-ticker --symbols MSFT --symbols AAPL --symbols GOOGL \
+  --symbols META --symbols AMZN --symbols NFLX --displayMode scroll
+```
+
+HTTP: `POST /api/template/stock-ticker` body:
+```json
+{
+  "data": {
+    "symbols": ["MSFT", "AAPL", "GOOGL"],
+    "refreshInterval": 30,
+    "showSparkline": true,
+    "theme": {
+      "bg": "#000000",
+      "gain": "#00ff41",
+      "loss": "#ff3366"
+    }
+  }
+}
+```
+
+Success Criteria
+
+- Clean, readable display of 3+ stock symbols at 1280×400
+- Real-time updates without flicker or layout shift
+- Clear visual distinction between gains and losses
+- Smooth animations that don't distract from data
+- Graceful degradation when API is unavailable
+- Sparklines provide at-a-glance trend information
+- Handles market hours correctly for different exchanges
+- Works with stocks, ETFs, indices, and optionally crypto
+- Respects API rate limits through intelligent caching
+- Default symbols (MSFT, AAPL, GOOGL) work out of the box
