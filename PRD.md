@@ -557,7 +557,7 @@ ID: weather
 
 Type: Template (HTML + CSS + JS, uses OpenWeatherMap API)
 
-Apply: POST /api/template/weather with JSON data payload
+Apply: `POST /api/template/weather` with JSON data payload
 
 Rendering and Layout
 
@@ -677,11 +677,6 @@ HTTP: `POST /api/template/weather` body:
 }
 ```
 
-Testing
-
-Write tests that use mock API returns so an API key is not needed for testing.
-Also write an E2E test that does need an API key.
-
 Success Criteria
 
 - Clean, readable 3-panel layout fits perfectly in 1280×400
@@ -691,6 +686,163 @@ Success Criteria
 - Supports both Celsius and Fahrenheit units
 - Works with city names, zip codes, and coordinates
 - Respects OpenWeatherMap rate limits through caching
+
+### Stock Ticker
+
+Goal: Display a continuously scrolling horizontal ticker of stock prices and exchange rates with trend indicators. Shows real-time financial data in a clean, professional format optimized for the 1280×400 display.
+
+ID: stock-ticker
+
+Type: Template (HTML + CSS + JS, uses Alpha Vantage free API)
+
+Apply: `POST /api/template/stock-ticker` with JSON data payload
+
+Rendering and Layout
+
+- Horizontal scrolling ticker bar across full width (1280px)
+- Each item shows: Symbol | Current Price | Change ($ and %) | Sparkline (if available)
+- Smooth continuous scroll from right to left
+- Items loop seamlessly when reaching the end
+- High contrast design with color-coded changes (green up, red down, gray unchanged)
+- Optional second row for additional symbols
+
+Data Schema (placeholders)
+
+```json
+{
+  "symbols": [              // Array of stock/forex symbols to display
+    "MSFT",                 // Stock symbol
+    "GOOG",                 // Another stock
+    "GBPUSD"               // Exchange rate (format: FROMTO)
+  ],
+  "apiKey": string,        // Optional; Alpha Vantage API key (falls back to server config)
+  "scrollSpeed": number,   // Pixels per second; default 60, min 20, max 200
+  "updateInterval": number,// Minutes between API updates; default 5, min 1, max 60
+  "showSparkline": boolean,// Show 7-day trend sparkline; default true
+  "theme": {
+    "bg": string,          // Background color; default "#000"
+    "text": string,        // Primary text; default "#fff"
+    "positive": string,    // Positive change; default "#00ff6a"
+    "negative": string,    // Negative change; default "#ff3366"
+    "neutral": string,     // No change; default "#888"
+    "sparkline": string,   // Sparkline color; default matches change color
+    "separator": string,   // Item separator; default "rgba(255,255,255,0.2)"
+    "fontFamily": string   // Font; default "'SF Mono', 'Monaco', monospace"
+  },
+  "display": {
+    "showChange": boolean, // Show $ and % change; default true
+    "showVolume": boolean, // Show trading volume (stocks only); default false
+    "precision": number,   // Decimal places for prices; default 2
+    "separator": string    // Visual separator between items; default " • "
+  }
+}
+```
+
+Alpha Vantage Integration
+
+**API Selection Rationale**: Alpha Vantage offers a generous free tier (500 requests/day, 5 requests/minute) with both stock and forex data, including historical data for sparklines. Single provider simplifies implementation.
+
+**Endpoints Used**:
+- Stocks: `GLOBAL_QUOTE` for current price and change
+- Forex: `CURRENCY_EXCHANGE_RATE` for exchange rates
+- Sparklines: `TIME_SERIES_DAILY` (last 7 days) for trend visualization
+
+**API Key Management**:
+- Priority: Template data `apiKey` > Server env `ALPHA_VANTAGE_API_KEY` > Server config
+- Free tier limits: 5 requests/minute, 500/day
+- Rate limiting: Server-side queue with minimum 12-second spacing between requests
+
+**Data Format**:
+```javascript
+// Server transforms API response to unified format
+{
+  symbol: "MSFT",
+  name: "Microsoft Corporation",
+  price: 420.15,
+  change: 5.23,
+  changePercent: 1.26,
+  volume: 28450000,  // optional
+  sparkline: [415.0, 416.5, 418.2, 417.9, 419.0, 418.5, 420.15], // 7 days
+  lastUpdate: "2024-01-20T16:00:00Z"
+}
+```
+
+Ticker Display Format
+
+**Stock Item**: `MSFT $420.15 ▲ $5.23 (1.26%) [sparkline]`
+**Forex Item**: `GBP/USD 1.2715 ▼ 0.0023 (0.18%) [sparkline]`
+
+**Visual Elements**:
+- Symbol in bold/bright
+- Price with appropriate decimal places (2 for stocks, 4 for forex)
+- Arrow indicator (▲ ▼ or ↑ ↓) with color coding
+- Change amount and percentage in parentheses
+- Mini sparkline (7-day trend) as inline SVG, 40px wide × 20px tall
+
+Scrolling Behavior
+
+- Continuous smooth scroll using CSS animation or requestAnimationFrame
+- Items arranged in a single row with consistent spacing
+- When the first item scrolls completely off the left edge, it's repositioned to the right
+- Seamless looping creates infinite scroll effect
+- Pause on hover (optional, for development/debugging)
+
+Server-Side Caching
+
+- Cache API responses for `updateInterval` minutes (default 5)
+- Stagger initial requests to avoid rate limit
+- Queue system for API calls with 12-second minimum spacing
+- Fallback to cached data if API fails (up to 30 minutes old)
+- Share cache across all clients displaying the same symbols
+
+Error Handling
+
+- Invalid symbol: Display "N/A" for price with symbol name
+- Missing API key: Display "API key required" message
+- Rate limit exceeded: Use cached data, show stale indicator
+- Network failure: Retry with exponential backoff, max 3 attempts
+- Malformed response: Log error, skip symbol, continue with others
+
+Performance Optimization
+
+- Initial render with placeholder data while fetching
+- Smooth fade-in when real data arrives
+- CSS transforms for scrolling (GPU accelerated)
+- Reuse DOM elements for infinite scroll
+- Batch API requests where possible
+- Debounce scroll position calculations
+
+Examples
+
+CLI:
+```bash
+hdisplay template stock-ticker --symbols MSFT --symbols GOOG --symbols GBPUSD
+hdisplay template stock-ticker --symbols AAPL --scrollSpeed 80 --updateInterval 10
+hdisplay template stock-ticker --data-file stocks.json
+```
+
+HTTP: `POST /api/template/stock-ticker` body:
+```json
+{
+  "data": {
+    "symbols": ["MSFT", "GOOG", "GBPUSD"],
+    "scrollSpeed": 60,
+    "updateInterval": 5,
+    "showSparkline": true
+  }
+}
+```
+
+Success Criteria
+
+- Smooth, continuous scrolling without jank on Raspberry Pi
+- Real-time price updates at specified intervals
+- Clear visual distinction between positive/negative changes
+- Sparklines provide at-a-glance trend information
+- Graceful degradation when API is unavailable
+- Respects Alpha Vantage rate limits
+- Professional appearance suitable for office/trading environment
+- Configurable for different sets of symbols
 
 ### Aquarium Template Specification
 
@@ -779,7 +931,6 @@ Template parameters
   targetFPS: 30            // Frame rate target for older devices
 }
 ```
-
 Technical Implementation Notes
 
 Rendering
@@ -1038,4 +1189,3 @@ A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac
 - **Pinky**: Pink (#FFB8FF)
 - **Canvas Border**: 2px solid blue
 
-// ...existing code...
