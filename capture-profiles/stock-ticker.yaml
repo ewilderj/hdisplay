@@ -1,0 +1,20 @@
+template: stock-ticker
+description: 'Stock ticker with real-time prices and scrolling animation'
+
+readiness_detection:
+  strategy: 'text_content'
+  wait_for_text: true
+  min_content_length: 5
+  timeout: 8000 # Allow time for API calls to complete
+
+screenshot:
+  after_detection: 3000 # Wait longer for data to load and animation to start
+
+video:
+  duration: 10000 # 12 seconds to show full scrolling cycle
+  trim_ms: 1000 # Trim initial loading
+
+sample_data:
+  symbols: ['AAPL', 'GOOGL', 'MSFT']
+  showSparkline: true
+  refresh: 5

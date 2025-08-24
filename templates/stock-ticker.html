@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>hdisplay - stock ticker</title>
+  <title>hdisplay - stock-ticker</title>
   <style>
     /* Sensible dark defaults; can be overridden by theme values via JS */
     :root {
@@ -289,9 +289,6 @@
         document.getElementById('loading').style.display = 'none';
         document.getElementById('error').style.display = 'none';
         ticker.style.display = 'flex';
-
-        // Update document title for capture system
-        document.title = 'Stock Ticker - Ready';
       }
 
       function arraysEqual(a, b) {
