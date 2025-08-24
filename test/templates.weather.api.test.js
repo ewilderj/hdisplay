@@ -8,10 +8,6 @@ let tmpDir;
 let nextDaily;
 let axios; // will be assigned to the mocked module returned inside isolateModules
 
-function setMockGeocode(name = 'San Francisco', lat = 37.7749, lon = -122.4194) {
-  // no-op; geocode handled in global axios.get impl below using these defaults via closure
-}
-
 function setMockDaily(days = [
   { min: 10, max: 18, icon: '01d', description: 'clear sky', dt: 1735689600 },
   { min: 11, max: 17, icon: '02d', description: 'few clouds', dt: 1735776000 },
@@ -36,7 +32,7 @@ describe('Weather API', () => {
   function initServer() {
     jest.isolateModules(() => {
       jest.doMock('axios', () => {
-        const get = jest.fn((url, { params } = {}) => {
+  const get = jest.fn((url) => {
           if (url.includes('/geo/1.0/direct')) {
             return Promise.resolve({
               data: [

@@ -128,11 +128,12 @@ class VisualDetector {
       case 'media_loading':
         await this.detectMediaLoaded(page, config, timeout);
         break;
-      case 'wait_ms':
+      case 'wait_ms': {
         const waitTime = config.wait_ms || 2000;
         this.log(`Simple wait for ${waitTime}ms`);
         await page.waitForTimeout(waitTime);
         break;
+      }
       default:
         this.log(`Unknown strategy: ${strategy}, falling back to simple wait`);
         await page.waitForTimeout(2000);

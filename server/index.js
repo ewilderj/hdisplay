@@ -4,7 +4,7 @@ const fs = require('fs');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const axios = require('axios');
+// axios was previously required but unused; remove to satisfy lint no-unused-vars
 
 const PORT = process.env.PORT || 3000;
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
@@ -49,9 +49,9 @@ function saveState() {
     const tmp = STATE_FILE + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(snapshot, null, 2));
     fs.renameSync(tmp, STATE_FILE);
-  } catch (e) {
+  } catch (err) {
     // Non-fatal
-    console.warn('[hdisplay] failed to save state:', e.message);
+    try { console.warn('[hdisplay] failed to save state:', err && err.message ? err.message : err); } catch {}
   }
 }
 
@@ -142,7 +142,8 @@ function setVideoContentURL(url) {
 
 // Render template
 function renderTemplate(content, data = {}) {
-  return content.replace(/{{\s*([a-zA-Z0-9_\.]+)\s*}}/g, (_, key) => {
+  // Regex captures placeholder keys including optional dot paths (e.g., a.b.c)
+  return content.replace(/{{\s*([a-zA-Z0-9_.]+)\s*}}/g, (_, key) => {
     const val = key
       .split('.')
       .reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), data);
@@ -170,7 +171,7 @@ function listTemplateFiles() {
 
 function parseTemplatePlaceholders(content) {
   if (typeof content !== 'string' || !content) return [];
-  const re = /{{\s*([a-zA-Z0-9_\.]+)\s*}}/g;
+  const re = /{{\s*([a-zA-Z0-9_.]+)\s*}}/g;
   const set = new Set();
   let m;
   while ((m = re.exec(content))) {
@@ -375,7 +376,7 @@ app.post('/api/template/:id', (req, res) => {
       if (v && v.ok === false) {
         return res.status(400).json({ error: v.error || 'invalid data' });
       }
-    } catch (e) {
+    } catch {
       // If registry load fails, continue without validation (backwards compatible)
     }
 
@@ -383,8 +384,8 @@ app.post('/api/template/:id', (req, res) => {
     const html = renderTemplate(raw, data);
     applyContentUpdate({ html, template: { id, appliedAt: new Date().toISOString(), data } });
     return res.json({ ok: true, template: state.lastTemplate });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    return res.status(500).json({ error: err && err.message ? err.message : 'error' });
   }
 });
 

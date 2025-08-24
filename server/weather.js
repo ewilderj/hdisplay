@@ -288,7 +288,7 @@ function registerWeatherRoutes(app) {
       let forecast;
       try {
         forecast = await provider.fetchForecast(apiKey, coords, units);
-      } catch (e) {
+      } catch {
         if (cached && now - cached.fetchedAt < WEATHER_STALE_TOLERANCE_MS) {
           return res.json({ ...cached.data, cached: true, stale: true });
         }

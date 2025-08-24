@@ -10,12 +10,12 @@ let VisualDetectorCtor;
 let TemplateHeuristicsCtor;
 try {
   VisualDetectorCtor = require('./visual-detector');
-} catch (e) {
+} catch {
   VisualDetectorCtor = null;
 }
 try {
   TemplateHeuristicsCtor = require('./template-heuristics');
-} catch (e) {
+} catch {
   TemplateHeuristicsCtor = null;
 }
 
@@ -592,12 +592,14 @@ async function main() {
         break;
 
       case 'template':
-        const templateId = args[1];
-        if (!templateId) {
-          console.error('❌ Template ID required: node capture.js template <template-id>');
-          process.exit(1);
+        {
+          const templateId = args[1];
+          if (!templateId) {
+            console.error('❌ Template ID required: node capture.js template <template-id>');
+            process.exit(1);
+          }
+          await capture.captureTemplate(templateId);
         }
-        await capture.captureTemplate(templateId);
         break;
 
       default:

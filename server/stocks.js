@@ -4,7 +4,7 @@ const axios = require('axios');
 
 const STOCK_MIN_REFRESH_MIN = 1;
 const STOCK_MAX_REFRESH_MIN = 60;
-const STOCK_STALE_TOLERANCE_MS = 30 * 60 * 1000; // 30 minutes
+const _STOCK_STALE_TOLERANCE_MS = 30 * 60 * 1000; // 30 minutes (unused placeholder retained for docs)
 
 const stockCache = new Map(); // key: `${symbols.join(',')}|${provider}` -> { data, fetchedAt, ttlMs }
 
@@ -175,7 +175,7 @@ const stockProviders = {
       };
     },
 
-    async fetchHistoricalData(symbol, apiKey) {
+  async fetchHistoricalData(symbol, apiKey) {
       const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${apiKey}`;
       
       try {
@@ -196,7 +196,7 @@ const stockProviders = {
         const prices = dates.map(date => parseFloat(timeSeries[date]['4. close']));
         
         return prices;
-      } catch (error) {
+      } catch {
         return [];
       }
     }
@@ -253,7 +253,7 @@ const stockProviders = {
       };
     },
 
-    async fetchForexRate(symbol, apiKey) {
+  async fetchForexRate(symbol, _apiKey) {
       // Finnhub free tier doesn't support forex data
       return {
         symbol: symbol.replace('OANDA:', '').replace('_', '/'),
@@ -266,7 +266,7 @@ const stockProviders = {
       };
     },
 
-    async fetchHistoricalData(symbol, apiKey) {
+  async fetchHistoricalData(symbol, apiKey) {
       // Finnhub historical data requires different endpoint and date ranges
       const to = Math.floor(Date.now() / 1000);
       const from = to - (7 * 24 * 60 * 60); // 7 days ago
@@ -282,7 +282,7 @@ const stockProviders = {
         
         // Return closing prices (data.c contains close prices)
         return data.c.slice(-7); // Last 7 days
-      } catch (error) {
+      } catch {
         return [];
       }
     }
@@ -318,10 +318,9 @@ async function fetchSymbolData(symbolStr, provider, apiKey, showSparkline) {
           return basePrice + (i * trend) + noise;
         });
       }
-    } catch (error) {
+    } catch {
       result.sparkline = [];
     }
-  } else {
   }
   
   return result;
@@ -358,7 +357,7 @@ function registerStockRoutes(app) {
           if (!Array.isArray(symbols)) {
             return res.status(400).json({ error: 'Invalid symbols array format' });
           }
-        } catch (e) {
+        } catch {
           return res.status(400).json({ error: 'Invalid JSON format for symbols' });
         }
       } else {

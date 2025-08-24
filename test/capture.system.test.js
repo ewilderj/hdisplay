@@ -2,7 +2,6 @@ const BlackBoxCapture = require('../capture/capture');
 const VisualDetector = require('../capture/visual-detector');
 const TemplateHeuristics = require('../capture/template-heuristics');
 const fs = require('fs-extra');
-const path = require('path');
 
 describe('BlackBoxCapture System', () => {
   const testOutputDir = './test-captures';
