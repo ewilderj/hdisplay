@@ -1113,6 +1113,134 @@ Phase	Pi Zero W	Pi 3B+	Pi 4	Desktop
 ```
 
 
+### Mandelbrot Explorer
+
+Goal: Showcase interesting regions of the Mandelbrot set in a looping, ambient visualization that crossfades between curated points of interest. Optimized to remain smooth on Raspberry Pi while looking crisp on desktop.
+
+ID: mandelbrot
+
+Type: Template (HTML + CSS + JS, Canvas2D; optional Web Worker for computation)
+
+Apply: `POST /api/template/mandelbrot` with optional JSON `data` payload
+
+Rendering and Layout
+
+- Full-viewport Canvas 2D at 1280×400 with device-pixel-ratio awareness.
+- Double-buffered crossfades: two stacked canvases, fade incoming over 2s while next view renders progressively.
+- Optional subtle zoom per view (±5% over dwell) for liveliness without motion sickness.
+
+Navigation & Transitions
+
+- Dwell per view: default 10,000 ms (configurable).
+- Transition: default 2,000 ms crossfade (configurable).
+- Order: sequential by default; optional random shuffle.
+- Resilience: if rendering of the next view is not yet “ready enough,” delay transition by up to 1s to avoid flashing low-quality frames.
+
+Curated Points of Interest (default set)
+
+Provide a built-in list of 8–12 varied regions; each has a center and nominal scale (approximate zoom), optionally an iteration hint:
+
+1. Classic overview – bounds (−2.5..1, −1..1)
+2. Seahorse Valley – center (−0.75, 0.10), scale 0.01
+3. Elephant Valley – center (0.275, 0.007), scale 0.01
+4. Triple Spiral – center (−0.088, 0.654), scale 0.005
+5. Mini Mandelbrot – center (−0.7533, 0.1138), scale 0.002
+6. Dendrite Forest – center (−0.7, 0.27015), scale 0.008
+7. Spiral Galaxy – center (−0.7269, 0.1889), scale 0.0005
+8. Lightning Branches – center (0.432539, 0.226118), scale 0.004
+9. Jeweled Necklace – center (−1.25066, 0.02012), scale 0.006
+10. Feather Tip – center (−0.748, 0.1), scale 0.008
+
+Rendering Strategy
+
+- Progressive passes: start at quarter-res, then half-res, then full-res as time allows during the dwell.
+- Scanline or tile-based renderer: compute in horizontal bands or small tiles to show visible progress quickly.
+- Adaptive iterations: base on zoom level and available time (e.g., 50–500); raise iterations as refinement increases.
+- Smooth coloring: log-smoothed escape-time to eliminate banding.
+- Optional Web Worker: offload pixel math when available; fall back to main thread if unsupported.
+
+Data Schema (placeholders)
+
+```
+{
+  // Timing
+  "duration": 10000,          // ms per view, default 10000
+  "transitionMs": 2000,       // crossfade duration in ms
+
+  // Navigation
+  "locations": "default",    // "default" | "custom"
+  "shuffle": false,           // randomize order when true
+  "zoom": false,              // gentle per-view zoom (±5%)
+
+  // Appearance
+  "colorScheme": "ocean",    // ocean | fire | forest | mono | rainbow
+  "brightness": 1.0,          // display multiplier
+  "contrast": 1.0,            // display multiplier
+
+  // Performance
+  "quality": "auto",         // low | medium | high | auto
+  "maxIterations": 100,       // base iteration count (adapted at runtime)
+  "progressive": true,        // enable progressive refinement
+
+  // Custom locations (used when locations = "custom")
+  "customLocations": [
+    {
+      "name": "Seahorse",
+      "centerX": -0.75,
+      "centerY": 0.10,
+      "scale": 0.01,        // smaller = deeper zoom
+      "iterations": 150     // optional per-location override
+    }
+  ]
+}
+```
+
+Color Schemes
+
+- ocean (blues/teals), fire (reds/oranges), forest (greens), mono (grayscale), rainbow (full spectrum). Allow per-pixel mapping via palette functions with smooth interpolation.
+
+Performance & Adaptation (Pi-friendly)
+
+- Target ≥10 FPS on Raspberry Pi 4 while refining; prefer visible progress over blocking the UI.
+- Auto-quality: if a full-res pass exceeds budget (e.g., >100 ms per tile batch), reduce resolution or iterations for the next batch.
+- Clamp antialiasing and heavy filter usage; prefer raw pixel writes via `putImageData` or `ImageData` buffers.
+- Avoid per-pixel object allocations; reuse typed arrays.
+
+Accessibility
+
+- Reduced motion: when enabled, disable per-view zoom and shorten crossfade to 500 ms (or use hard cuts if requested).
+- High contrast: optional palette presets with increased contrast.
+
+Examples
+
+```
+# Default curated tour
+hdisplay template mandelbrot
+
+# Faster cycling with rainbow palette
+hdisplay template mandelbrot --duration 5000 --colorScheme rainbow
+
+# Custom deep-zoom location
+hdisplay template mandelbrot --locations custom \
+  --customLocations '[{"name":"Deep","centerX":-0.7269,"centerY":0.1889,"scale":0.00001,"iterations":300}]'
+
+# Pi-optimized
+hdisplay template mandelbrot --quality low --progressive false --maxIterations 50
+```
+
+Testing
+
+- Ensure dwell ≈ duration and crossfades complete in transitionMs without dropping frames.
+- Validate that progressive refinement never blocks input or transitions.
+- Memory remains stable over 24h (no unbounded arrays or workers).
+
+Success Criteria
+
+- Smooth rotation through all default points of interest with clear visual detail.
+- Crossfades are clean with no visible flicker or white flashes.
+- Runs acceptably on Raspberry Pi 4 (≥10 FPS during refinement) and fluid on desktop.
+
+
 ## Self-Playing Pac-Man Template
 
 ### Overview
