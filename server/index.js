@@ -600,6 +600,14 @@ try {
   console.warn('[hdisplay] weather module not loaded:', e && e.message ? e.message : e);
 }
 
+// Stock API
+try {
+  const { registerStockRoutes } = require('./stocks');
+  registerStockRoutes(app);
+} catch (e) {
+  console.warn('[hdisplay] stocks module not loaded:', e && e.message ? e.message : e);
+}
+
 // Create server and io, but do not listen unless run directly
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });

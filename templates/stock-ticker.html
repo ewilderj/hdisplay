@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hdisplay - stock ticker</title>
+  <style>
+    /* Sensible dark defaults; can be overridden by theme values via JS */
+    :root {
+      --bg: #000;
+      --text: #fff;
+      --positive: #00ff6a;
+      --negative: #ff3366;
+      --neutral: #888;
+      --separator: rgba(255,255,255,0.2);
+      --font: 'SF Mono', 'Monaco', 'Consolas', monospace;
+      --item-spacing: 80px;
+      --scroll-duration: 60s;
+    }
+    body { margin: 0; padding: 0; width: 1280px; height: 400px; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+    body.light { --bg: #fff; --text: #111; --separator: rgba(0,0,0,0.2); }
+    
+    .ticker-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .ticker-track {
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      animation: scroll var(--scroll-duration) linear infinite;
+    }
+
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      margin-right: var(--item-spacing);
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .symbol {
+      font-weight: bold;
+      font-size: 26px;
+      margin-right: 12px;
+    }
+
+    .price {
+      margin-right: 8px;
+      font-size: 24px;
+    }
+
+    .change {
+      margin-right: 12px;
+      font-size: 20px;
+    }
+
+    .positive { color: var(--positive); }
+    .negative { color: var(--negative); }
+    .neutral { color: var(--neutral); }
+
+    .sparkline {
+      width: 40px;
+      height: 20px;
+      margin-left: 8px;
+    }
+
+    .separator {
+      color: var(--separator);
+      margin: 0 20px;
+      font-size: 20px;
+    }
+
+    .error-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      font-size: 24px;
+      color: var(--negative);
+    }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      font-size: 24px;
+    }
+
+    @keyframes scroll {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+
+    /* Pause animation on hover for debugging */
+    .ticker-container:hover .ticker-track {
+      animation-play-state: paused;
+    }
+  </style>
+</head>
+<body>
+  <div class="ticker-container">
+    <div class="loading" id="loading">Loading financial data...</div>
+    <div class="error-message" id="error" style="display: none;"></div>
+    <div class="ticker-track" id="ticker" style="display: none;"></div>
+  </div>
+
+  <script>
+    (function(){
+      // Parse symbols array from template data
+      const symbolsArray = JSON.parse(String.raw`{{ symbols }}` || '["AAPL", "GOOGL", "MSFT"]');
+      const scrollSpeed = Number('{{ scrollSpeed }}') || 60;
+      const refreshMinutes = Number('{{ updateInterval }}') || 5;
+      const showSparkline = (function(v){ if (v === 'true' || v === true) return true; if (v === 'false' || v === false) return false; return true; })('{{ showSparkline }}');
+      const showChange = (function(v){ if (v === 'true' || v === true) return true; if (v === 'false' || v === false) return false; return true; })('{{ display.showChange }}');
+      const darkMode = (function(v){ if (v === 'true' || v === true) return true; if (v === 'false' || v === false) return false; return true; })('{{ darkMode }}');
+      const precision = Number('{{ display.precision }}') || 2;
+      const separator = '{{ display.separator }}' || ' • ';
+
+      // Apply light/dark mode early
+      if (darkMode) document.body.classList.remove('light');
+      else document.body.classList.add('light');
+
+      // Apply theme overrides only if provided to avoid empty CSS var issues
+      const theme = {
+        bg: '{{ theme.bg }}',
+        text: '{{ theme.text }}',
+        positive: '{{ theme.positive }}',
+        negative: '{{ theme.negative }}',
+        neutral: '{{ theme.neutral }}',
+        separator: '{{ theme.separator }}',
+        font: '{{ theme.fontFamily }}',
+      };
+      const rootStyle = document.documentElement.style;
+      const setIf = (name, val) => { if (val && String(val).trim().length > 0) rootStyle.setProperty(name, val); };
+      setIf('--bg', theme.bg);
+      setIf('--text', theme.text);
+      setIf('--positive', theme.positive);
+      setIf('--negative', theme.negative);
+      setIf('--neutral', theme.neutral);
+      setIf('--separator', theme.separator);
+      setIf('--font', theme.font);
+
+      // Calculate scroll duration based on speed
+      const duration = Math.max(20, 1280 / scrollSpeed);
+      rootStyle.setProperty('--scroll-duration', `${duration}s`);
+      rootStyle.setProperty('--item-spacing', '80px');
+
+      function formatPrice(price, isForex = false) {
+        const prec = isForex ? 4 : precision;
+        return price.toFixed(prec);
+      }
+
+      function formatChange(change, changePercent) {
+        if (!showChange) return '';
+        
+        const sign = change >= 0 ? '+' : '';
+        const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '';
+        return `${arrow} ${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
+      }
+
+      function getChangeClass(change) {
+        if (change > 0) return 'positive';
+        if (change < 0) return 'negative';
+        return 'neutral';
+      }
+
+      function createSparkline(data) {
+        if (!showSparkline || !data || data.length < 2) {
+          return '';
+        }
+
+        const width = 40;
+        const height = 20;
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min || 1;
+
+        const points = data.map((value, index) => {
+          const x = (index / (data.length - 1)) * width;
+          const y = height - ((value - min) / range) * height;
+          return `${x},${y}`;
+        }).join(' ');
+
+        const lastChange = data[data.length - 1] - data[data.length - 2];
+        const color = lastChange >= 0 ? theme.positive || '#00ff6a' : theme.negative || '#ff3366';
+
+        return `<svg class="sparkline" viewBox="0 0 ${width} ${height}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+      }
+
+      function showError(message) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('ticker').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = message;
+      }
+
+      function render(data) {
+        const stocks = Array.isArray(data.stocks) ? data.stocks : [];
+        if (stocks.length === 0) {
+          showError('No financial data available');
+          return;
+        }
+
+        const ticker = document.getElementById('ticker');
+        const items = stocks.map(stock => {
+          if (stock.error) {
+            return `<div class="ticker-item"><span class="symbol">${stock.symbol}</span><span class="price">ERROR</span></div>`;
+          }
+
+          const isForex = stock.symbol.length > 5 || stock.symbol.includes('/');
+          const changeClass = getChangeClass(stock.change);
+          const formattedPrice = isForex ? 
+            formatPrice(stock.price, true) : 
+            `$${formatPrice(stock.price)}`;
+          
+          const changeText = formatChange(stock.change, stock.changePercent);
+          const sparkline = createSparkline(stock.sparkline);
+
+          return `
+            <div class="ticker-item">
+              <span class="symbol">${stock.symbol}</span>
+              <span class="price">${formattedPrice}</span>
+              <span class="change ${changeClass}">${changeText}</span>
+              ${sparkline}
+            </div>
+          `;
+        }).join(`<span class="separator">${separator}</span>`);
+
+        // Duplicate items for seamless looping
+        ticker.innerHTML = items + `<span class="separator">${separator}</span>` + items;
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        ticker.style.display = 'flex';
+
+        // Update document title for capture system
+        document.title = 'Stock Ticker - Ready';
+      }
+
+      async function load() {
+        try {
+          const symbols = Array.isArray(symbolsArray) ? symbolsArray.join(',') : 'AAPL,GOOGL,MSFT';
+          const url = `/api/stocks?symbols=${encodeURIComponent(symbols)}&refresh=${encodeURIComponent(refreshMinutes)}&sparkline=${encodeURIComponent(showSparkline)}`;
+          const res = await fetch(url);
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          
+          render(data);
+        } catch (e) {
+          showError(e.message || 'Failed to load financial data');
+        }
+      }
+
+      load();
+      setInterval(load, Math.max(1, refreshMinutes) * 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
