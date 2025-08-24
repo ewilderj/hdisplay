@@ -21,6 +21,7 @@ Control a browser-based display with a friendly CLI. Built for 1280×400 USB mon
   - [Aquarium](#aquarium-ambient-simulation)
   - [Pac-Man](#pac-man-self-playing)
   - [Mandelbrot Explorer](#mandelbrot-explorer-fractal-visualization)
+  - [Stock Ticker](#stock-ticker-scrolling-market--forex-data)
 - [Playlists](#playlists)
 - [Assets & media](#assets--media)
   - [Upload and show](#upload-and-show)
@@ -459,6 +460,88 @@ Notes
 - Performance automatically adapts on Raspberry Pi with lower iteration counts
 - Smooth coloring eliminates banding artifacts
 - Respects reduced motion preferences
+
+### Stock Ticker (scrolling market & forex data)
+
+Continuously scrolling equity quotes plus simple forex pairs with optional 7‑day sparklines, adaptive scroll timing, light/dark theming, and graceful handling of partial API failures / rate limits. Supports Finnhub (default) or Alpha Vantage providers configured via `config.json` (`stocks.provider`) or environment variables.
+
+```bash
+# Basic (default provider, dark theme)
+hdisplay template stock-ticker --symbols MSFT --symbols GOOG --symbols GBPUSD
+
+# Faster scroll + custom precision + hide change
+hdisplay template stock-ticker --symbols AAPL --symbols NVDA --scrollSpeed 90 --display.precision 3 --display.showChange false
+
+# Light theme overrides
+hdisplay template stock-ticker \
+  --symbols AAPL --symbols GOOGL --symbols MSFT \
+  --theme.bg '#ffffff' --theme.text '#111' \
+  --theme.positive '#00b861' --theme.negative '#ff2f5d' \
+  --display.separator '/' --display.precision 2
+
+# Provide complex data via JSON file
+hdisplay template stock-ticker --data-file stocks.json
+```
+
+Example `stocks.json`:
+```json
+{
+  "symbols": ["AAPL", "GOOGL", "MSFT", "GBPUSD"],
+  "scrollSpeed": 70,
+  "updateInterval": 5,
+  "showSparkline": true,
+  "darkMode": true,
+  "theme": { "bg": "#000000", "text": "#ffffff" },
+  "display": { "showChange": true, "precision": 2, "separator": " • " }
+}
+```
+
+Preview
+
+![stock ticker preview](captures/screenshots/stock-ticker.png)
+
+[Download MP4](https://github.com/ewilderj/hdisplay/raw/main/captures/videos/stock-ticker.mp4)
+
+Options (data fields)
+
+- symbols: array of symbols & simple forex pairs (e.g. GBPUSD or GBP/USD)
+- scrollSpeed: relative speed used to derive animation duration (20–200, default 60)
+- updateInterval: minutes between refresh (1–60, default 5)
+- showSparkline: include 7‑day mini chart (default true)
+- darkMode: false switches to light palette (default true)
+- theme: overrides { bg, text, positive, negative, neutral, separator, fontFamily }
+- display.showChange: show +/- absolute & percent change (default true)
+- display.precision: price decimal places (0–6, default 2; forex auto uses 4)
+- display.separator: string between metadata elements (default " • ")
+
+Provider selection
+
+- Set in `config.json`: `{ "stocks": { "provider": "finnhub" } }` or `alphavantage`
+- API keys required: FINNHUB_API_KEY or ALPHA_VANTAGE_API_KEY (env) or `config.apiKeys`
+- Finnhub free tier: stock quotes OK, forex pairs unsupported (card shows placeholder message)
+- Alpha Vantage free tier: stricter rate limit (12s spacing enforced internally) but supports basic forex pairs
+
+Behavior & resilience
+
+- Seamless infinite scroll: duplicates content; in‑place updates avoid animation reset
+- Adaptive duration recalculated when symbol set changes
+- Failed symbols yield placeholder cards; ticker keeps moving
+- Sparkline: best‑effort historical fetch; synthetic fallback if unavailable
+- Response cached per (symbols+provider) until refresh interval
+- Fixed `<title>hdisplay - stock-ticker</title>` for capture readiness
+
+Validation
+
+- Validator: `templates/_validators/stock-ticker.js` (symbol array, bounds, merges defaults)
+- CLI flags map to nested keys (e.g. `--display.precision 3` → `{ display: { precision: 3 } }`)
+
+Notes
+
+- Reduce number of symbols or disable sparklines on constrained hardware
+- Very high `scrollSpeed` with many wide cards may stress Pi GPU fill rate; duration is clamped >= 10s
+- Forex pairs on Finnhub free tier show explicit unsupported message
+- Alpha Vantage rate limiting may delay full population; backoff handled internally
+- For deterministic captures: 3–5 symbols, default speed
 
 ## Playlists
 
