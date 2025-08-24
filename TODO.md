@@ -4,9 +4,7 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Must-do next
 
-- [ ] Lint/format baseline
-  - [ ] Fix remaining lint warnings and ensure `npm run lint` passes clean
-  - Acceptance: repo lints clean or has explicit TODOs for intentional gaps
+<!-- Completed: lint/format baseline (moved to Done) -->
 
 - [ ] Headers hardening
   - [ ] Add minimal security headers (via Helmet or manual set) and permissive CORS if needed for CLI
@@ -32,10 +30,41 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 - [ ] Add tests for carousel template payload validation (items array, duration bounds)
   - Acceptance: invalid payloads are rejected with 400 and clear messages
 
+- [ ] Increase overall statement coverage from ~39% → 60% (phase 1)
+  - Focus: `server/stocks.js` (currently ~6% lines, 0% branches) and `capture/` modules (capture.js, visual-detector.js, template-heuristics.js)
+  - Acceptance: coverage report shows >=60% statements, stocks.js >=40% statements
+
+- [ ] Stock API unit tests
+  - Cover: provider selection (alphavantage vs finnhub), symbol parsing (stock vs forex), error handling (rate limit, invalid symbol), caching behavior, sparkline fallback generation
+  - Acceptance: each branch in `fetchSymbolData` exercised; at least one test for alphavantage rate limit wait path (mock timers) and finnhub forex unsupported path
+
+- [ ] Weather edge case tests
+  - Add: geocode fallback path, stale cache reuse on provider failure, Tomorrow.io debug mapping (with mock data), units conversion
+  - Acceptance: increase `server/weather.js` branch coverage from ~39% → 60%
+
+- [ ] Capture system unit tests (pure logic)
+  - Add: `VisualDetector` strategy failures/timeouts, pixel coverage threshold, visual stability diff path, text content min length fail then pass, media loading wait (mock page)
+  - Acceptance: `capture/visual-detector.js` lines coverage from ~2% → 50% using mocked page object
+
+- [ ] Template heuristics tests
+  - Cover: `getSampleData` returns expected shapes per known template, fallback {} for unknown, profile generation defaults
+  - Acceptance: `template-heuristics.js` statements ≥50%
+
+- [ ] Playlist rotation timing tests
+  - Simulate multi-item playlist with override and ensure rotation pauses/resumes correctly; clampDelay bounds
+  - Acceptance: raise `server/index.js` branch coverage (playlist rotation paths) by +10 percentage points
+
+- [ ] Add Jest coverage thresholds (soft gate)
+  - Configure `coverageThreshold` once initial lift achieved: global { statements: 60, branches: 50, functions: 55, lines: 60 }
+  - Acceptance: build fails if thresholds not met (after initial increase PR)
+
+- [ ] Introduce selective mocking utilities
+  - Create `test/utils/mockPage.js` for capture tests and `test/utils/httpMocks.js` for external API modules (stocks/weather) to keep test code DRY
+  - Acceptance: duplicate mock code reduced; new utils adopted in new tests
+
 ## Template UX and docs
 
-- [ ] Author minimal `CAPTURES.md` or section in README describing how to regenerate captures and ffmpeg requirement
-  - Acceptance: contributor can run `hdisplay capture:all` and see outputs; README links remain valid
+<!-- Completed: capture docs moved to Done -->
 
 ## Small server/CLI improvements
 
@@ -56,7 +85,6 @@ _(add more here as they come up)_
 ## New template ideas
 
 - Headlines ticker (RSS/Atom): feedUrl[], speed, separator, theme
-- Stock tape: symbols[], currency, showChange, updateMs (mock/static mode by default)
 - Transit departures: stopId/routeId, provider URL (GTFS-RT), maxItems (allow static JSON)
 - Room schedule strip: events[{title,start,end}], nowIndicator
 - World clocks: cities[{label,tz}], format, showDate
@@ -95,6 +123,12 @@ Quality gates when merging:
 - Manual smoke: `hdisplay templates`, apply each sample template, upload image, push image/video (persist and ephemeral)
 
 ## Done
+
+- Lint/format baseline
+  - All previous ESLint warnings (unused vars, regex escapes, switch-case lexical declarations) resolved
+  - `npm run lint` now exits with zero errors and zero warnings
+  - Adjusted try/catch blocks to avoid unused variables; simplified regex for placeholders
+  - Acceptance: clean lint run verified on Aug 23 2025
 
 - Persist last content across restarts
   - Write state to `data/state.json` on every update (atomic write to `state.json.tmp` then rename)
@@ -148,3 +182,8 @@ Quality gates when merging:
   - Post-capture clear via CLI to avoid recording transitions; robust apply-and-wait using document.title
   - Video post-processing with ffmpeg to produce WEBM (VP9) and MP4 (H.264); trims initial frames (`video.trim_ms`, default 150ms; carousel 2000ms)
   - Capture README updated; main README shows per-template screenshots with MP4 links
+
+- Capture docs (Template UX & docs)
+  - Added capture/README with regeneration steps; README includes screenshots & MP4 links
+  - Documented ffmpeg optional requirement (WEBM always, MP4 when available)
+  - Acceptance: `hdisplay capture:all` produces assets locally; links remain valid (verified)
