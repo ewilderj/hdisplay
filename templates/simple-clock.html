@@ -1,3 +1,23 @@
+<style>
+  .clock-time {
+    font-size: 120px; 
+    line-height: 1;
+  }
+  /* Make colons take up less space like real seven-segment displays */
+  .clock-time::after {
+    content: '';
+  }
+  /* Blinking colon animation */
+  .blinking-colon {
+    animation: blink 2s infinite;
+  }
+  @keyframes blink {
+    from { opacity: 1; }
+    50% { opacity: 1; }
+    51% { opacity: 0; }
+    to { opacity: 0; }
+  }
+</style>
 <div
   style="
     display: flex;
@@ -6,18 +26,19 @@
     align-items: center;
     width: 100%;
     height: 100%;
-    font-family: 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-weight: bold;
-    text-shadow: 0 0 10px currentColor;
-    color: #00ff00;
-    background: #000;
+    font-family: 'DSEG7Classic', 'Courier New', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   "
 >
-  <div id="sc-time" style="font-size: 120px; line-height: 1"></div>
+  <div id="sc-time" class="clock-time">
+    <span id="hours"></span><span class="blinking-colon">:</span><span id="minutes"></span> <span id="ampm"></span>
+  </div>
 </div>
 <script>
   (function () {
     const timeEl = document.getElementById('sc-time');
+    const hoursEl = document.getElementById('hours');
+    const minutesEl = document.getElementById('minutes');
+    const ampmEl = document.getElementById('ampm');
 
     const rawTime = String.raw`{{ time }}`.trim();
     const useMachineRaw = String.raw`{{ useMachine }}`.trim();
@@ -30,16 +51,40 @@
 
     function formatNow() {
       const now = new Date();
-      const time = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      return time;
+      const time = now.toLocaleTimeString(undefined, { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      // Parse the time string to get individual components
+      const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) {
+        return {
+          hours: match[1],
+          minutes: match[2],
+          ampm: match[3].replace(/AM/g, 'A').replace(/PM/g, 'P')
+        };
+      }
+      return { hours: '00', minutes: '00', ampm: 'A' };
     }
 
     function render() {
       if (useMachine) {
-        const time = formatNow();
-        timeEl.textContent = time;
+        const { hours, minutes, ampm } = formatNow();
+        // Update only the parts that have changed
+        if (hoursEl.textContent !== hours) hoursEl.textContent = hours;
+        if (minutesEl.textContent !== minutes) minutesEl.textContent = minutes;
+        if (ampmEl.textContent !== ampm) ampmEl.textContent = ampm;
       } else {
-        timeEl.textContent = rawTime || '';
+        // For static time, parse and set once
+        if (rawTime) {
+          const match = rawTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM|A|P)/i);
+          if (match) {
+            hoursEl.textContent = match[1];
+            minutesEl.textContent = match[2];
+            ampmEl.textContent = match[3].replace(/AM/g, 'A').replace(/PM/g, 'P');
+          }
+        }
       }
     }
 
