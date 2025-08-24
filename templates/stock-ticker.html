@@ -416,7 +416,18 @@
       }
 
       load();
-      setInterval(load, Math.max(1, refreshMinutes) * 60 * 1000);
+      const refreshInterval = setInterval(load, Math.max(1, refreshMinutes) * 60 * 1000);
+      
+      // Cleanup interval when page unloads or template changes
+      window.addEventListener('beforeunload', () => clearInterval(refreshInterval));
+      
+      // Store interval globally so it can be cleared by new templates
+      if (window.hdisplay) {
+        if (window.hdisplay.stockTickerInterval) {
+          clearInterval(window.hdisplay.stockTickerInterval);
+        }
+        window.hdisplay.stockTickerInterval = refreshInterval;
+      }
     })();
   </script>
 </body>
