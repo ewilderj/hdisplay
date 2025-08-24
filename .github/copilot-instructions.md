@@ -84,6 +84,52 @@ Project decisions (maintainer-provided)
 - Reserved parameter names: top-level data keys must not collide with CLI globals: server, timeout, quiet, help, h, data, data-file (and dataFile)
 - API to apply: POST /api/template/:id { data }
 
+## Template implementation best practices (learned lessons)
+
+### Title Tag Requirements
+- **CRITICAL**: Template `<title>` must match format `hdisplay - {template-id}` exactly
+- Template ID must match filename (e.g., `stock-ticker.html` → `hdisplay - stock-ticker`)
+- Do NOT dynamically update `document.title` in JavaScript - this causes capture timing issues
+- Capture mechanism waits for this exact title format within 4-second timeout
+
+### API Integration Patterns
+- Follow weather.js pattern for API modules: provider abstraction, rate limiting, error handling
+- Place API modules in `server/` directory (e.g., `server/stocks.js`, `server/weather.js`)
+- Use `config.json` for API keys: `config.apiKeys.{provider}`
+- Implement graceful fallbacks for API limitations (free tier restrictions)
+- Use axios with timeout: `{ timeout: 10000 }` for external API calls
+
+### Data Validation Alignment
+- **CRITICAL**: Validator and template must expect same data format
+- Common mistake: validator expects array, template uses string (or vice versa)
+- Example: `symbols: ['AAPL', 'GOOGL']` (array) vs `symbols: 'AAPL,GOOGL'` (string)
+- Always test validator with actual template data to ensure compatibility
+
+### Animation and Scrolling
+- Horizontal scrolling: `animation: scroll-left Xs linear infinite`
+- Duplicate content for seamless loops: `[...items, ...items]`
+- Use `transform: translateX()` for smooth scrolling performance
+- Account for card widths + gaps in animation distance calculations
+
+### Capture Profile Configuration
+- Set adequate timeouts: 8-15 seconds for API-dependent templates
+- Screenshot timing: 3-4 seconds after detection for animations to stabilize
+- Video duration: 10-12 seconds for scrolling content to show full cycles
+- Sample data should showcase template capabilities (4-6 varied items)
+
+### Provider Abstraction Pattern
+```javascript
+const providers = {
+  primary: {
+    id: 'primary',
+    needsApiKey: true,
+    getApiKey: () => config.apiKeys.primary,
+    parseSymbol(symbol) { /* format-specific parsing */ },
+    async fetchData(symbol, apiKey) { /* API implementation */ }
+  }
+};
+```
+
 When adding a template
 
 1. Create templates/<id>.html
