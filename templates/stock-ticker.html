@@ -14,7 +14,7 @@
       --neutral: #888;
       --separator: rgba(255,255,255,0.2);
       --font: 'SF Mono', 'Monaco', 'Consolas', monospace;
-      --item-spacing: 80px;
+      --item-spacing: 40px;
       --scroll-duration: 60s;
     }
     body { margin: 0; padding: 0; width: 1280px; height: 400px; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
@@ -38,42 +38,82 @@
 
     .ticker-item {
       display: inline-flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
       margin-right: var(--item-spacing);
-      font-size: 24px;
-      font-weight: 500;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 280px;
+      position: relative;
+    }
+
+    .ticker-row-top {
+      display: flex;
+      align-items: baseline;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .ticker-row-bottom {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      justify-content: space-between;
     }
 
     .symbol {
       font-weight: bold;
-      font-size: 26px;
-      margin-right: 12px;
+      font-size: 42px;
+      margin-right: 16px;
+      color: var(--text);
     }
 
     .price {
-      margin-right: 8px;
-      font-size: 24px;
+      font-size: 38px;
+      font-weight: 600;
+      color: var(--text);
     }
 
     .change {
-      margin-right: 12px;
-      font-size: 20px;
+      font-size: 28px;
+      font-weight: 500;
     }
 
-    .positive { color: var(--positive); }
-    .negative { color: var(--negative); }
-    .neutral { color: var(--neutral); }
+    /* Conditional colors based on change type */
+    .change.positive {
+      color: #00ff6a !important;
+    }
+    
+    .change.negative {
+      color: #ff3366 !important;
+    }
+    
+    .change.neutral {
+      color: #888 !important;
+    }
+
+    .timestamp {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-size: 12px;
+      color: var(--neutral);
+      opacity: 0.7;
+    }
 
     .sparkline {
-      width: 40px;
-      height: 20px;
-      margin-left: 8px;
+      width: 80px;
+      height: 32px;
+      margin-left: 16px;
+      flex-shrink: 0;
     }
 
     .separator {
       color: var(--separator);
-      margin: 0 20px;
-      font-size: 20px;
+      margin: 0 30px;
+      font-size: 32px;
     }
 
     .error-message {
@@ -82,7 +122,7 @@
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      font-size: 24px;
+      font-size: 48px;
       color: var(--negative);
     }
 
@@ -92,12 +132,12 @@
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-      font-size: 24px;
+      font-size: 48px;
     }
 
     @keyframes scroll {
-      0% { transform: translateX(100%); }
-      100% { transform: translateX(-100%); }
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
     }
 
     /* Pause animation on hover for debugging */
@@ -149,10 +189,23 @@
       setIf('--separator', theme.separator);
       setIf('--font', theme.font);
 
-      // Calculate scroll duration based on speed
-      const duration = Math.max(20, 1280 / scrollSpeed);
-      rootStyle.setProperty('--scroll-duration', `${duration}s`);
-      rootStyle.setProperty('--item-spacing', '80px');
+      // Calculate scroll duration based on content and speed
+      function updateScrollDuration() {
+        const ticker = document.getElementById('ticker');
+        if (ticker && ticker.children.length > 0) {
+          // Calculate total width of one set of items (half the content since we duplicate)
+          const totalWidth = ticker.scrollWidth / 2;
+          const containerWidth = 1280; // Fixed container width
+          const duration = Math.max(10, totalWidth / scrollSpeed);
+          document.documentElement.style.setProperty('--scroll-duration', `${duration}s`);
+        } else {
+          // Fallback duration
+          const duration = Math.max(20, 1280 / scrollSpeed);
+          document.documentElement.style.setProperty('--scroll-duration', `${duration}s`);
+        }
+      }
+
+      document.documentElement.style.setProperty('--item-spacing', '40px');
 
       function formatPrice(price, isForex = false) {
         const prec = isForex ? 4 : precision;
@@ -178,8 +231,8 @@
           return '';
         }
 
-        const width = 40;
-        const height = 20;
+        const width = 80;
+        const height = 32;
         const min = Math.min(...data);
         const max = Math.max(...data);
         const range = max - min || 1;
@@ -203,6 +256,9 @@
         document.getElementById('error').textContent = message;
       }
 
+      let currentStocks = [];
+      let isFirstRender = true;
+
       function render(data) {
         const stocks = Array.isArray(data.stocks) ? data.stocks : [];
         if (stocks.length === 0) {
@@ -211,32 +267,24 @@
         }
 
         const ticker = document.getElementById('ticker');
-        const items = stocks.map(stock => {
-          if (stock.error) {
-            return `<div class="ticker-item"><span class="symbol">${stock.symbol}</span><span class="price">ERROR</span></div>`;
-          }
-
-          const isForex = stock.symbol.length > 5 || stock.symbol.includes('/');
-          const changeClass = getChangeClass(stock.change);
-          const formattedPrice = isForex ? 
-            formatPrice(stock.price, true) : 
-            `$${formatPrice(stock.price)}`;
+        
+        // For first render or symbol changes, rebuild completely
+        const symbolsChanged = !arraysEqual(stocks.map(s => s.symbol), currentStocks.map(s => s.symbol));
+        
+        if (isFirstRender || symbolsChanged) {
+          const items = stocks.map(stock => createStockItemHTML(stock)).join('');
+          // Create seamless loop by duplicating content exactly
+          ticker.innerHTML = items + items;
+          isFirstRender = false;
           
-          const changeText = formatChange(stock.change, stock.changePercent);
-          const sparkline = createSparkline(stock.sparkline);
-
-          return `
-            <div class="ticker-item">
-              <span class="symbol">${stock.symbol}</span>
-              <span class="price">${formattedPrice}</span>
-              <span class="change ${changeClass}">${changeText}</span>
-              ${sparkline}
-            </div>
-          `;
-        }).join(`<span class="separator">${separator}</span>`);
-
-        // Duplicate items for seamless looping
-        ticker.innerHTML = items + `<span class="separator">${separator}</span>` + items;
+          // Update animation duration based on content width
+          setTimeout(() => updateScrollDuration(), 100); // Delay to allow DOM to update
+        } else {
+          // Update existing items in place to avoid animation restart
+          updateStockItems(stocks);
+        }
+        
+        currentStocks = [...stocks];
         
         document.getElementById('loading').style.display = 'none';
         document.getElementById('error').style.display = 'none';
@@ -244,6 +292,109 @@
 
         // Update document title for capture system
         document.title = 'Stock Ticker - Ready';
+      }
+
+      function arraysEqual(a, b) {
+        return a.length === b.length && a.every((val, i) => val === b[i]);
+      }
+
+      function createStockItemHTML(stock) {
+        if (stock.error) {
+          return `<div class="ticker-item" data-symbol="${stock.symbol}">
+            <div class="ticker-row-top">
+              <span class="symbol">${stock.symbol}</span>
+              <span class="price">ERROR</span>
+            </div>
+          </div>`;
+        }
+
+        const isForex = stock.symbol.length > 5 || stock.symbol.includes('/');
+        const changeClass = getChangeClass(stock.change);
+        const formattedPrice = isForex ? 
+          formatPrice(stock.price, true) : 
+          `$${formatPrice(stock.price)}`;
+        
+        const changeText = formatChange(stock.change, stock.changePercent);
+        const sparkline = createSparkline(stock.sparkline);
+        
+        // Format timestamp with date and time
+        const timestamp = new Date(stock.lastUpdate).toLocaleString('en-US', { 
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+
+        return `
+          <div class="ticker-item" data-symbol="${stock.symbol}">
+            <div class="timestamp">${timestamp}</div>
+            <div class="ticker-row-top">
+              <span class="symbol">${stock.symbol}</span>
+              <span class="price">${formattedPrice}</span>
+            </div>
+            <div class="ticker-row-bottom">
+              <span class="change ${changeClass}">${changeText}</span>
+              ${sparkline}
+            </div>
+          </div>
+        `;
+      }
+
+      function updateStockItems(stocks) {
+        const ticker = document.getElementById('ticker');
+        stocks.forEach(stock => {
+          // Update both instances of each stock (since we duplicate for seamless loop)
+          const items = ticker.querySelectorAll(`[data-symbol="${stock.symbol}"]`);
+          items.forEach(item => {
+            const timestampEl = item.querySelector('.timestamp');
+            const symbolEl = item.querySelector('.symbol');
+            const priceEl = item.querySelector('.price');
+            const changeEl = item.querySelector('.change');
+            
+            if (stock.error) {
+              const isForex = stock.symbol.length > 5 || stock.symbol.includes('/');
+              priceEl.textContent = isForex ? 'UNSUPPORTED' : 'ERROR';
+              if (changeEl) changeEl.textContent = isForex ? 'Free tier' : '';
+              return;
+            }
+
+            const isForex = stock.symbol.length > 5 || stock.symbol.includes('/');
+            const changeClass = getChangeClass(stock.change);
+            const formattedPrice = isForex ? 
+              formatPrice(stock.price, true) : 
+              `$${formatPrice(stock.price)}`;
+            
+            const changeText = formatChange(stock.change, stock.changePercent);
+            const sparkline = createSparkline(stock.sparkline);
+            
+            // Update timestamp with date and time
+            const timestamp = new Date(stock.lastUpdate).toLocaleString('en-US', { 
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false 
+            });
+
+            // Update elements
+            if (timestampEl) timestampEl.textContent = timestamp;
+            if (priceEl) priceEl.textContent = formattedPrice;
+            if (changeEl) {
+              changeEl.textContent = changeText;
+              changeEl.className = `change ${changeClass}`;
+            }
+            
+            // Update sparkline
+            const sparklineContainer = item.querySelector('.ticker-row-bottom');
+            if (sparklineContainer) {
+              const existingSparkline = sparklineContainer.querySelector('.sparkline');
+              if (existingSparkline) {
+                existingSparkline.outerHTML = sparkline;
+              }
+            }
+          });
+        });
       }
 
       async function load() {
