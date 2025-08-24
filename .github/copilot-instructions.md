@@ -130,6 +130,25 @@ const providers = {
 };
 ```
 
+### Timer and Interval Cleanup
+- **CRITICAL**: Always clean up setInterval/setTimeout when templates change
+- Store interval IDs: `const refreshInterval = setInterval(...)`
+- Add cleanup on unload: `window.addEventListener('beforeunload', () => clearInterval(refreshInterval))`
+- Prevent multiple intervals: Check and clear existing intervals before starting new ones
+- Use global namespace: `window.hdisplay.{templateName}Interval` for cross-template cleanup
+- Pattern prevents lingering API requests after template is cleared/replaced
+- Example pattern:
+```javascript
+const refreshInterval = setInterval(load, refreshMs);
+window.addEventListener('beforeunload', () => clearInterval(refreshInterval));
+if (window.hdisplay) {
+  if (window.hdisplay.templateNameInterval) {
+    clearInterval(window.hdisplay.templateNameInterval);
+  }
+  window.hdisplay.templateNameInterval = refreshInterval;
+}
+```
+
 When adding a template
 
 1. Create templates/<id>.html

@@ -189,6 +189,17 @@
         root.style.visibility = 'visible';
       });
     }
-    setInterval(tick, duration);
+    const carouselInterval = setInterval(tick, duration);
+    
+    // Cleanup interval when page unloads or template changes
+    window.addEventListener('beforeunload', () => clearInterval(carouselInterval));
+    
+    // Store interval globally so it can be cleared by new templates
+    if (window.hdisplay) {
+      if (window.hdisplay.carouselInterval) {
+        clearInterval(window.hdisplay.carouselInterval);
+      }
+      window.hdisplay.carouselInterval = carouselInterval;
+    }
   })();
 </script>

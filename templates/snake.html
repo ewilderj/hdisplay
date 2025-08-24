@@ -378,5 +378,19 @@
     window.addEventListener('resize', onResize);
     window.addEventListener('load', reset);
     setTimeout(reset, 20);
+    
+    // Cleanup intervals and timeouts when page unloads or template changes
+    window.addEventListener('beforeunload', () => {
+      if (timerId) clearInterval(timerId);
+      if (resizeTimer) clearTimeout(resizeTimer);
+    });
+    
+    // Store timer globally so it can be cleared by new templates
+    if (window.hdisplay) {
+      if (window.hdisplay.snakeTimerId) {
+        clearInterval(window.hdisplay.snakeTimerId);
+      }
+      // Note: timerId will be set later in reset(), so we'll clean it up in beforeunload
+    }
   })();
 </script>

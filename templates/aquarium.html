@@ -1122,6 +1122,21 @@
       requestAnimationFrame(loop);
     }
     loop();
+    
+    // Cleanup feeding timeout when page unloads or template changes
+    window.addEventListener('beforeunload', () => {
+      if (feedTimeoutId) clearTimeout(feedTimeoutId);
+    });
+    
+    // Store cleanup globally
+    if (window.hdisplay) {
+      if (window.hdisplay.aquariumCleanup) {
+        window.hdisplay.aquariumCleanup();
+      }
+      window.hdisplay.aquariumCleanup = () => {
+        if (feedTimeoutId) clearTimeout(feedTimeoutId);
+      };
+    }
   </script>
 </body>
 </html>

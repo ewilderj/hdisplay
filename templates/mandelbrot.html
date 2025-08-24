@@ -232,6 +232,8 @@
     let isFirstRender = true;
     
     function showNextLocation() {
+      if (window.mandelbrotStopped) return; // Stop the loop if cleanup was called
+      
       const location = locations[currentIndex % locations.length];
       
       if (isFirstRender) {
@@ -274,6 +276,12 @@
     
     // Start the display
     showNextLocation();
+    
+    // Add cleanup for the timeout chain
+    window.addEventListener('beforeunload', () => {
+      // This will stop the recursive timeout chain
+      window.mandelbrotStopped = true;
+    });
   })();
   </script>
 </body>

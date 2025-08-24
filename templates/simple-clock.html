@@ -50,7 +50,18 @@
 
     render();
     if (useMachine) {
-      setInterval(render, 1000);
+      const clockInterval = setInterval(render, 1000);
+      
+      // Cleanup interval when page unloads or template changes
+      window.addEventListener('beforeunload', () => clearInterval(clockInterval));
+      
+      // Store interval globally so it can be cleared by new templates
+      if (window.hdisplay) {
+        if (window.hdisplay.clockInterval) {
+          clearInterval(window.hdisplay.clockInterval);
+        }
+        window.hdisplay.clockInterval = clockInterval;
+      }
     }
   })();
 </script>
