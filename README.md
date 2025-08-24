@@ -521,27 +521,6 @@ Provider selection
 - Finnhub free tier: stock quotes OK, forex pairs unsupported (card shows placeholder message)
 - Alpha Vantage free tier: stricter rate limit (12s spacing enforced internally) but supports basic forex pairs
 
-Behavior & resilience
-
-- Seamless infinite scroll: duplicates content; in‑place updates avoid animation reset
-- Adaptive duration recalculated when symbol set changes
-- Failed symbols yield placeholder cards; ticker keeps moving
-- Sparkline: best‑effort historical fetch; synthetic fallback if unavailable
-- Response cached per (symbols+provider) until refresh interval
-- Fixed `<title>hdisplay - stock-ticker</title>` for capture readiness
-
-Validation
-
-- Validator: `templates/_validators/stock-ticker.js` (symbol array, bounds, merges defaults)
-- CLI flags map to nested keys (e.g. `--display.precision 3` → `{ display: { precision: 3 } }`)
-
-Notes
-
-- Reduce number of symbols or disable sparklines on constrained hardware
-- Very high `scrollSpeed` with many wide cards may stress Pi GPU fill rate; duration is clamped >= 10s
-- Forex pairs on Finnhub free tier show explicit unsupported message
-- Alpha Vantage rate limiting may delay full population; backoff handled internally
-- For deterministic captures: 3–5 symbols, default speed
 
 ## Playlists
 
