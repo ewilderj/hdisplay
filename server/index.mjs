@@ -12,7 +12,8 @@ export default srv;
 const PORT = process.env.PORT || 3000;
 
 async function start() {
-  const Bonjour = (BonjourModule && (BonjourModule.default || BonjourModule.Bonjour)) || BonjourModule;
+  const Bonjour =
+    (BonjourModule && (BonjourModule.default || BonjourModule.Bonjour)) || BonjourModule;
   const bonjour = new Bonjour();
   let bonjourService;
 
@@ -35,9 +36,13 @@ async function start() {
   function shutdown() {
     console.log('\n[hdisplay] shutting down...');
     if (bonjourService) {
-      try { bonjourService.stop(); } catch {}
+      try {
+        bonjourService.stop();
+      } catch {}
     }
-    try { bonjour.destroy(); } catch {}
+    try {
+      bonjour.destroy();
+    } catch {}
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 1000).unref();
   }

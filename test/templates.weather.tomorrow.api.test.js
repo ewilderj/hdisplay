@@ -9,8 +9,8 @@ describe('Weather API - Tomorrow.io provider', () => {
   let lastTomorrowParams;
 
   beforeEach(() => {
-  jest.resetModules();
-  jest.clearAllMocks();
+    jest.resetModules();
+    jest.clearAllMocks();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hdisplay-weather-tio-'));
     process.env.HDS_UPLOADS_DIR = tmpDir;
     // point to temp config.json that sets provider and api key
@@ -34,11 +34,21 @@ describe('Weather API - Tomorrow.io provider', () => {
                   daily: [
                     {
                       time: '2025-01-01T00:00:00Z',
-                      values: { temperatureMin: 10, temperatureMax: 18, weatherCodeMax: 1000, weatherCodeMin: 1000 },
+                      values: {
+                        temperatureMin: 10,
+                        temperatureMax: 18,
+                        weatherCodeMax: 1000,
+                        weatherCodeMin: 1000,
+                      },
                     },
                     {
                       time: '2025-01-02T00:00:00Z',
-                      values: { temperatureMin: 11, temperatureMax: 17, weatherCodeMax: 2000, weatherCodeMin: 1100 },
+                      values: {
+                        temperatureMin: 11,
+                        temperatureMax: 17,
+                        weatherCodeMax: 2000,
+                        weatherCodeMin: 1100,
+                      },
                     },
                   ],
                 },

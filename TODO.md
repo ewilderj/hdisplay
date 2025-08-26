@@ -6,20 +6,20 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 <!-- Completed: lint/format baseline (moved to Done) -->
 
-- [ ] Headers hardening
+- [ ] Headers hardening (S)
   - [ ] Add minimal security headers (via Helmet or manual set) and permissive CORS if needed for CLI
   - Acceptance: no regressions; headers visible on `/` and APIs
 
-- [ ] Client robustness (from PRD)
+- [ ] Client robustness (M) (from PRD)
   - [ ] WebSocket auto-reconnect UX: show banner on disconnect, retry/backoff, auto-hide on reconnect
   - [ ] Fullscreen API: ensure kiosk enters fullscreen and recovers if exited
   - Acceptance: display recovers seamlessly after server restarts or network loss
 
-- [ ] Charts (from PRD)
+- [ ] Charts (M) (from PRD)
   - [ ] Add a simple sparkline/line chart template fed via API
   - Acceptance: renders smoothly with low CPU on Pi
 
-- [ ] Testing & CI (from PRD)
+- [ ] Testing & CI (L) (from PRD)
   - [ ] Hardware smoke on Raspberry Pi
   - [ ] 12h stability soak test script
   - [ ] CI workflow: Jest unit/integration, Playwright e2e smoke, capture gallery (optional), Docker build
@@ -27,38 +27,38 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Tests and quality gates
 
-- [ ] Add tests for carousel template payload validation (items array, duration bounds)
+- [ ] Add tests for carousel template payload validation (items array, duration bounds) (S)
   - Acceptance: invalid payloads are rejected with 400 and clear messages
 
-- [ ] Increase overall statement coverage from ~39% → 60% (phase 1)
+- [ ] Increase overall statement coverage from ~39% → 60% (phase 1) (M)
   - Focus: `server/stocks.js` (currently ~6% lines, 0% branches) and `capture/` modules (capture.js, visual-detector.js, template-heuristics.js)
   - Acceptance: coverage report shows >=60% statements, stocks.js >=40% statements
 
-- [ ] Stock API unit tests
+- [ ] Stock API unit tests (M)
   - Cover: provider selection (alphavantage vs finnhub), symbol parsing (stock vs forex), error handling (rate limit, invalid symbol), caching behavior, sparkline fallback generation
   - Acceptance: each branch in `fetchSymbolData` exercised; at least one test for alphavantage rate limit wait path (mock timers) and finnhub forex unsupported path
 
-- [ ] Weather edge case tests
+- [ ] Weather edge case tests (M)
   - Add: geocode fallback path, stale cache reuse on provider failure, Tomorrow.io debug mapping (with mock data), units conversion
   - Acceptance: increase `server/weather.js` branch coverage from ~39% → 60%
 
-- [ ] Capture system unit tests (pure logic)
+- [ ] Capture system unit tests (pure logic) (M)
   - Add: `VisualDetector` strategy failures/timeouts, pixel coverage threshold, visual stability diff path, text content min length fail then pass, media loading wait (mock page)
   - Acceptance: `capture/visual-detector.js` lines coverage from ~2% → 50% using mocked page object
 
-- [ ] Template heuristics tests
+- [ ] Template heuristics tests (S)
   - Cover: `getSampleData` returns expected shapes per known template, fallback {} for unknown, profile generation defaults
   - Acceptance: `template-heuristics.js` statements ≥50%
 
-- [ ] Playlist rotation timing tests
+- [ ] Playlist rotation timing tests (M)
   - Simulate multi-item playlist with override and ensure rotation pauses/resumes correctly; clampDelay bounds
   - Acceptance: raise `server/index.js` branch coverage (playlist rotation paths) by +10 percentage points
 
-- [ ] Add Jest coverage thresholds (soft gate)
+- [ ] Add Jest coverage thresholds (soft gate) (S)
   - Configure `coverageThreshold` once initial lift achieved: global { statements: 60, branches: 50, functions: 55, lines: 60 }
   - Acceptance: build fails if thresholds not met (after initial increase PR)
 
-- [ ] Introduce selective mocking utilities
+- [ ] Introduce selective mocking utilities (S)
   - Create `test/utils/mockPage.js` for capture tests and `test/utils/httpMocks.js` for external API modules (stocks/weather) to keep test code DRY
   - Acceptance: duplicate mock code reduced; new utils adopted in new tests
 
@@ -68,10 +68,10 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 ## Small server/CLI improvements
 
-- [ ] Add `playlist:add` examples using schema-aware flags (mirrors template examples)
-- [ ] Optional: CLI flag to skip post-capture clear during capture runs
+- [ ] Add `playlist:add` examples using schema-aware flags (mirrors template examples) (S)
+- [ ] Optional: CLI flag to skip post-capture clear during capture runs (XS)
 
-- [ ] Server ESM migration (phase 2 – full conversion, defer for later)
+- [ ] Server ESM migration (phase 2 – full conversion, defer for later) (L)
   - [ ] Convert `server/index.js` implementation to ESM and keep a tiny CJS shim (`server/index.js` or `server/index.cjs`) that dynamically imports the ESM and re-exports `{ app, server, UPLOADS_DIR }` for Jest tests
   - [ ] Flip `npm start` (and systemd/docker docs) to prefer `node server/index.mjs` once stable; ensure mDNS (bonjour-service) init remains lazy in direct-run path
   - [ ] Verify tests that `require('../server/index')` continue passing via the shim; no behavior/API changes
@@ -84,34 +84,34 @@ _(add more here as they come up)_
 
 ## New template ideas
 
-- Headlines ticker (RSS/Atom): feedUrl[], speed, separator, theme
-- Transit departures: stopId/routeId, provider URL (GTFS-RT), maxItems (allow static JSON)
-- Room schedule strip: events[{title,start,end}], nowIndicator
-- World clocks: cities[{label,tz}], format, showDate
-- Quote/Tip rotator: items[], durationMs, randomize, theme
-- Progress/Timeline bar: start, end, label, milestones[]
-- Build status bar: projects[{name,status}], updatedAt (offline; colors for pass/fail)
-- Leaderboard: rows[{name,score}], highlightTopN, unit
-- Social wall (curated/static): posts[{avatarUrl,text,handle}], rotateMs
-- QR join/info card: title, subtitle, qrText/url, logoUrl (client-side QR)
-- Word clock: language, showSeconds (CSS grid)
-- Sunrise/Sunset bar: lat, lon, date?, tz (compute locally)
-- Ambient gauges: metrics[{label,value,unit,max}], style="arc|bar"
-- Image wall (Ken Burns): items[/uploads/...], dwellMs, panZoom
-- Scoreboard: home, away, scoreH, scoreA, period, clock
-- Trivia flash: questions[{q,a}], rotateMs, showAnswerDelay
-- System status strip: nodes[{name,cpu,mem}], updatedAt
-- Mini weather sparkline: temps[], precip[] (inline SVG)
-- Bokeh/Particles animator: density, hue, speed (Canvas; low CPU)
+- Headlines ticker (RSS/Atom): feedUrl[], speed, separator, theme (M)
+- Transit departures: stopId/routeId, provider URL (GTFS-RT), maxItems (allow static JSON) (M)
+- Room schedule strip: events[{title,start,end}], nowIndicator (M)
+- World clocks: cities[{label,tz}], format, showDate (M)
+- Quote/Tip rotator: items[], durationMs, randomize, theme (M)
+- Progress/Timeline bar: start, end, label, milestones[] (M)
+- Build status bar: projects[{name,status}], updatedAt (offline; colors for pass/fail) (M)
+- Leaderboard: rows[{name,score}], highlightTopN, unit (M)
+- Social wall (curated/static): posts[{avatarUrl,text,handle}], rotateMs (M)
+- QR join/info card: title, subtitle, qrText/url, logoUrl (client-side QR) (M)
+- Word clock: language, showSeconds (CSS grid) (M)
+- Sunrise/Sunset bar: lat, lon, date?, tz (compute locally) (M)
+- Ambient gauges: metrics[{label,value,unit,max}], style="arc|bar" (M)
+- Image wall (Ken Burns): items[/uploads/...], dwellMs, panZoom (M)
+- Scoreboard: home, away, scoreH, scoreA, period, clock (M)
+- Trivia flash: questions[{q,a}], rotateMs, showAnswerDelay (M)
+- System status strip: nodes[{name,cpu,mem}], updatedAt (M)
+- Mini weather sparkline: temps[], precip[] (inline SVG) (M)
+- Bokeh/Particles animator: density, hue, speed (Canvas; low CPU) (M)
 
 ## Stretch ideas (later)
 
-- [ ] Auth (token or local network-only) for APIs
-- [ ] MQTT/Home Assistant integration
-- [ ] Plugin system for third-party templates/widgets
-- [ ] Multiple display support (from PRD)
-- [ ] Mobile control app (from PRD)
-- [ ] Cloud sync for configurations (from PRD)
+- [ ] Auth (token or local network-only) for APIs (L)
+- [ ] MQTT/Home Assistant integration (L)
+- [ ] Plugin system for third-party templates/widgets (XL)
+- [ ] Multiple display support (from PRD) (XL)
+- [ ] Mobile control app (from PRD) (XL)
+- [ ] Cloud sync for configurations (from PRD) (L)
 
 ---
 

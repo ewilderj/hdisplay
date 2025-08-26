@@ -9,8 +9,10 @@ module.exports = function validateWeather(data = {}) {
   }
   if (data.refreshInterval !== undefined) {
     const m = Number(data.refreshInterval);
-    if (!Number.isFinite(m)) return { ok: false, error: 'weather: refreshInterval must be a number' };
-    if (m < 10 || m > 120) return { ok: false, error: 'weather: refreshInterval must be between 10 and 120 minutes' };
+    if (!Number.isFinite(m))
+      return { ok: false, error: 'weather: refreshInterval must be a number' };
+    if (m < 10 || m > 120)
+      return { ok: false, error: 'weather: refreshInterval must be between 10 and 120 minutes' };
   }
   if (data.showConditionText !== undefined && typeof data.showConditionText !== 'boolean') {
     return { ok: false, error: 'weather: showConditionText must be a boolean' };

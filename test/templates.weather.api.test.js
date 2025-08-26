@@ -8,11 +8,13 @@ let tmpDir;
 let nextDaily;
 let axios; // will be assigned to the mocked module returned inside isolateModules
 
-function setMockDaily(days = [
-  { min: 10, max: 18, icon: '01d', description: 'clear sky', dt: 1735689600 },
-  { min: 11, max: 17, icon: '02d', description: 'few clouds', dt: 1735776000 },
-  { min: 9, max: 15, icon: '10d', description: 'rain', dt: 1735862400 },
-]) {
+function setMockDaily(
+  days = [
+    { min: 10, max: 18, icon: '01d', description: 'clear sky', dt: 1735689600 },
+    { min: 11, max: 17, icon: '02d', description: 'few clouds', dt: 1735776000 },
+    { min: 9, max: 15, icon: '10d', description: 'rain', dt: 1735862400 },
+  ]
+) {
   nextDaily = days.map((t) => ({
     dt: t.dt,
     temp: { min: t.min, max: t.max },
@@ -32,12 +34,10 @@ describe('Weather API', () => {
   function initServer() {
     jest.isolateModules(() => {
       jest.doMock('axios', () => {
-  const get = jest.fn((url) => {
+        const get = jest.fn((url) => {
           if (url.includes('/geo/1.0/direct')) {
             return Promise.resolve({
-              data: [
-                { name: 'San Francisco', country: 'US', lat: 37.7749, lon: -122.4194 },
-              ],
+              data: [{ name: 'San Francisco', country: 'US', lat: 37.7749, lon: -122.4194 }],
             });
           }
           if (url.includes('/data/3.0/onecall')) {
@@ -86,15 +86,17 @@ describe('Weather API', () => {
   });
 
   afterEach(() => {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
     delete process.env.HDS_UPLOADS_DIR;
-  delete process.env.HDS_CONFIG_PATH;
+    delete process.env.HDS_CONFIG_PATH;
     clearEnvKey();
   });
 
   test('400 when missing api key', async () => {
     clearEnvKey();
-  initServer();
+    initServer();
     const res = await request(app).get('/api/weather').query({ location: 'Paris', units: 'C' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/api key/i);
@@ -127,7 +129,7 @@ describe('Weather API', () => {
     const callsBefore = axios.get.mock.calls.length;
     const r2 = await request(app)
       .get('/api/weather')
-  .query({ location: '37.7749,-122.4194', units: 'C', refresh: 60 });
+      .query({ location: '37.7749,-122.4194', units: 'C', refresh: 60 });
     const callsAfter = axios.get.mock.calls.length;
     expect(r2.status).toBe(200);
     expect(callsAfter).toBe(callsBefore);

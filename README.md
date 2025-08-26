@@ -443,11 +443,12 @@ Options (data fields)
 - customLocations: array of custom zoom locations (requires locations: "custom")
 
 Custom location format:
+
 ```json
 {
   "name": "Location Name",
   "cx": -0.75,
-  "cy": 0.10,
+  "cy": 0.1,
   "scale": 0.01
 }
 ```
@@ -484,6 +485,7 @@ hdisplay template stock-ticker --data-file stocks.json
 ```
 
 Example `stocks.json`:
+
 ```json
 {
   "symbols": ["AAPL", "GOOGL", "MSFT", "GBPUSD"],
@@ -521,7 +523,6 @@ Provider selection
 - Finnhub free tier: stock quotes OK, forex pairs unsupported (card shows placeholder message)
 - Alpha Vantage free tier: stricter rate limit (12s spacing enforced internally) but supports basic forex pairs
 
-
 ## Playlists
 
 Create a rotating sequence of templates. The server plays items in order, loops, and persists across restarts. Applying a one-off template or push temporarily overrides playback; rotation resumes automatically.
@@ -552,12 +553,94 @@ hdisplay playlist:add animated-text --text "Welcome to the lab" --velocity 120
 hdisplay playlist:add message-banner --title "Meeting" --subtitle "Room A"
 ```
 
+### Comprehensive playlist:add examples
+
+Here are more detailed examples showing how to use schema-aware flags with different templates:
+
+```bash
+# Weather forecast with custom theme
+hdisplay playlist:add weather \
+  --location "San Francisco, CA, US" \
+  --units F \
+  --refresh-interval 30 \
+  --no-dark-mode \
+  --theme.bg "#ffffff" \
+  --theme.text "#000000" \
+  --theme.accent "#007acc"
+
+# Stock ticker with multiple symbols and custom display
+hdisplay playlist:add stock-ticker \
+  --symbols AAPL \
+  --symbols GOOGL \
+  --symbols MSFT \
+  --symbols GBPUSD \
+  --scroll-speed 80 \
+  --update-interval 5 \
+  --display.precision 2 \
+  --display.separator " • " \
+  --theme.bg "#000000" \
+  --theme.text "#ffffff"
+
+# TimeLeft countdown with custom theme
+hdisplay playlist:add timeleft \
+  --minutes 45 \
+  --label "Break ends in" \
+  --theme.label-color "#ff6b6b" \
+  --theme.value-color "#4ecdc4"
+
+# Snake game with custom settings
+hdisplay playlist:add snake \
+  --cell-size 25 \
+  --tick-ms 120 \
+  --wrap
+
+# Mandelbrot with custom color scheme and timing
+hdisplay playlist:add mandelbrot \
+  --duration 15000 \
+  --transition-ms 2500 \
+  --color-scheme fire \
+  --max-iterations 150 \
+  --shuffle
+
+# WebP animation with custom positioning
+hdisplay playlist:add webp-loop \
+  --url /uploads/animation.webp \
+  --fit contain \
+  --position "50% 50%" \
+  --rendering pixelated
+
+# Simple clock with custom styling
+hdisplay playlist:add simple-clock \
+  --format "HH:mm:ss" \
+  --timezone "America/New_York" \
+  --theme.color "#00ff88" \
+  --theme.font-size "72px"
+
+# Multiple items with mixed templates
+hdisplay playlist:add carousel \
+  --items /uploads/photo1.jpg \
+  --items https://picsum.photos/1280/400 \
+  --duration 5000
+
+hdisplay playlist:add animated-text \
+  --text "Welcome to our office" \
+  --velocity 100
+
+hdisplay playlist:add message-banner \
+  --title "Important Notice" \
+  --subtitle "Please read the safety guidelines"
+```
+
+These examples demonstrate the full range of schema-aware flag usage across different template types, from simple scalars to complex nested objects and arrays.
+
+````
+
 - Remove by index or by id (first match)
 
 ```bash
 hdisplay playlist:remove 0
 hdisplay playlist:remove animated-text
-```
+````
 
 - Clear all items
 

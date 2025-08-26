@@ -1,6 +1,6 @@
 <style>
   .clock-time {
-    font-size: 120px; 
+    font-size: 120px;
     line-height: 1;
   }
   /* Make colons take up less space like real seven-segment displays */
@@ -12,10 +12,18 @@
     animation: blink 2s infinite;
   }
   @keyframes blink {
-    from { opacity: 1; }
-    50% { opacity: 1; }
-    51% { opacity: 0; }
-    to { opacity: 0; }
+    from {
+      opacity: 1;
+    }
+    50% {
+      opacity: 1;
+    }
+    51% {
+      opacity: 0;
+    }
+    to {
+      opacity: 0;
+    }
   }
 </style>
 <div
@@ -30,7 +38,8 @@
   "
 >
   <div id="sc-time" class="clock-time">
-    <span id="hours"></span><span class="blinking-colon">:</span><span id="minutes"></span> <span id="ampm"></span>
+    <span id="hours"></span><span class="blinking-colon">:</span><span id="minutes"></span>
+    <span id="ampm"></span>
   </div>
 </div>
 <script>
@@ -51,10 +60,10 @@
 
     function formatNow() {
       const now = new Date();
-      const time = now.toLocaleTimeString(undefined, { 
-        hour: '2-digit', 
+      const time = now.toLocaleTimeString(undefined, {
+        hour: '2-digit',
         minute: '2-digit',
-        hour12: true 
+        hour12: true,
       });
       // Parse the time string to get individual components
       const match = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -62,7 +71,7 @@
         return {
           hours: match[1],
           minutes: match[2],
-          ampm: match[3].replace(/AM/g, 'A').replace(/PM/g, 'P')
+          ampm: match[3].replace(/AM/g, 'A').replace(/PM/g, 'P'),
         };
       }
       return { hours: '00', minutes: '00', ampm: 'A' };
@@ -91,10 +100,10 @@
     render();
     if (useMachine) {
       const clockInterval = setInterval(render, 1000);
-      
+
       // Cleanup interval when page unloads or template changes
       window.addEventListener('beforeunload', () => clearInterval(clockInterval));
-      
+
       // Store interval globally so it can be cleared by new templates
       if (window.hdisplay) {
         if (window.hdisplay.clockInterval) {

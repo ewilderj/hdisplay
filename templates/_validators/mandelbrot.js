@@ -1,5 +1,6 @@
 module.exports = function validateMandelbrot(data = {}) {
-  const asBool = (v) => typeof v === 'boolean' || /^(true|false|1|0|yes|no|on|off)$/i.test(String(v || ''));
+  const asBool = (v) =>
+    typeof v === 'boolean' || /^(true|false|1|0|yes|no|on|off)$/i.test(String(v || ''));
   const asNum = (v) => Number.isFinite(Number(v));
 
   if (data.duration !== undefined && !asNum(data.duration)) {
@@ -30,15 +31,24 @@ module.exports = function validateMandelbrot(data = {}) {
       }
       if (loc.bounds) {
         if (!Array.isArray(loc.bounds) || loc.bounds.length !== 4 || !loc.bounds.every(asNum)) {
-          return { ok: false, error: `mandelbrot: customLocations[${i}].bounds must be [x0,x1,y0,y1]` };
+          return {
+            ok: false,
+            error: `mandelbrot: customLocations[${i}].bounds must be [x0,x1,y0,y1]`,
+          };
         }
       } else {
         if (!asNum(loc.centerX) || !asNum(loc.centerY) || !asNum(loc.scale)) {
-          return { ok: false, error: `mandelbrot: customLocations[${i}] requires centerX, centerY, scale` };
+          return {
+            ok: false,
+            error: `mandelbrot: customLocations[${i}] requires centerX, centerY, scale`,
+          };
         }
       }
       if (loc.iterations !== undefined && !asNum(loc.iterations)) {
-        return { ok: false, error: `mandelbrot: customLocations[${i}].iterations must be a number` };
+        return {
+          ok: false,
+          error: `mandelbrot: customLocations[${i}].iterations must be a number`,
+        };
       }
     }
   }

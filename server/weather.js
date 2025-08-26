@@ -85,9 +85,13 @@ const weatherProviders = {
       return parseLatLonOrQuery(locStr);
     },
     async geocode(apiKey, loc) {
-      if (loc.lat != null && loc.lon != null) return { name: null, country: null, lat: loc.lat, lon: loc.lon };
+      if (loc.lat != null && loc.lon != null)
+        return { name: null, country: null, lat: loc.lat, lon: loc.lon };
       const url = 'https://api.openweathermap.org/geo/1.0/direct';
-      const res = await axios.get(url, { params: { q: loc.q, limit: 1, appid: apiKey }, timeout: 5000 });
+      const res = await axios.get(url, {
+        params: { q: loc.q, limit: 1, appid: apiKey },
+        timeout: 5000,
+      });
       const arr = Array.isArray(res && res.data) ? res.data : [];
       if (arr.length === 0) return null;
       const it = arr[0];
@@ -151,10 +155,13 @@ const weatherProviders = {
       return parseLatLonOrQuery(locStr);
     },
     async geocode(apiKey, loc) {
-      if (loc.lat != null && loc.lon != null) return { name: null, country: null, lat: loc.lat, lon: loc.lon };
+      if (loc.lat != null && loc.lon != null)
+        return { name: null, country: null, lat: loc.lat, lon: loc.lon };
       const owmKey = getOWMApiKey();
       if (owmKey && loc.q) {
-        try { return await weatherProviders.openweathermap.geocode(owmKey, loc); } catch {}
+        try {
+          return await weatherProviders.openweathermap.geocode(owmKey, loc);
+        } catch {}
       }
       return null;
     },
@@ -173,7 +180,9 @@ const weatherProviders = {
       return (res && res.data) || {};
     },
     aggregate(data) {
-      const daily = (data && data.timelines && Array.isArray(data.timelines.daily) && data.timelines.daily) || [];
+      const daily =
+        (data && data.timelines && Array.isArray(data.timelines.daily) && data.timelines.daily) ||
+        [];
       const mapCode = (code) => {
         const c = Number(code);
         if (!Number.isFinite(c)) return null;
@@ -229,7 +238,11 @@ const weatherProviders = {
         const t = d.time || d.startTime;
         let dateStr = '';
         let ts = null;
-        try { const dd = new Date(t); ts = dd.toISOString(); dateStr = dd.toISOString().substring(0, 10); } catch {}
+        try {
+          const dd = new Date(t);
+          ts = dd.toISOString();
+          dateStr = dd.toISOString().substring(0, 10);
+        } catch {}
         const v = d.values || {};
         const lo = Number(v.temperatureMin);
         const hi = Number(v.temperatureMax);
@@ -243,7 +256,14 @@ const weatherProviders = {
         const icon = mapCode(wcRaw);
         const description = codeDesc(wcRaw);
         if (Number.isFinite(lo) && Number.isFinite(hi)) {
-          out.push({ date: dateStr, ts, low: Math.round(lo), high: Math.round(hi), icon, description });
+          out.push({
+            date: dateStr,
+            ts,
+            low: Math.round(lo),
+            high: Math.round(hi),
+            icon,
+            description,
+          });
         }
       }
       return out;
@@ -274,13 +294,17 @@ function registerWeatherRoutes(app) {
         return res.json({ ...cached.data, cached: true });
       }
 
-      const locObj = provider.parseLocation ? provider.parseLocation(location) : parseLatLonOrQuery(location);
+      const locObj = provider.parseLocation
+        ? provider.parseLocation(location)
+        : parseLatLonOrQuery(location);
       if (!locObj) return res.status(400).json({ error: 'Invalid location' });
 
       let coords = await provider.geocode(apiKey, locObj);
       if (!coords) {
         if (provider.geocodeZipFallback) {
-          try { coords = await provider.geocodeZipFallback(apiKey, locObj); } catch {}
+          try {
+            coords = await provider.geocodeZipFallback(apiKey, locObj);
+          } catch {}
         }
       }
       if (!coords) return res.status(404).json({ error: 'Location not found' });
@@ -294,11 +318,14 @@ function registerWeatherRoutes(app) {
         }
         return res.status(502).json({ error: 'Weather API failed' });
       }
-  let days = provider.aggregate ? provider.aggregate(forecast) : [];
+      let days = provider.aggregate ? provider.aggregate(forecast) : [];
       if (process.env.NODE_ENV === 'test') {
         try {
           const dailyLen = Array.isArray(forecast && forecast.daily) ? forecast.daily.length : 0;
-          console.log('[weather-debug]', { dailyLen, daysLen: Array.isArray(days) ? days.length : -1 });
+          console.log('[weather-debug]', {
+            dailyLen,
+            daysLen: Array.isArray(days) ? days.length : -1,
+          });
         } catch {}
       }
       if (process.env.HDS_WEATHER_DEBUG && provider.id === 'tomorrowio') {
@@ -311,13 +338,30 @@ function registerWeatherRoutes(app) {
             const fullDay = v.weatherCodeFullDay;
             const max = v.weatherCodeMax;
             const min = v.weatherCodeMin;
-            const chosen = (max !== undefined ? max : undefined) ?? (fullDay !== undefined ? fullDay : undefined) ?? (day !== undefined ? day : undefined) ?? (code !== undefined ? code : undefined) ?? (min !== undefined ? min : undefined) ?? null;
+            const chosen =
+              (max !== undefined ? max : undefined) ??
+              (fullDay !== undefined ? fullDay : undefined) ??
+              (day !== undefined ? day : undefined) ??
+              (code !== undefined ? code : undefined) ??
+              (min !== undefined ? min : undefined) ??
+              null;
             return {
               idx: i,
               codes: { day, fullDay, code, max, min },
               chosen: {
                 value: chosen,
-                source: max !== undefined ? 'weatherCodeMax' : fullDay !== undefined ? 'weatherCodeFullDay' : day !== undefined ? 'weatherCodeDay' : code !== undefined ? 'weatherCode' : min !== undefined ? 'weatherCodeMin' : 'none',
+                source:
+                  max !== undefined
+                    ? 'weatherCodeMax'
+                    : fullDay !== undefined
+                      ? 'weatherCodeFullDay'
+                      : day !== undefined
+                        ? 'weatherCodeDay'
+                        : code !== undefined
+                          ? 'weatherCode'
+                          : min !== undefined
+                            ? 'weatherCodeMin'
+                            : 'none',
               },
               mapped: days[i] ? days[i].icon : null,
               desc: days[i] ? days[i].description : null,
@@ -328,13 +372,15 @@ function registerWeatherRoutes(app) {
       }
       const payload = {
         location: { name: coords.name, country: coords.country, lat: coords.lat, lon: coords.lon },
-  days,
+        days,
         units,
       };
       weatherCache.set(key, { data: payload, fetchedAt: now, ttlMs: refresh * 60 * 1000 });
       return res.json(payload);
     } catch (e) {
-      try { console.warn('[hdisplay] /api/weather error:', e && e.message ? e.message : e); } catch {}
+      try {
+        console.warn('[hdisplay] /api/weather error:', e && e.message ? e.message : e);
+      } catch {}
       return res.status(500).json({ error: e.message || 'server error' });
     }
   });

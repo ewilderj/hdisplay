@@ -68,15 +68,15 @@ async function makeRateLimitedRequest(url, provider = 'alphavantage') {
   if (provider === 'alphavantage') {
     const now = Date.now();
     const timeSinceLastRequest = now - lastAlphaVantageRequest;
-    
+
     if (timeSinceLastRequest < ALPHA_VANTAGE_MIN_INTERVAL) {
       const delay = ALPHA_VANTAGE_MIN_INTERVAL - timeSinceLastRequest;
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
-    
+
     lastAlphaVantageRequest = Date.now();
   }
-  
+
   return axios.get(url, { timeout: 10000 });
 }
 
@@ -85,7 +85,7 @@ const stockProviders = {
     id: 'alphavantage',
     needsApiKey: true,
     getApiKey: getAlphaVantageApiKey,
-    
+
     parseSymbol(symbol) {
       // Detect forex pairs (simple heuristic: length > 5 or contains /)
       if (symbol.length > 5 || symbol.includes('/')) {
@@ -105,27 +105,27 @@ const stockProviders = {
 
     async fetchStockQuote(symbol, apiKey) {
       const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
-      
+
       const response = await makeRateLimitedRequest(url, 'alphavantage');
       const data = response.data;
-      
+
       if (data['Information'] && data['Information'].includes('rate limit')) {
         throw new Error('API call frequency limit reached');
       }
-      
+
       if (data['Error Message']) {
         throw new Error(`Invalid symbol: ${symbol}`);
       }
-      
+
       if (data['Note']) {
         throw new Error('API call frequency limit reached');
       }
-      
+
       const quote = data['Global Quote'];
       if (!quote) {
         throw new Error('No quote data available');
       }
-      
+
       return {
         symbol,
         name: symbol,
@@ -133,80 +133,84 @@ const stockProviders = {
         change: parseFloat(quote['09. change']),
         changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
         volume: parseInt(quote['06. volume']) || 0,
-        lastUpdate: quote['07. latest trading day']
+        lastUpdate: quote['07. latest trading day'],
       };
     },
 
     async fetchForexRate(fromCurrency, toCurrency, apiKey) {
       const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${fromCurrency}&to_currency=${toCurrency}&apikey=${apiKey}`;
-      
+
       const response = await makeRateLimitedRequest(url, 'alphavantage');
       const data = response.data;
-      
+
       if (data['Information'] && data['Information'].includes('rate limit')) {
         throw new Error('API call frequency limit reached');
       }
-      
+
       if (data['Error Message']) {
         throw new Error(`Invalid currency pair: ${fromCurrency}/${toCurrency}`);
       }
-      
+
       if (data['Note']) {
         throw new Error('API call frequency limit reached');
       }
-      
+
       const rate = data['Realtime Currency Exchange Rate'];
       if (!rate) {
         throw new Error('No exchange rate data available');
       }
-      
+
       const currentRate = parseFloat(rate['5. Exchange Rate']);
       const prevRate = parseFloat(rate['8. Previous Close']) || currentRate;
       const change = currentRate - prevRate;
       const changePercent = prevRate !== 0 ? (change / prevRate) * 100 : 0;
-      
+
       return {
         symbol: `${fromCurrency}/${toCurrency}`,
         name: `${fromCurrency} to ${toCurrency}`,
         price: currentRate,
         change,
         changePercent,
-        lastUpdate: rate['6. Last Refreshed']
+        lastUpdate: rate['6. Last Refreshed'],
       };
     },
 
-  async fetchHistoricalData(symbol, apiKey) {
+    async fetchHistoricalData(symbol, apiKey) {
       const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${apiKey}`;
-      
+
       try {
         const response = await makeRateLimitedRequest(url, 'alphavantage');
         const data = response.data;
-        
-        if (data['Error Message'] || data['Note'] || (data['Information'] && data['Information'].includes('rate limit'))) {
+
+        if (
+          data['Error Message'] ||
+          data['Note'] ||
+          (data['Information'] && data['Information'].includes('rate limit'))
+        ) {
           return [];
         }
-        
+
         const timeSeries = data['Time Series (Daily)'];
         if (!timeSeries) {
           return [];
         }
-        
+
         // Get last 7 days of closing prices
         const dates = Object.keys(timeSeries).sort().reverse().slice(0, 7);
-        const prices = dates.map(date => parseFloat(timeSeries[date]['4. close']));
-        
+        const prices = dates.map((date) => parseFloat(timeSeries[date]['4. close']));
+
         return prices;
       } catch {
         return [];
       }
-    }
+    },
   },
 
   finnhub: {
     id: 'finnhub',
     needsApiKey: true,
     getApiKey: getFinnhubApiKey,
-    
+
     parseSymbol(symbol) {
       // Finnhub uses different format for forex
       if (symbol.length > 5 || symbol.includes('/')) {
@@ -225,23 +229,23 @@ const stockProviders = {
 
     async fetchStockQuote(symbol, apiKey) {
       const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
-      
+
       const response = await axios.get(url, { timeout: 10000 });
       const data = response.data;
-      
+
       if (data.error) {
         throw new Error(data.error);
       }
-      
+
       if (!data.c || data.c === 0) {
         throw new Error('No quote data available');
       }
-      
+
       const price = data.c; // current price
       const previousClose = data.pc; // previous close
       const change = price - previousClose;
       const changePercent = previousClose !== 0 ? (change / previousClose) * 100 : 0;
-      
+
       return {
         symbol,
         name: symbol,
@@ -249,11 +253,11 @@ const stockProviders = {
         change: change,
         changePercent: changePercent,
         volume: 0, // Finnhub basic doesn't include volume in quote endpoint
-        lastUpdate: new Date().toISOString()
+        lastUpdate: new Date().toISOString(),
       };
     },
 
-  async fetchForexRate(symbol, _apiKey) {
+    async fetchForexRate(symbol, _apiKey) {
       // Finnhub free tier doesn't support forex data
       return {
         symbol: symbol.replace('OANDA:', '').replace('_', '/'),
@@ -262,37 +266,37 @@ const stockProviders = {
         change: 0,
         changePercent: 0,
         lastUpdate: new Date().toISOString(),
-        error: 'Currency pairs not supported in free tier'
+        error: 'Currency pairs not supported in free tier',
       };
     },
 
-  async fetchHistoricalData(symbol, apiKey) {
+    async fetchHistoricalData(symbol, apiKey) {
       // Finnhub historical data requires different endpoint and date ranges
       const to = Math.floor(Date.now() / 1000);
-      const from = to - (7 * 24 * 60 * 60); // 7 days ago
-      
+      const from = to - 7 * 24 * 60 * 60; // 7 days ago
+
       try {
         const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${apiKey}`;
         const response = await axios.get(url, { timeout: 10000 });
         const data = response.data;
-        
+
         if (data.s !== 'ok' || !data.c || data.c.length === 0) {
           return [];
         }
-        
+
         // Return closing prices (data.c contains close prices)
         return data.c.slice(-7); // Last 7 days
       } catch {
         return [];
       }
-    }
-  }
+    },
+  },
 };
 
 async function fetchSymbolData(symbolStr, provider, apiKey, showSparkline) {
   const parsed = provider.parseSymbol(symbolStr);
   let result;
-  
+
   if (parsed.type === 'forex') {
     if (provider.id === 'alphavantage') {
       result = await provider.fetchForexRate(parsed.fromCurrency, parsed.toCurrency, apiKey);
@@ -302,12 +306,12 @@ async function fetchSymbolData(symbolStr, provider, apiKey, showSparkline) {
   } else {
     result = await provider.fetchStockQuote(parsed.symbol, apiKey);
   }
-  
+
   // Fetch sparkline data if requested
   if (showSparkline && provider.fetchHistoricalData) {
     try {
       result.sparkline = await provider.fetchHistoricalData(parsed.symbol, apiKey);
-      
+
       // If no historical data available, generate sample data for visual testing
       if (!result.sparkline || result.sparkline.length === 0) {
         const basePrice = result.price || 100;
@@ -315,14 +319,14 @@ async function fetchSymbolData(symbolStr, provider, apiKey, showSparkline) {
         result.sparkline = Array.from({ length: 7 }, (_, i) => {
           const trend = result.change > 0 ? 0.1 : -0.1; // Slight trend based on current change
           const noise = (Math.random() - 0.5) * variation;
-          return basePrice + (i * trend) + noise;
+          return basePrice + i * trend + noise;
         });
       }
     } catch {
       result.sparkline = [];
     }
   }
-  
+
   return result;
 }
 
@@ -334,21 +338,21 @@ function registerStockRoutes(app) {
       const showSparkline = String(req.query.sparkline || 'true') === 'true';
       const providerId = getStockProviderId();
       const provider = stockProviders[providerId] || stockProviders.finnhub;
-      
+
       let apiKey = null;
       if (provider.needsApiKey) {
         apiKey = provider.getApiKey ? provider.getApiKey() : null;
         if (!apiKey) {
-          return res.status(400).json({ 
-            error: `${provider.id} API key required. Set ${provider.id.toUpperCase()}_API_KEY environment variable or configure in config.json` 
+          return res.status(400).json({
+            error: `${provider.id} API key required. Set ${provider.id.toUpperCase()}_API_KEY environment variable or configure in config.json`,
           });
         }
       }
-      
+
       if (!symbolsParam) {
         return res.status(400).json({ error: 'Symbols parameter required (comma-separated list)' });
       }
-      
+
       let symbols;
       // Handle both array JSON format and comma-separated string format
       if (symbolsParam.startsWith('[') && symbolsParam.endsWith(']')) {
@@ -361,32 +365,38 @@ function registerStockRoutes(app) {
           return res.status(400).json({ error: 'Invalid JSON format for symbols' });
         }
       } else {
-        symbols = symbolsParam.split(',').map(s => s.trim()).filter(Boolean);
+        symbols = symbolsParam
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
       }
-      
+
       if (symbols.length === 0) {
         return res.status(400).json({ error: 'No valid symbols provided' });
       }
-      
+
       const cacheKey = `${symbols.join(',')}|${provider.id}`;
       const now = Date.now();
       const cached = stockCache.get(cacheKey);
-      
+
       if (cached && now - cached.fetchedAt < cached.ttlMs) {
         return res.json({ ...cached.data, cached: true });
       }
-      
+
       const results = [];
       const errors = [];
-      
+
       for (const symbolStr of symbols) {
         try {
           const stockData = await fetchSymbolData(symbolStr, provider, apiKey, showSparkline);
           results.push(stockData);
         } catch (error) {
-          console.warn(`[hdisplay] Failed to fetch data for "${symbolStr}" via ${provider.id}:`, error.message);
+          console.warn(
+            `[hdisplay] Failed to fetch data for "${symbolStr}" via ${provider.id}:`,
+            error.message
+          );
           errors.push(`${symbolStr}: ${error.message}`);
-          
+
           // Add placeholder data for failed symbols
           results.push({
             symbol: symbolStr,
@@ -397,29 +407,28 @@ function registerStockRoutes(app) {
             volume: 0,
             sparkline: [],
             error: error.message,
-            lastUpdate: new Date().toISOString()
+            lastUpdate: new Date().toISOString(),
           });
         }
       }
-      
+
       const payload = {
         stocks: results,
         provider: provider.id,
         errors: errors.length > 0 ? errors : undefined,
-        refreshMinutes
+        refreshMinutes,
       };
-      
+
       // Cache successful results
-      if (results.some(r => !r.error)) {
-        stockCache.set(cacheKey, { 
-          data: payload, 
-          fetchedAt: now, 
-          ttlMs: refreshMinutes * 60 * 1000 
+      if (results.some((r) => !r.error)) {
+        stockCache.set(cacheKey, {
+          data: payload,
+          fetchedAt: now,
+          ttlMs: refreshMinutes * 60 * 1000,
         });
       }
-      
+
       return res.json(payload);
-      
     } catch (error) {
       console.warn('[hdisplay] /api/stocks error:', error && error.message ? error.message : error);
       return res.status(500).json({ error: error.message || 'Server error' });

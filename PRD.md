@@ -743,16 +743,19 @@ Alpha Vantage Integration
 **API Selection Rationale**: Alpha Vantage offers a generous free tier (500 requests/day, 5 requests/minute) with both stock and forex data, including historical data for sparklines. Single provider simplifies implementation.
 
 **Endpoints Used**:
+
 - Stocks: `GLOBAL_QUOTE` for current price and change
 - Forex: `CURRENCY_EXCHANGE_RATE` for exchange rates
 - Sparklines: `TIME_SERIES_DAILY` (last 7 days) for trend visualization
 
 **API Key Management**:
+
 - Priority: Template data `apiKey` > Server env `ALPHA_VANTAGE_API_KEY` > Server config
 - Free tier limits: 5 requests/minute, 500/day
 - Rate limiting: Server-side queue with minimum 12-second spacing between requests
 
 **Data Format**:
+
 ```javascript
 // Server transforms API response to unified format
 {
@@ -773,6 +776,7 @@ Ticker Display Format
 **Forex Item**: `GBP/USD 1.2715 ▼ 0.0023 (0.18%) [sparkline]`
 
 **Visual Elements**:
+
 - Symbol in bold/bright
 - Price with appropriate decimal places (2 for stocks, 4 for forex)
 - Arrow indicator (▲ ▼ or ↑ ↓) with color coding
@@ -815,6 +819,7 @@ Performance Optimization
 Examples
 
 CLI:
+
 ```bash
 hdisplay template stock-ticker --symbols MSFT --symbols GOOG --symbols GBPUSD
 hdisplay template stock-ticker --symbols AAPL --scrollSpeed 80 --updateInterval 10
@@ -822,6 +827,7 @@ hdisplay template stock-ticker --data-file stocks.json
 ```
 
 HTTP: `POST /api/template/stock-ticker` body:
+
 ```json
 {
   "data": {
@@ -875,49 +881,53 @@ Seahorse - vertical orientation, tail-wrapping behavior near plants
 Behavioral Systems
 
 Movement Patterns
-* Flocking algorithm for school fish (cohesion, alignment, separation)
-* Territorial zones for certain species
-* Depth preferences (surface, mid-water, bottom dwellers)
-* Speed variation based on species and context
-* Smooth bezier curves for direction changes, no abrupt turns
+
+- Flocking algorithm for school fish (cohesion, alignment, separation)
+- Territorial zones for certain species
+- Depth preferences (surface, mid-water, bottom dwellers)
+- Speed variation based on species and context
+- Smooth bezier curves for direction changes, no abrupt turns
 
 Interactions
-* Avoidance: Smaller fish flee from predators within proximity
-* Schooling: Fish dynamically join/leave schools
-* Feeding: Occasional food particles trigger gathering behavior
-* Resting: Some fish pause near coral/rocks periodically
+
+- Avoidance: Smaller fish flee from predators within proximity
+- Schooling: Fish dynamically join/leave schools
+- Feeding: Occasional food particles trigger gathering behavior
+- Resting: Some fish pause near coral/rocks periodically
 
 Environment Elements
 
 Background Layers
-* Far background: Dark gradient suggesting ocean depth
-* Mid-ground: Coral reef silhouettes, rock formations
-* Foreground: Detailed coral, swaying seaweed (subtle animation)
-Dynamic Elements
-* Light rays: Animated caustic patterns from surface
-* Bubbles: Rise from random points, accelerate near surface
-* Current simulation: Gentle horizontal drift affecting all creatures
-* Day/night cycle: Optional ambient light shifting over time
+
+- Far background: Dark gradient suggesting ocean depth
+- Mid-ground: Coral reef silhouettes, rock formations
+- Foreground: Detailed coral, swaying seaweed (subtle animation)
+  Dynamic Elements
+- Light rays: Animated caustic patterns from surface
+- Bubbles: Rise from random points, accelerate near surface
+- Current simulation: Gentle horizontal drift affecting all creatures
+- Day/night cycle: Optional ambient light shifting over time
 
 Template parameters
+
 ```javascript
 {
   // Population control
   fishCount: 30,           // Total creatures (distributed by species)
   schoolSize: 12,          // Fish per school
   diversity: 0.8,          // Species variety (0-1)
-  
-  // Behavior tuning  
+
+  // Behavior tuning
   speed: 1.0,              // Global speed multiplier
   interactionRadius: 100,  // Pixel radius for creature awareness
   schoolingStrength: 0.7,  // Cohesion factor for schools
-  
+
   // Visual settings
   bubbles: true,           // Enable bubble particles
   caustics: true,          // Enable light patterns
   dayNight: false,         // Enable day/night cycle
   cycleMinutes: 10,        // Day/night cycle duration
-  
+
   // Color overrides
   colors: {
     water: '#001f3f',      // Base water color
@@ -925,43 +935,49 @@ Template parameters
     coral: '#FF851B',      // Coral/rock accent
     light: '#7FDBFF'       // Caustic light color
   },
-  
+
   // Performance
   quality: 'high',         // 'low', 'medium', 'high' (affects particles, shadows)
   targetFPS: 30            // Frame rate target for older devices
 }
 ```
+
 Technical Implementation Notes
 
 Rendering
-* Canvas-based with requestAnimationFrame
-* Layered rendering for depth (background → creatures → foreground → effects)
-* Sprite-based creatures with CSS transforms for rotation
-* GPU acceleration via CSS will-change for smooth movement
+
+- Canvas-based with requestAnimationFrame
+- Layered rendering for depth (background → creatures → foreground → effects)
+- Sprite-based creatures with CSS transforms for rotation
+- GPU acceleration via CSS will-change for smooth movement
 
 Performance Optimization
-* Spatial partitioning for collision/interaction checks
-* LOD system: Reduce detail for distant/numerous creatures
-* Batch rendering: Group similar sprites
-* Adaptive quality: Auto-adjust particle count based on frame rate
+
+- Spatial partitioning for collision/interaction checks
+- LOD system: Reduce detail for distant/numerous creatures
+- Batch rendering: Group similar sprites
+- Adaptive quality: Auto-adjust particle count based on frame rate
 
 Autonomous Behaviors
-* No user interaction required - fully self-running
-* Emergent behaviors from simple rules create variety
-* Periodic events (feeding time, turtle appearance) for interest
-* Memory efficient - creature states use minimal properties
+
+- No user interaction required - fully self-running
+- Emergent behaviors from simple rules create variety
+- Periodic events (feeding time, turtle appearance) for interest
+- Memory efficient - creature states use minimal properties
 
 Accessibility Considerations
-* Reduced motion mode: Slower, gentler movements
-* High contrast option: Stronger silhouettes for visibility
-* No flashing/strobing effects
-* Smooth transitions prevent motion sickness
+
+- Reduced motion mode: Slower, gentler movements
+- High contrast option: Stronger silhouettes for visibility
+- No flashing/strobing effects
+- Smooth transitions prevent motion sickness
 
 Example Usage
 
 `hdisplay set aquarium --fishCount 40 --diversity 0.9 --bubbles --dayNight --cycleMinutes 5`
 
 #### Aquarium Template Phased Implementation Plan
+
 Phase 1: Pi-Optimized MVP
 Goal: Functional aquarium with smooth performance on Raspberry Pi
 
@@ -970,21 +986,22 @@ Implementation
 Canvas 2D rendering only (no WebGL/GPU features)
 8-12 fish with simple shapes (ellipses for bodies, triangles for tails)
 3 species with distinct behaviors:
-* School fish (5-6) with basic flocking
-* Solo swimmer with sine-wave pattern
-* Bottom feeder with horizontal movement
-Static gradient background with 2-3 coral silhouettes
-Fixed 20-25 FPS target with frame skipping
-Simple spatial grid (4x3) for neighbor checks
-5-10 bubble particles with pooling
+
+- School fish (5-6) with basic flocking
+- Solo swimmer with sine-wave pattern
+- Bottom feeder with horizontal movement
+  Static gradient background with 2-3 coral silhouettes
+  Fixed 20-25 FPS target with frame skipping
+  Simple spatial grid (4x3) for neighbor checks
+  5-10 bubble particles with pooling
 
 Performance Targets
-* CPU usage < 25% on Pi 4
-* Smooth animation at 1280x400
-* No memory leaks over 24h runtime
+
+- CPU usage < 25% on Pi 4
+- Smooth animation at 1280x400
+- No memory leaks over 24h runtime
 
 Data Schema (MVP)
-
 
 ```javascript
 {
@@ -995,30 +1012,33 @@ Data Schema (MVP)
   renderMode: 'canvas2d'
 }
 ```
-Phase 2: Enhanced Ecosystem
 
+Phase 2: Enhanced Ecosystem
 
 Goal: Richer variety and interactions without breaking Pi performance
 
 Features
 Additional creatures (15-20 total):
-* Jellyfish with pulsing animation (2-3)
-* Sea turtle (1, updates every 5th frame)
-* Crab (1-2, bottom only)
+
+- Jellyfish with pulsing animation (2-3)
+- Sea turtle (1, updates every 5th frame)
+- Crab (1-2, bottom only)
 
 Depth-based behaviors:
-* Surface, mid-water, bottom zones
-* Size scaling for depth perception
+
+- Surface, mid-water, bottom zones
+- Size scaling for depth perception
 
 Simple day/night cycle (CSS filter on canvas)
 Feeding event every 2-3 minutes (fish converge)
 Improved flocking with collision avoidance
 
 Optimizations
-* LOD system: Distant fish update less frequently
-* Staggered updates: Spread creature processing across frames
-* Event queue: Handle interactions over multiple frames
-* Auto-quality adjustment based on frame timing:
+
+- LOD system: Distant fish update less frequently
+- Staggered updates: Spread creature processing across frames
+- Event queue: Handle interactions over multiple frames
+- Auto-quality adjustment based on frame timing:
 
 ```javascript
 // ...existing code...
@@ -1026,13 +1046,15 @@ let frameTime = 0;
 const qualityLevels = {
   low: { fishCount: 10, bubbles: 5, updateRate: 1 },
   medium: { fishCount: 15, bubbles: 10, updateRate: 0.8 },
-  high: { fishCount: 20, bubbles: 15, updateRate: 0.6 }
+  high: { fishCount: 20, bubbles: 15, updateRate: 0.6 },
 };
 
 function adaptQuality() {
-  if (frameTime > 50) { // Below 20 FPS
+  if (frameTime > 50) {
+    // Below 20 FPS
     currentQuality = 'low';
-  } else if (frameTime < 35 && currentQuality !== 'high') { // Above 28 FPS
+  } else if (frameTime < 35 && currentQuality !== 'high') {
+    // Above 28 FPS
     currentQuality = 'medium';
   }
   applyQualitySettings(qualityLevels[currentQuality]);
@@ -1046,18 +1068,17 @@ Detection & Fallback
 
 ```javascript
 // ...existing code...
-const gpuAvailable = 'WebGLRenderingContext' in window && 
-                    !navigator.userAgent.includes('Raspbian');
+const gpuAvailable = 'WebGLRenderingContext' in window && !navigator.userAgent.includes('Raspbian');
 const features = {
   caustics: gpuAvailable,
   smoothPaths: gpuAvailable,
   glowEffects: gpuAvailable,
   maxFish: gpuAvailable ? 30 : 15,
-  maxBubbles: gpuAvailable ? 50 : 10
+  maxBubbles: gpuAvailable ? 50 : 10,
 };
 ```
-Optional Features (auto-disabled on Pi)
 
+Optional Features (auto-disabled on Pi)
 
 Caustic light patterns (WebGL shader or CSS animation)
 Smooth bezier paths for all fish movement
@@ -1077,41 +1098,43 @@ Platform Defaults
 ```javascript
 module.exports = function validate(data = {}) {
   const isPi = detectRaspberryPi(); // Via user agent or server flag
-  
-  const defaults = isPi ? {
-    // Pi-optimized settings
-    fishCount: 10,
-    schoolSize: 5,
-    diversity: 0.5,
-    bubbles: true,
-    caustics: false,
-    dayNight: true,
-    quality: 'low',
-    targetFPS: 20
-  } : {
-    // Desktop/modern browser settings
-    fishCount: 25,
-    schoolSize: 10,
-    diversity: 0.8,
-    bubbles: true,
-    caustics: true,
-    dayNight: true,
-    quality: 'auto',
-    targetFPS: 30
-  };
-  
+
+  const defaults = isPi
+    ? {
+        // Pi-optimized settings
+        fishCount: 10,
+        schoolSize: 5,
+        diversity: 0.5,
+        bubbles: true,
+        caustics: false,
+        dayNight: true,
+        quality: 'low',
+        targetFPS: 20,
+      }
+    : {
+        // Desktop/modern browser settings
+        fishCount: 25,
+        schoolSize: 10,
+        diversity: 0.8,
+        bubbles: true,
+        caustics: true,
+        dayNight: true,
+        quality: 'auto',
+        targetFPS: 30,
+      };
+
   return { ok: true, data: { ...defaults, ...data } };
 };
 ```
 
 Testing Matrix
+
 ```
 Phase	Pi Zero W	Pi 3B+	Pi 4	Desktop
 1 (MVP)	15 FPS	25 FPS	25 FPS	60 FPS
 2 (Enhanced)	12 FPS	20 FPS	22 FPS	60 FPS
 3 (GPU)	Disabled	Disabled	18 FPS*	60 FPS
 ```
-
 
 ### Mandelbrot Explorer
 
@@ -1240,15 +1263,16 @@ Success Criteria
 - Crossfades are clean with no visible flicker or white flashes.
 - Runs acceptably on Raspberry Pi 4 (≥10 FPS during refinement) and fluid on desktop.
 
-
 ## Self-Playing Pac-Man Template
 
 ### Overview
+
 A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac-Man navigating a maze to collect pellets while avoiding ghosts.
 
 ### Game Components
 
 #### Maze
+
 - **Size**: 19x21 grid
 - **Generation**: Randomly generated using recursive backtracking
 - **Symmetry**: Horizontally symmetric for visual balance
@@ -1258,10 +1282,11 @@ A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac
 - **Border**: Solid walls around the entire perimeter
 
 #### Pac-Man
+
 - **Starting Position**: Center of the maze
 - **Movement Speed**: 2.5 tiles per second
-- **Behavior**: 
-  - Uses A* pathfinding to navigate to the nearest pellet
+- **Behavior**:
+  - Uses A\* pathfinding to navigate to the nearest pellet
   - Recalculates path when current target is consumed
   - When a ghost is within 4 tiles, switches to escape mode
   - In escape mode, evaluates all possible moves and chooses the one that maximizes distance from all nearby threats
@@ -1269,6 +1294,7 @@ A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac
 - **Appearance**: Yellow circle with animated mouth that opens/closes based on movement direction
 
 #### Ghosts
+
 - **Count**: 2 ghosts (Red "Blinky" and Pink "Pinky")
 - **Starting Positions**: Opposite corners of the maze (top-left and top-right)
 - **Movement Speed**: 2 tiles per second (slightly slower than Pac-Man)
@@ -1280,35 +1306,41 @@ A self-playing Pac-Man game that runs autonomously in the browser, featuring Pac
 - **Appearance**: Classic ghost shape with eyes that look in movement direction
 
 #### Pellets
+
 - **Distribution**: One pellet in every non-wall tile at game start
 - **Appearance**: Small yellow dots
 - **Collection**: Disappear when Pac-Man passes over them
 
 ### Game Rules
+
 1. **Objective**: Pac-Man attempts to collect all pellets while avoiding ghosts
 2. **Collision**: Game resets when Pac-Man touches a ghost
 3. **Victory**: Game resets with a new maze when all pellets are collected
 4. **Continuous Play**: Game runs indefinitely, generating new mazes after each round
 
 ### Technical Requirements
+
 - **Frame Rate**: 60 FPS target
 - **Responsive**: Scales to fit viewport while maintaining aspect ratio
 - **Self-Contained**: All logic in a single HTML file
 - **No External Dependencies**: Pure JavaScript, no libraries required
 
 ### Movement Mechanics
+
 - **Grid Alignment**: Entities can only change direction when aligned with grid centers (within 0.1 units)
 - **Smooth Movement**: Entities move continuously between grid positions
 - **Wall Detection**: Check ahead to prevent moving into walls
 - **Corner Cutting**: Entities should handle corners smoothly without getting stuck
 
 ### AI Implementation Details
-- **Pathfinding**: Use A* or BFS for optimal path calculation
+
+- **Pathfinding**: Use A\* or BFS for optimal path calculation
 - **Decision Frequency**: AI decisions made only at grid intersections
 - **Ghost Randomness**: Use Math.random() with seed-independent behavior
 - **Collision Detection**: Check Manhattan distance < 0.5 tiles
 
 ### Visual Specifications
+
 - **Background**: Pure black (#000000)
 - **Walls**: Blue (#0000FF)
 - **Pac-Man**: Yellow (#FFFF00)
@@ -1401,6 +1433,7 @@ Visual Design
 Layout Examples
 
 **3 Symbols (Grid)**:
+
 ```
 ┌─────────────────┬─────────────────┬─────────────────┐
 │  MSFT           │  AAPL           │  GOOGL          │
@@ -1432,7 +1465,7 @@ Server Integration
   - Current price (c)
   - Previous close (pc)
   - Change (c - pc)
-  - Percent change ((c - pc) / pc * 100)
+  - Percent change ((c - pc) / pc \* 100)
   - High/Low (optional)
   - Volume (optional)
   - Timestamp
@@ -1464,6 +1497,7 @@ Extended Features (Optional)
 Examples
 
 CLI:
+
 ```bash
 # Default symbols (MSFT, AAPL, GOOGL)
 hdisplay template stock-ticker
@@ -1483,6 +1517,7 @@ hdisplay template stock-ticker --symbols MSFT --symbols AAPL --symbols GOOGL \
 ```
 
 HTTP: `POST /api/template/stock-ticker` body:
+
 ```json
 {
   "data": {

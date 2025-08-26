@@ -1,6 +1,6 @@
 module.exports = function validate(data = {}) {
   const errors = [];
-  
+
   // Default configuration
   const defaults = {
     symbols: ['MSFT', 'GOOG', 'GBPUSD'],
@@ -15,14 +15,14 @@ module.exports = function validate(data = {}) {
       neutral: '#888',
       sparkline: '', // Will use change color
       separator: 'rgba(255,255,255,0.2)',
-      fontFamily: "'SF Mono', 'Monaco', 'Consolas', monospace"
+      fontFamily: "'SF Mono', 'Monaco', 'Consolas', monospace",
     },
     display: {
       showChange: true,
       showVolume: false,
       precision: 2,
-      separator: ' • '
-    }
+      separator: ' • ',
+    },
   };
 
   // Validate symbols array
@@ -74,13 +74,21 @@ module.exports = function validate(data = {}) {
     if (typeof data.theme !== 'object' || data.theme === null) {
       errors.push('theme must be an object');
     } else {
-      const colorFields = ['bg', 'text', 'positive', 'negative', 'neutral', 'sparkline', 'separator'];
-      colorFields.forEach(field => {
+      const colorFields = [
+        'bg',
+        'text',
+        'positive',
+        'negative',
+        'neutral',
+        'sparkline',
+        'separator',
+      ];
+      colorFields.forEach((field) => {
         if (data.theme[field] !== undefined && typeof data.theme[field] !== 'string') {
           errors.push(`theme.${field} must be a string`);
         }
       });
-      
+
       if (data.theme.fontFamily !== undefined && typeof data.theme.fontFamily !== 'string') {
         errors.push('theme.fontFamily must be a string');
       }
@@ -95,18 +103,18 @@ module.exports = function validate(data = {}) {
       if (data.display.showChange !== undefined && typeof data.display.showChange !== 'boolean') {
         errors.push('display.showChange must be a boolean');
       }
-      
+
       if (data.display.showVolume !== undefined && typeof data.display.showVolume !== 'boolean') {
         errors.push('display.showVolume must be a boolean');
       }
-      
+
       if (data.display.precision !== undefined) {
         const precision = Number(data.display.precision);
         if (isNaN(precision) || precision < 0 || precision > 6) {
           errors.push('display.precision must be a number between 0 and 6');
         }
       }
-      
+
       if (data.display.separator !== undefined && typeof data.display.separator !== 'string') {
         errors.push('display.separator must be a string');
       }
@@ -122,7 +130,7 @@ module.exports = function validate(data = {}) {
     ...defaults,
     ...data,
     theme: { ...defaults.theme, ...(data.theme || {}) },
-    display: { ...defaults.display, ...(data.display || {}) }
+    display: { ...defaults.display, ...(data.display || {}) },
   };
 
   return { ok: true, data: result };

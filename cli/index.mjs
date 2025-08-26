@@ -148,11 +148,7 @@ async function pushMedia(endpoint, { file, url, persist }) {
     return res.data;
   }
   if (url) {
-    const res = await axios.post(
-      target,
-      { url, persist: !!persist },
-      { timeout: getTimeoutMs() }
-    );
+    const res = await axios.post(target, { url, persist: !!persist }, { timeout: getTimeoutMs() });
     return res.data;
   }
   throw new Error('file or url required');
@@ -429,7 +425,9 @@ export default async function run(argv = []) {
       }
       // Parse additional flag-based data and merge (flags take precedence)
       const flagData = parseFlagDataForCommand('template', 1);
-      const finalData = Object.keys(flagData).length ? mergeDeep(dataPayload, flagData) : dataPayload;
+      const finalData = Object.keys(flagData).length
+        ? mergeDeep(dataPayload, flagData)
+        : dataPayload;
       try {
         await api(`/api/template/${id}`, 'post', { data: finalData });
         successLog(chalk.green('Template applied'), id);
@@ -469,7 +467,9 @@ export default async function run(argv = []) {
           let selected;
           if (list.length > 1) {
             selected =
-              opts.nonInteractive || !process.stdin.isTTY ? list[0] : await promptSelectService(list);
+              opts.nonInteractive || !process.stdin.isTTY
+                ? list[0]
+                : await promptSelectService(list);
           } else {
             selected = list[0];
           }
@@ -620,7 +620,9 @@ export default async function run(argv = []) {
         return;
       }
       const flagData = parseFlagDataForCommand('playlist:add', 1);
-      const finalData = Object.keys(flagData).length ? mergeDeep(dataPayload, flagData) : dataPayload;
+      const finalData = Object.keys(flagData).length
+        ? mergeDeep(dataPayload, flagData)
+        : dataPayload;
       try {
         const res = await api('/api/playlist/items', 'post', { id, data: finalData });
         successLog(chalk.green('Added to playlist at index'), res.index);
@@ -697,7 +699,9 @@ export default async function run(argv = []) {
         const results = await capture.captureAll();
 
         if (results.successful.length > 0) {
-          console.log(chalk.green(`✅ Successfully captured ${results.successful.length} templates`));
+          console.log(
+            chalk.green(`✅ Successfully captured ${results.successful.length} templates`)
+          );
         }
         if (results.failed.length > 0) {
           console.log(chalk.red(`❌ Failed to capture ${results.failed.length} templates`));

@@ -51,7 +51,9 @@ function saveState() {
     fs.renameSync(tmp, STATE_FILE);
   } catch (err) {
     // Non-fatal
-    try { console.warn('[hdisplay] failed to save state:', err && err.message ? err.message : err); } catch {}
+    try {
+      console.warn('[hdisplay] failed to save state:', err && err.message ? err.message : err);
+    } catch {}
   }
 }
 
