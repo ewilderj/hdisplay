@@ -82,6 +82,14 @@ Concise, prioritized tasks to harden the server, improve DX, and ship user-facin
 
 _(add more here as they come up)_
 
+- [ ] Upload system enhancements (M)
+  - [ ] Add image thumbnails for management UI (XS)
+  - [ ] Implement file type validation and size limits (S)
+  - [ ] Add metadata storage (dimensions, duration, etc.) (S)
+  - [ ] Create upload batch operations (M)
+  - [ ] Develop media organization features (folders, tags) (M)
+  - Acceptance: improved upload UX while maintaining backward compatibility
+
 ## New template ideas
 
 - Headlines ticker (RSS/Atom): feedUrl[], speed, separator, theme (M)
