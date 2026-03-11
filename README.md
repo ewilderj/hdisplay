@@ -768,6 +768,72 @@ HDS_NODE_MAJOR=24 curl -sSL https://raw.githubusercontent.com/ewilderj/hdisplay/
 
 The script will install Node if missing, or upgrade if the installed major doesn’t match.
 
+### Remote administration (VNC)
+
+The Pi runs headless (no keyboard/mouse). To get a graphical desktop remotely, `wayvnc` is available and works with the Wayland/labwc compositor used by RPi OS Bookworm.
+
+**One-time setup on the Pi:**
+
+```bash
+# Generate an RSA key for wayvnc auth
+mkdir -p ~/.config/wayvnc
+openssl genrsa -traditional -out ~/.config/wayvnc/rsa_key.pem 2048
+chmod 600 ~/.config/wayvnc/rsa_key.pem
+
+# Write wayvnc config (use_relative_paths resolves rsa_key.pem relative to config)
+cat > ~/.config/wayvnc/config << 'EOF'
+enable_auth=true
+username=<vnc-username>
+password=<your-password>
+rsa_private_key_file=rsa_key.pem
+relax_encryption=true
+address=127.0.0.1
+port=5900
+use_relative_paths=true
+EOF
+chmod 600 ~/.config/wayvnc/config
+
+# Create a systemd user service so wayvnc starts automatically
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/wayvnc.service << 'EOF'
+[Unit]
+Description=WayVNC remote desktop server
+After=default.target
+
+[Service]
+ExecStartPre=/bin/sleep 3
+ExecStart=/usr/bin/wayvnc
+Restart=on-failure
+RestartSec=5s
+Environment=WAYLAND_DISPLAY=wayland-0
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable --now wayvnc
+```
+
+**Connecting from macOS:**
+
+macOS Screen Sharing does not support wayvnc's security protocol. Use [TigerVNC](https://tigervnc.org/) instead:
+
+```bash
+brew install tiger-vnc
+```
+
+Then add a convenience function to your shell (e.g. `~/.zshrc`):
+
+```bash
+hdisplay-pi-vnc() {
+  ssh -fN -L 5900:localhost:5900 <pi-user>@<pi-host> 2>/dev/null
+  vncviewer localhost:5900
+}
+```
+
+Replace `<pi-user>`, `<pi-host>`, and `<vnc-username>` with values from your own setup, then run `hdisplay-pi-vnc` to open a VNC session. The SSH tunnel handles authentication — no need to expose port 5900 on the network.
+
 ### Systemd units and health checks
 
 The setup script installs templated systemd units:
@@ -919,6 +985,8 @@ Notes:
 - mDNS discovery issues: ensure same network, no firewall blocking multicast; server logs should print mDNS publish success.
 - Server won’t start: check Node version (>= 20) and port availability (`PORT` in use?)
 - mac-preview script: ensure Chrome app path or allow AppleScript for Safari.
+- Chromium keyring unlock dialog on Pi: add `--password-store=basic` to Chromium flags. Create `/etc/chromium.d/no-keyring` containing `export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --password-store=basic"`.
+- VNC from macOS Screen Sharing fails ("Unable to communicate"): macOS Screen Sharing does not support wayvnc’s RA2_256 security type. Use TigerVNC (`brew install tiger-vnc`) instead — see [Remote administration (VNC)](#remote-administration-vnc).
 
 ## License
 
